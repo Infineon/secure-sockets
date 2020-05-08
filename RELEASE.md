@@ -9,6 +9,9 @@ Refer to the [README.md](./README.md) for a complete description of the secure s
 | UDP, IPv6 and DTLS are not supported in the secure sockets library | No workaround. Support will be added in a future release |
 
 ## Changelog
+### v1.0.1
+* Code snippets added to the documentation
+
 ### v1.0.0
 * Initial release for secure sockets library
 * Provides network abstraction APIs for underlying lwIP stack and mbedTLS library

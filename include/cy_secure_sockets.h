@@ -79,6 +79,27 @@ This library and its features are supported on the following Cypress platforms:
 *   \endcode
 * * In order to ease integration of Wi-Fi connectivity components to code examples, this secure socket library has been bundled into the [Wi-Fi Middleware Core Library v2.0.0](https://github.com/cypresssemiconductorco/wifi-mw-core)
 *
+********************************************************************************
+* \section section_code_snippet Code Snippets
+********************************************************************************
+********************************************************************************
+* \subsection snip1 Code Snippet1: Create TCP Socket
+*  This code snippet demonstrates how to initialize and create a TCP socket.
+* \snippet doxygen_secure_socket_code_snippet.h snippet_create_socket
+********************************************************************************
+* \subsection snip2 Code Snippet2: Create Secure Socket
+* This code snippet demonstrates how to initialize and create a TCP socket and set the TLS credentials to be used for securing the socket communication.
+* \snippet doxygen_secure_socket_code_snippet.h snippet_create_secure_socket
+********************************************************************************
+********************************************************************************
+* \subsection snip3 Code Snippet3: TCP Client Connect
+* This code snippet demonstrates how to create a TCP client socket and initiate communication with a TCP server.
+* \snippet doxygen_secure_socket_code_snippet.h snippet_tcp_client
+********************************************************************************
+* \subsection snip4 Code Snippet4: TCP Server - Listening for client connection
+* This code snippet demonstrates how to create a TCP server socket and accept a TCP client connection to communicate.
+* \snippet doxygen_secure_socket_code_snippet.h snippet_tcp_server
+********************************************************************************
 */
 /**
 *
