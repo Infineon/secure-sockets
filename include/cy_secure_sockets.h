@@ -16,20 +16,20 @@
  */
 
 /** @file
- *  Defines the Cypress Secure Sockets Interface.
- *
+ *  Defines the Secure Sockets Interface.
+ *  
  *  This file provides functions to communicate over the IP network.
  *  The interface is broadly based on the POSIX sockets API function, but provides a subset and tailored to RTOS needs.
  *  The following additional support has been added on top of the standard POSIX sockets functionality:
  *  - CY_SOCKET_IPPROTO_TLS protocol type added for the socket_create API function to support secure connections with TLS.
- *  - Options added to \ref socket_setsockopt API function to:
- *    1. Configure TLS-specific parameters like RootCA, certificate/key pair, server name for SNI TLS extension and ALPN protocol list.
+ *  - Options added to \ref cy_socket_setsockopt API function to:
+ *    1. Configure TLS-specific parameters such as RootCA, certificate/key pair, server name for Server Name Indication (SNI) TLS extension, and Application-Layer Protocol Negotiation (ALPN) protocol list.
  *    2. Support incoming connect request (for server only), receive, and disconnect callbacks.
  *
  */
 
 /**
- * \defgroup group_secure_sockets Cypress Secure Sockets API 
+ * \defgroup group_secure_sockets Secure Sockets API
  * \brief The Secure Sockets API provides functions to communicate over the IP network. The interface is broadly based on the POSIX socket APIs, but implements a subset and is tailored to RTOS needs.
  * \addtogroup group_secure_sockets
  * \{
@@ -46,59 +46,77 @@
 ********************************************************************************
 * \mainpage Overview
 ********************************************************************************
-* This library provides network abstraction APIs for underlying network and security library. Secure sockets library eases application development by exposing a socket like interface for both secure and non-secure socket communication
+* Secure Sockets Library provides APIs to create software that can send and/or receive data over the network using sockets. This library supports both secure and non-secure sockets, and abstracts the complexity involved in directly using network stack and security stack APIs. This library supports both IPv4 and IPv6 addressing modes for UDP and TCP sockets.
 *
 ********************************************************************************
 * \section section_features Features and Functionality
 ********************************************************************************
-* The current implementation supports the following:
-* * Non-secure TCP communication with lwIP network stack
-* * Secure (TLS) communication using Mbed TLS library
-* * Supports TCP/IPv4 connections. UDP and IPv6 will be supported in future.
-* * Provides thread-safe APIs
-* * Provides APIs to support both client and server mode operations
-* * Supports both synchronous and asynchronous APIs for data receive. Asynchronous mode support for server to accept client connections
-* * Provides socket-option API to configure send/receive timeout, callback for asynchronous mode, TCP keepalive parameters, certificate/key, and TLS extensions
+* Features supported:
+* * Supports non-secure TCP and UDP sockets
+* * Secure TCP (TLS) socket communication using mbed TLS library
+* * Supports both IPv4 and IPv6 addressing. Only link-local IPv6 addressing is supported
+* * Thread-safe APIs
+* * Provides APIs for both Client and Server mode operations
+* * Supports both Synchronous and Asynchronous APIs for receiving data on socket
+* * Asynchronous Server APIs for accepting client connections
+* * Provides a socket-option API to configure send/receive timeout, callback for asynchronous mode, TCP keepalive parameters, certificate/key, and TLS extensions
 *
 ********************************************************************************
 * \section section_platforms Supported Platforms
 ********************************************************************************
-This library and its features are supported on the following Cypress platforms:
+This library and its features are supported on the following PSoC 6 platforms:
 * * [PSoC6 WiFi-BT Prototyping Kit (CY8CPROTO-062-4343W)](https://www.cypress.com/documentation/development-kitsboards/psoc-6-wi-fi-bt-prototyping-kit-cy8cproto-062-4343w)
 * * [PSoC 62S2 Wi-Fi BT Pioneer Kit (CY8CKIT-062S2-43012)](https://www.cypress.com/documentation/development-kitsboards/psoc-62s2-wi-fi-bt-pioneer-kit-cy8ckit-062s2-43012)
 *
 ********************************************************************************
 * \section section_integration Integration Notes
 ********************************************************************************
-* * Cypress Secure Sockets Library configures default send and receive timeout values to 10 seconds for a newly created socket. Default timeout values can be changed by modifying DEFAULT_SEND_TIMEOUT and DEFAULT_RECV_TIMEOUT macros in the cy_secure_sockets.h file. To configure the timeout values specific to socket, use the cy_socket_setsockopt API function. To change the send timeout, use the CY_SOCKET_SO_SNDTIMEO socket option; similarly, for receive timeout, use the CY_SOCKET_SO_RCVTIMEO socket option. Adjust the default timeout values based on the network speed or use case.
-* * Cypress secure sockets library has been designed to support different flavors of TCP/IP stack or security stack. Currently, lwIP and MbedTLS are the default network and security stacks respectively. Therefore, any application that uses secure sockets must ensure that the following COMPONENTS are defined in the code example project's Makefile - LWIP and MBEDTLS.
-* * Cypress secure sockets and TLS libraries enable only error prints by default. For debugging purposes, the application may additionally enable debug and info log messages. To enable these messages, add SECURE_SOCKETS_ENABLE_PRINT_LIBRARY_INFO, SECURE_SOCKETS_ENABLE_PRINT_LIBRARY_DEBUG, TLS_ENABLE_PRINT_LIBRARY_INFO, and TLS_ENABLE_PRINT_LIBRARY_DEBUG macros to the DEFINES in the code example's Makefile. The Makefile entry would look like,
-*   \code
-*    DEFINES+=SECURE_SOCKETS_ENABLE_PRINT_LIBRARY_INFO SECURE_SOCKETS_ENABLE_PRINT_LIBRARY_DEBUG
-*    DEFINES+=TLS_ENABLE_PRINT_LIBRARY_INFO TLS_ENABLE_PRINT_LIBRARY_DEBUG
-*   \endcode
-* * In order to ease integration of Wi-Fi connectivity components to code examples, this secure socket library has been bundled into the [Wi-Fi Middleware Core Library v2.0.0](https://github.com/cypresssemiconductorco/wifi-mw-core)
+* * Secure Sockets Library configures default send and receive timeout values to 10 seconds for a newly created socket. Default timeout values can be changed by modifying the DEFAULT_SEND_TIMEOUT_IN_MSEC and DEFAULT_RECV_TIMEOUT_IN_MSEC macros in the cy_secure_sockets.h file. To configure the timeout values specific to socket, use the cy_socket_setsockopt API function. To change the send timeout, use the CY_SOCKET_SO_SNDTIMEO socket option; similarly, for receive timeout, use the CY_SOCKET_SO_RCVTIMEO socket option. Adjust the default timeout values based on the network speed or use case.
+* * Secure Sockets Library has been designed to support different flavors of TCP/IP stack or security stack. Currently, lwIP and mbed TLS are the default network and security stacks respectively. Therefore, any application that uses secure sockets must ensure that the following COMPONENTS are defined in the code example project's makefile - LWIP and MBEDTLS.
+* * Applications using Secure Sockets Library must include only the cy_secure_sockets.h file for non-secure connections. For secure connections, the application must include both cy_secure_sockets.h and cy_tls.h header files.
+* * Secure Sockets Library disables all the debug log messages by default. To enable log messages, the application must perform the following:
+*      -# Add `ENABLE_SECURE_SOCKETS_LOGS` macro to the *DEFINES* in the code example's Makefile. The Makefile entry would look like as follows:
+*         \code
+*           DEFINES+=ENABLE_SECURE_SOCKETS_LOGS
+*         \endcode
+*      -# Call the `cy_log_init()` function provided by the *cy-log* module. cy-log is part of the *connectivity-utilities* library. See [connectivity-utilities library API documentation](https://cypresssemiconductorco.github.io/connectivity-utilities/api_reference_manual/html/group__logging__utils.html) for cy-log details.
+* * To ease the integration of Wi-Fi connectivity components to code examples, this Secure Socket Library has been bundled into the [Wi-Fi Middleware Core Library v2.0.0](https://github.com/cypresssemiconductorco/wifi-mw-core).
 *
 ********************************************************************************
 * \section section_code_snippet Code Snippets
 ********************************************************************************
 ********************************************************************************
-* \subsection snip1 Code Snippet1: Create TCP Socket
-*  This code snippet demonstrates how to initialize and create a TCP socket.
-* \snippet doxygen_secure_socket_code_snippet.h snippet_create_socket
+* \subsection snip1 Code Snippet 1: Create TCP Socket
+*  This code snippet demonstrates how to initialize and create a TCP socket using an IPv4 address domain.
+* \snippet doxygen_secure_socket_code_snippet.c snippet_create_socket
 ********************************************************************************
-* \subsection snip2 Code Snippet2: Create Secure Socket
-* This code snippet demonstrates how to initialize and create a TCP socket and set the TLS credentials to be used for securing the socket communication.
-* \snippet doxygen_secure_socket_code_snippet.h snippet_create_secure_socket
+* \subsection snip2 Code Snippet 2: Create Secure TCP Socket
+* This code snippet demonstrates how to initialize and create a TCP socket using an IPv4 address domain and set the TLS credentials to be used for securing the socket communication.
+* \snippet doxygen_secure_socket_code_snippet.c snippet_create_secure_socket
 ********************************************************************************
+* \subsection snip3 Code Snippet 3: TCP Client Connect
+* This code snippet demonstrates how to create a TCP client using an IPv4 address domain and connect to a TCP server. After connection is established with the TCP server, the client sends a message to the TCP server and waits for a message from the server.
+* \snippet doxygen_secure_socket_code_snippet.c snippet_tcp_client
 ********************************************************************************
-* \subsection snip3 Code Snippet3: TCP Client Connect
-* This code snippet demonstrates how to create a TCP client socket and initiate communication with a TCP server.
-* \snippet doxygen_secure_socket_code_snippet.h snippet_tcp_client
+* \subsection snip4 Code Snippet 4: TCP Server - Listening for client connection
+* This code snippet demonstrates how to create a TCP server using an IPv4 address domain and accept a TCP client connection. The server implementation in this snippet waits for a client connection and a message from the connected client. Upon receiving a message from the client, it sends a response message back to the client.
+* \snippet doxygen_secure_socket_code_snippet.c snippet_tcp_server
 ********************************************************************************
-* \subsection snip4 Code Snippet4: TCP Server - Listening for client connection
-* This code snippet demonstrates how to create a TCP server socket and accept a TCP client connection to communicate.
-* \snippet doxygen_secure_socket_code_snippet.h snippet_tcp_server
+* \subsection snip5 Code Snippet 5: TCP IPv6 Client Connect
+* This code snippet demonstrates how to create a TCP client using an IPv6 address domain and connect to a TCP server. After connection is established with the TCP server, the client sends a message to the TCP server and waits for a message from the server.
+* \snippet doxygen_secure_socket_code_snippet.c snippet_tcp_ipv6_client
+********************************************************************************
+* \subsection snip6 Code Snippet 6: Create UDP Socket
+* This code snippet demonstrates how to initialize and create a UDP socket using an IPv4 address domain.
+* \snippet doxygen_secure_socket_code_snippet.c snippet_create_udp_socket
+********************************************************************************
+* \subsection snip7 Code Snippet 7: UDP Client - Send data to a UDP server using an IPv4 address
+* This code snippet demonstrates how to create a UDP client using an IPv4 address domain and send data to a UDP server. After sending data to the UDP server, this UDP client waits for a response message from the server.
+* \snippet doxygen_secure_socket_code_snippet.c snippet_udp_client
+********************************************************************************
+* \subsection snip8 Code Snippet 8: UDP Server - Receive data from a UDP client using an IPv4 address
+* This code snippet demonstrates how to create a UDP server using an IPv4 address domain and receive data from a UDP client.
+* \snippet doxygen_secure_socket_code_snippet.c snippet_udp_server
 ********************************************************************************
 */
 /**
@@ -150,17 +168,22 @@ extern "C" {
 /**
  * Assigned to a \ref cy_socket_t variable when the socket handle is not valid.
  */
-#define CY_SOCKET_INVALID_HANDLE    ( ( cy_socket_t ) ~0U )
+#define CY_SOCKET_INVALID_HANDLE        ( ( cy_socket_t ) ~0U )
 
 /**
  * Default socket receive timeout value, in milliseconds.
  */
-#define DEFAULT_RECV_TIMEOUT                10000
+#define DEFAULT_RECV_TIMEOUT_IN_MSEC    10000
 
 /**
- * Default socket send timeout value, milliseconds.
+ * Default socket send timeout value, in milliseconds.
  */
-#define DEFAULT_SEND_TIMEOUT                10000
+#define DEFAULT_SEND_TIMEOUT_IN_MSEC    10000
+
+/**
+ *  Maximum time in milliseconds the \ref cy_socket_sendto function waits for MAC address-to-IP address resolution.
+ */
+#define ARP_WAIT_TIME_IN_MSEC           30000
 
 /*
  * Options for the domain parameter of the \ref cy_socket_create() function. Values match that of POSIX sockets.
@@ -182,11 +205,11 @@ extern "C" {
 #define CY_SOCKET_IPPROTO_TLS    ( 3 )   /**< Protocol option for \ref cy_socket_create() - TLS. */
 
 /*
- * Options for level parameter in \ref cy_socket_setsockopt() and cy_socket_getsockopt().
+ * Options for the level parameter in \ref cy_socket_setsockopt() and cy_socket_getsockopt().
  */
-#define CY_SOCKET_SOL_SOCKET  ( 1 )   /**< Level option for \ref cy_socket_setsockopt() - Socket-level option. */
-#define CY_SOCKET_SOL_TCP     ( 2 )   /**< Level option for \ref cy_socket_setsockopt() - TCP protocol-level option. */
-#define CY_SOCKET_SOL_TLS     ( 3 )   /**< Level option for \ref cy_socket_setsockopt() - TLS protocol-level option. */
+#define CY_SOCKET_SOL_SOCKET     ( 1 )   /**< Level option for \ref cy_socket_setsockopt() - Socket-level option. */
+#define CY_SOCKET_SOL_TCP        ( 2 )   /**< Level option for \ref cy_socket_setsockopt() - TCP protocol-level option. */
+#define CY_SOCKET_SOL_TLS        ( 3 )   /**< Level option for \ref cy_socket_setsockopt() - TLS protocol-level option. */
 
 /*
  * Options for optname in \ref cy_socket_setsockopt() and cy_socket_getsockopt().
@@ -199,10 +222,10 @@ extern "C" {
  *   * Option value: Pointer holding the timeout value in uint32_t type.
  *   * Level: \ref CY_SOCKET_SOL_SOCKET
  *
- * NOTE: Configuring the receive timeout value on a server socket impacts the \ref cy_socket_accept() API function.
- *       If the client does not send connect request within the timeout, \ref cy_socket_accept() returns \ref CY_RSLT_MODULE_SECURE_SOCKETS_TIMEOUT error.
+ * \note Configuring the receive timeout value on a server socket impacts the \ref cy_socket_accept() API function.
+ *       If the client does not send a connect request within the timeout, \ref cy_socket_accept() returns the \ref CY_RSLT_MODULE_SECURE_SOCKETS_TIMEOUT error.
  */
-#define CY_SOCKET_SO_RCVTIMEO ( 0 )
+#define CY_SOCKET_SO_RCVTIMEO    ( 0 )
 
 /**
  * Set the send timeout in milliseconds.
@@ -211,7 +234,7 @@ extern "C" {
  *   * Option value: Pointer holding timeout value in uint32_t type.
  *   * Level: \ref CY_SOCKET_SOL_SOCKET
  */
-#define CY_SOCKET_SO_SNDTIMEO ( 1 )
+#define CY_SOCKET_SO_SNDTIMEO    ( 1 )
 
 /**
  * Set the blocking status of socket API function calls.
@@ -223,7 +246,7 @@ extern "C" {
  *                   Value "0" indicates blocking status to blocking.
  *   * Level: \ref CY_SOCKET_SOL_SOCKET
  */
-#define CY_SOCKET_SO_NONBLOCK ( 2 )
+#define CY_SOCKET_SO_NONBLOCK    ( 2 )
 
 /**
  * Enable/Disable the TCP keepalive mechanism on the socket.
@@ -234,10 +257,10 @@ extern "C" {
  *                   Value "0" indicates disable TCP keepalive.
  *   * Level: \ref CY_SOCKET_SOL_SOCKET
  */
-#define CY_SOCKET_SO_TCP_KEEPALIVE_ENABLE ( 3 )
+#define CY_SOCKET_SO_TCP_KEEPALIVE_ENABLE     ( 3 )
 
 /**
- * Set the interval in milliseconds between TCP keep-alive probes.
+ * Set the interval in milliseconds between TCP keepalive probes.
  * Keepalives are sent only when the feature is enabled
  * with the \ref CY_SOCKET_SO_TCP_KEEPALIVE_ENABLE socket option.
  *
@@ -245,30 +268,30 @@ extern "C" {
  *   * Option value: Pointer holding value of the keepalive interval in uint32_t type.
  *   * Level: \ref CY_SOCKET_SOL_TCP
  */
-#define CY_SOCKET_SO_TCP_KEEPALIVE_INTERVAL ( 4 )
+#define CY_SOCKET_SO_TCP_KEEPALIVE_INTERVAL   ( 4 )
 
 /**
- * Set the maximum number of TCP keep-alive probes to be sent before
+ * Set the maximum number of TCP keepalive probes to be sent before
  * giving up and killing the connection if no response is obtained
  * from the other end. Keepalives are sent only when the feature is
  * enabled with the \ref CY_SOCKET_SO_TCP_KEEPALIVE_ENABLE socket option.
  *
  * Arguments related to this optname:
- *   * Option value: Pointer holding the value of maximum keep-alive probe count in uint32_t type.
+ *   * Option value: Pointer holding the value of maximum keepalive probe count in uint32_t type.
  *   * Level: \ref CY_SOCKET_SOL_TCP
  */
-#define CY_SOCKET_SO_TCP_KEEPALIVE_COUNT ( 5 )
+#define CY_SOCKET_SO_TCP_KEEPALIVE_COUNT      ( 5 )
 
 /**
- * Set the duration for which the connection needs to be idle, in milliseconds before
- * TCP begins sending out keep-alive probes. Keep-alive probes are sent only when the
+ * Set the duration for which the connection needs to be idle (in milliseconds) before
+ * TCP begins sending out keepalive probes. Keepalive probes are sent only when the
  * feature is enabled with \ref CY_SOCKET_SO_TCP_KEEPALIVE_ENABLE socket option.
  *
  * Arguments related to this optname:
- *   * Option value: Pointer holding the value of keep-alive idle time in uint32_t type.
+ *   * Option value: Pointer holding the value of keepalive idle time in uint32_t type.
  *   * Level: \ref CY_SOCKET_SOL_TCP
  */
-#define CY_SOCKET_SO_TCP_KEEPALIVE_IDLE_TIME ( 6 )
+#define CY_SOCKET_SO_TCP_KEEPALIVE_IDLE_TIME  ( 6 )
 
 /**
  * Set the callback to be called upon incoming client connection request.
@@ -278,7 +301,7 @@ extern "C" {
  *
  * Arguments related to this optname:
  *   * Option value: Pointer to \ref cy_socket_opt_callback_t.
- *                   Passing NULL value de-registers the registered callback.
+ *                   Passing the NULL value de-registers the registered callback.
  *   * Level: \ref CY_SOCKET_SOL_SOCKET
  */
 #define CY_SOCKET_SO_CONNECT_REQUEST_CALLBACK ( 7 )
@@ -288,12 +311,17 @@ extern "C" {
  * The callback function registered with this option runs in the secure sockets worker thread context.
  * This option is not supported in \ref cy_socket_getsockopt.
  *
+ * \note The registered receive callback function is invoked when a network packet is received from the network stack,
+ *       hence this callback is invoked per network packet. If the data in the packet is consumed partially, the Secure Sockets Library
+ *       doesn't provide another callback for the remaining data in that packet. Hence it is recommended to read the entire network packet
+ *       by providing a buffer of MTU size (1460 bytes) to the \ref cy_socket_recv function.
+ *
  * Arguments related to this optname:
  *   * Option value: Pointer to \ref cy_socket_opt_callback_t.
- *                   Passing NULL value de-registers the registered callback.
+ *                   Passing the NULL value de-registers the registered callback.
  *   * Level: \ref CY_SOCKET_SOL_SOCKET
  */
-#define CY_SOCKET_SO_RECEIVE_CALLBACK ( 8 )
+#define CY_SOCKET_SO_RECEIVE_CALLBACK         ( 8 )
 
 /**
  * Set the callback to be called when the socket is disconnected.
@@ -301,19 +329,19 @@ extern "C" {
  * The callback function registered with this option runs in the secure sockets worker thread context.
  * This option is not supported in \ref cy_socket_getsockopt.
  *
- * NOTE: This callback is invoked whenever the peer disconnects. In the callback, \ref cy_socket_disconnect should be invoked.
+ * \note This callback is invoked whenever the peer disconnects. In the callback, \ref cy_socket_disconnect should be invoked.
  *       This callback will not be invoked during self-initiated disconnections i.e., when \ref cy_socket_disconnect is called by self.
  *
  * Arguments related to this optname:
  *   * Option value: Pointer to \ref cy_socket_opt_callback_t.
- *                   Passing NULL value de-registers the registered callback.
+ *                   Passing the NULL value de-registers the registered callback.
  *   * Level: \ref CY_SOCKET_SOL_SOCKET
  */
 
-#define CY_SOCKET_SO_DISCONNECT_CALLBACK ( 9 )
+#define CY_SOCKET_SO_DISCONNECT_CALLBACK      ( 9 )
 
 /**
- * Get the number of bytes written but not yet sent by the protocol.
+ * Get the number of bytes pending to be sent by the protocol.
  * This option is used only with \ref cy_socket_getsockopt.
  * This option is currently not supported; will be supported in a future release.
  *
@@ -321,7 +349,7 @@ extern "C" {
  *   * Option value: Pointer to the uint32_t type into which the API function fills the number of bytes.
  *   * Level: \ref CY_SOCKET_SOL_SOCKET
  */
-#define CY_SOCKET_SO_NWRITE ( 10 )
+#define CY_SOCKET_SO_NWRITE           ( 10 )
 
 /**
  * Set the user timeout value that controls the duration transmitted data may remain unacknowledged before a connection is forcefully closed.
@@ -334,7 +362,7 @@ extern "C" {
 #define CY_SOCKET_SO_TCP_USER_TIMEOUT ( 11 )
 
 /**
- * Set RootCA certificate specific to the socket, in PEM format.
+ * Set a RootCA certificate specific to the socket, in PEM format.
  * By default, the RootCA certificates loaded with \ref cy_tls_load_global_root_ca_certificates
  * are used to validate the peer's certificate. If specific RootCA needs to be used for a socket,
  * this socket option should be used to configure a connection-specific RootCA.
@@ -342,7 +370,7 @@ extern "C" {
  * This option is not supported in \ref cy_socket_getsockopt.
  *
  * Arguments related to this optname:
- *   * Option value: Pointer to the stream of bytes of certificate data.
+ *   * Option value: Pointer to a buffer (char array) holding the certificate data.
  *   * Level: \ref CY_SOCKET_SOL_TLS
  */
 #define CY_SOCKET_SO_TRUSTED_ROOTCA_CERTIFICATE ( 12 )
@@ -352,26 +380,26 @@ extern "C" {
  * This option is not supported in \ref cy_socket_getsockopt.
  *
  * Arguments related to this optname:
- *   * Option value: Pointer returned by the \ref cy_tls_create_identity function.
+ *   * Option value: Pointer (type void) returned by the \ref cy_tls_create_identity function.
  *   * Level: \ref CY_SOCKET_SOL_TLS
  */
-#define CY_SOCKET_SO_TLS_IDENTITY ( 13 )
+#define CY_SOCKET_SO_TLS_IDENTITY               ( 13 )
 
 /**
- * Set the hostname to be used for TLS SNI extension of TLS ClientHello.
+ * Set the hostname to be used for TLS Server Name Indication (SNI) extension of TLS ClientHello.
  *
  * Arguments related to this optname:
- *   * Option value: Pointer to the stream of bytes holding the hostname.
+ *   * Option value: Pointer to the stream of bytes (char array) holding the hostname.
  *   * Level: \ref CY_SOCKET_SOL_TLS
  */
-#define CY_SOCKET_SO_SERVER_NAME_INDICATION ( 14 )
+#define CY_SOCKET_SO_SERVER_NAME_INDICATION     ( 14 )
 
 /**
  * Set the application protocol list to be included in TLS ClientHello.
  * This option is not supported in \ref cy_socket_getsockopt.
  *
  * Arguments related to this optname:
- *   * Option value: Pointer to the stream of bytes with protocol names separated by comma.
+ *   * Option value: Pointer to the stream of bytes (char array) with protocol names separated by comma.
  *                   e.g., "h2-16,h2-15,h2-14,h2,spdy/3.1,http/1.1"
  *   * Level: \ref CY_SOCKET_SOL_TLS
  */
@@ -391,16 +419,22 @@ extern "C" {
  *
  * Arguments related to this optname:
  *   * Option value: Pointer holding the maximum fragment length value in uint32_t type.
- *                   Allowed values are 512, 1024, 2048, 4096 per https://tools.ietf.org/html/rfc6066#section-4
+ *                   Allowed values are 512, 1024, 2048, 4096 per https://tools.ietf.org/html/rfc6066#section-4.
  *   * Level: \ref CY_SOCKET_SOL_TLS
  */
-#define CY_SOCKET_SO_TLS_MFL ( 17 )
+#define CY_SOCKET_SO_TLS_MFL       ( 17 )
 
 /*
- * \ref cy_socket_send() input flags. One or more flags can be combined
+ * \ref cy_socket_send() input flags. One or more flags can be combined.
  */
-#define CY_SOCKET_FLAGS_NONE      ( 0x0 ) /**< \ref cy_socket_send() input flags - No flag. */
-#define CY_SOCKET_FLAGS_MORE      ( 0x1 ) /**< \ref cy_socket_send() input flags - The caller indicates that there is additional data to be sent. This flag is applicable only for TCP connections. Caller will not set this flag for the last data chunk to be sent. */
+#define CY_SOCKET_FLAGS_NONE       ( 0x0 ) /**< \ref cy_socket_send() input flags - No flag. */
+#define CY_SOCKET_FLAGS_MORE       ( 0x1 ) /**< \ref cy_socket_send() input flags - The caller indicates that there is additional data to be sent. This flag is applicable only for TCP connections. Caller will not set this flag for the last data chunk to be sent. */
+
+/*
+ * \ref cy_socket_recvfrom() input flags. One or more flags can be combined
+ */
+#define CY_SOCKET_FLAGS_RECVFROM_NONE          ( 0x0 ) /**< \ref cy_socket_recvfrom() input flags - No flag. */
+#define CY_SOCKET_FLAGS_RECVFROM_SRC_FILTER    ( 0x1 ) /**< \ref cy_socket_recvfrom() input flags - Used for filtering of input packets. Packets are received only from the user-specified source address. */
 
 /*
  * \ref cy_socket_poll() input flags.
@@ -409,11 +443,11 @@ extern "C" {
 #define CY_SOCKET_POLL_WRITE ( 2 ) /**< \ref cy_socket_poll() input flags - Check whether write is possible. */
 
 /*
- * Options for how parameter of \ref cy_socket_shutdown() function.
+ * Options for "how" parameter of \ref cy_socket_shutdown() function.
  */
-#define CY_SOCKET_SHUT_RD    ( 0 ) /**< Option for the "how" parameter of \ref cy_socket_shutdown() - Disables further receive operations. */
-#define CY_SOCKET_SHUT_WR    ( 1 ) /**< Option for the "how" parameter of \ref cy_socket_shutdown() - Disables further send operations. */
-#define CY_SOCKET_SHUT_RDWR  ( 2 ) /**< Option for the "how" parameter of \ref cy_socket_shutdown() - Disables further send and receive. operations. */
+#define CY_SOCKET_SHUT_RD    ( 0x1 )                                   /**< Option for the "how" parameter of \ref cy_socket_shutdown() - Disables further receive operations. */
+#define CY_SOCKET_SHUT_WR    ( 0x2 )                                   /**< Option for the "how" parameter of \ref cy_socket_shutdown() - Disables further send operations. */
+#define CY_SOCKET_SHUT_RDWR  ( CY_SOCKET_SHUT_RD | CY_SOCKET_SHUT_WR ) /**< Option for the "how" parameter of \ref cy_socket_shutdown() - Disables further send and receive. operations. */
 
 
 /**
@@ -459,14 +493,14 @@ typedef enum
  *                      Typedefs
  ******************************************************/
 /**
- * The socket handle data type.
- * Data contained by the cy_socket_t type is specific to socket layer implementation.
+ * Socket handle.
+ * \note The socket handle is created and returned to the caller of the \ref cy_socket_create function.
  */
 typedef void * cy_socket_t;
 
 /**
- * Socket callback functions type used to set connect, receive and disconnect callbacks
- * using \ref cy_socket_setsockopt API function.
+ * Socket callback functions type used to set connect, receive, and disconnect callbacks
+ * using the \ref cy_socket_setsockopt function.
  */
 typedef cy_rslt_t (*cy_socket_callback_t)(cy_socket_t socket_handle, void *arg);
 
@@ -486,9 +520,9 @@ typedef struct cy_socket_ip_address
 
     union
     {
-        uint32_t v4;    /**< IPv4 address bytes. */
-        uint32_t v6[4]; /**< IPv6 address bytes. */
-    } ip; /**< IP address bytes */
+        uint32_t v4;    /**< IPv4 address in network byte order. */
+        uint32_t v6[4]; /**< IPv6 address in network byte order. */
+    } ip; /**< IP address bytes. */
 } cy_socket_ip_address_t;
 
 /**
@@ -496,12 +530,13 @@ typedef struct cy_socket_ip_address
  */
 typedef struct cy_socket_sockaddr
 {
-    uint16_t                  port;       /**< Port Number.*/
+    uint16_t                  port;       /**< Port Number in host byte order. */
     cy_socket_ip_address_t    ip_address; /**< IP Address. */
 } cy_socket_sockaddr_t;
 
-/** Option value type for CY_SOCKET_SO_CONNECT_REQUEST_CALLBACK, CY_SOCKET_SO_RECEIVE_CALLBACK,
- * and CY_SOCKET_SO_DISCONNECT_CALLBACK socket options.
+/**
+ * Option value type for \ref CY_SOCKET_SO_CONNECT_REQUEST_CALLBACK, \ref CY_SOCKET_SO_RECEIVE_CALLBACK,
+ * and \ref CY_SOCKET_SO_DISCONNECT_CALLBACK socket options.
  */
 typedef struct cy_socket_opt_callback
 {
@@ -518,7 +553,7 @@ typedef struct cy_socket_opt_callback
  *
  * All API functions are blocking API functions.
  *
- * Cypress Secure Sockets Library creates a worker thread for processing events from the network stack.
+ * Secure Sockets Library creates a worker thread for processing events from the network stack.
  * The priority of the thread is CY_RTOS_PRIORITY_ABOVENORMAL. The macro CY_RTOS_PRIORITY_ABOVENORMAL
  * is defined in abstraction-rtos/include/COMPONENT_FREERTOS/cyabs_rtos_impl.h.
  */
@@ -530,7 +565,7 @@ typedef struct cy_socket_opt_callback
  * Does general allocation and initialization of resources needed for the library.
  * This API function must be called before using any other socket API.
  *
- * NOTE: \ref cy_socket_init and \ref cy_socket_deinit API functions are not thread-safe. The caller
+ * \note \ref cy_socket_init and \ref cy_socket_deinit API functions are not thread-safe. The caller
  *       must ensure that these two API functions are not invoked simultaneously from different threads.
  * @return     CY_RSLT_SUCCESS on success; an error code on failure.
  */
@@ -540,7 +575,7 @@ cy_rslt_t cy_socket_init( void );
  * Releases the resources allocated in \ref cy_socket_init function. Prior to calling this API function,
  * all created sockets must be disconnected and deleted.
  *
- * NOTE: \ref cy_socket_init and \ref cy_socket_deinit API functions are not thread-safe. The caller
+ * \note \ref cy_socket_init and \ref cy_socket_deinit API functions are not thread-safe. The caller
  *       must ensure that these two API functions are not invoked simultaneously from different threads.
  *
  * @return     CY_RSLT_SUCCESS on success; an error code on failure.
@@ -551,7 +586,7 @@ cy_rslt_t cy_socket_deinit( void );
 /**
  * Creates a new socket.
  *
- * NOTE: Cypress Secure Sockets library configures default send and receive timeout values to 10 seconds for a newly created socket.
+ * \note Secure Sockets library configures default send and receive timeout values to 10 seconds for a newly created socket.
  *       These default values can be overridden using the \ref cy_socket_setsockopt API. Adjust the default timeout values based on the network speed or use case.
  *       For example, to change the send timeout, use the \ref CY_SOCKET_SO_SNDTIMEO socket option; similarly, for receive timeout, use the \ref CY_SOCKET_SO_RCVTIMEO socket option.
  *
@@ -560,11 +595,11 @@ cy_rslt_t cy_socket_deinit( void );
  *   - \ref CY_SOCKET_TYPE_DGRAM  with \ref CY_SOCKET_IPPROTO_UDP
  *
  * @param[in]  domain   Protocol family to be used by the socket.
- *                      \ref CY_SOCKET_DOMAIN_AF_INET \ref CY_SOCKET_DOMAIN_AF_INET6
+ *                      Refer \ref CY_SOCKET_DOMAIN_AF_INET and \ref CY_SOCKET_DOMAIN_AF_INET6.
  * @param[in]  type     Protocol type to be used by the socket.
- *                      \ref CY_SOCKET_TYPE_DGRAM \ref CY_SOCKET_TYPE_STREAM
+ *                      Refer \ref CY_SOCKET_TYPE_DGRAM and \ref CY_SOCKET_TYPE_STREAM.
  * @param[in]  protocol Transport protocol to be used by the socket.
- *                      \ref CY_SOCKET_IPPROTO_TCP \ref CY_SOCKET_IPPROTO_UDP \ref CY_SOCKET_IPPROTO_TLS
+ *                      Refer \ref CY_SOCKET_IPPROTO_TCP, \ref CY_SOCKET_IPPROTO_UDP, and \ref CY_SOCKET_IPPROTO_TLS.
  * @param[out] handle   Socket handle; contents of this handle are specific to the socket layer implementation.
  * @return     CY_RSLT_SUCCESS on success; an error code on failure. On success, it also returns the socket handle.
  *             Important error codes related to this API function are: \n
@@ -583,7 +618,7 @@ cy_rslt_t cy_socket_create(int domain, int type, int protocol, cy_socket_t *hand
  *    use \ref cy_socket_setsockopt with the \ref CY_SOCKET_SO_TLS_AUTH_MODE socket option.
  *
  * @param[in] handle         Socket handle returned by the \ref cy_socket_create API function.
- * @param[in] address        Pointer to the \ref cy_socket_sockaddr_t structure that contains the address to connect the socket to.
+ * @param[in] address        Pointer to the \ref cy_socket_sockaddr_t structure that contains the address to connect the socket to. Refer \ref cy_socket_ip_address_t for IP address endienness.
  * @param[in] address_length Length of the \ref cy_socket_sockaddr_t structure.
  *
  * @return    CY_RSLT_SUCCESS on success; an error code on failure.
@@ -598,13 +633,13 @@ cy_rslt_t cy_socket_create(int domain, int type, int protocol, cy_socket_t *hand
 cy_rslt_t cy_socket_connect(cy_socket_t handle, cy_socket_sockaddr_t *address, uint32_t address_length);
 
 /**
- * Disconnects the socket's remote connection.
+ * Disconnects a TCP/TLS socket's remote connection.
  * Timeout is not supported by all network stacks. If the underlying network stack does not support
- * the timeout option, this function returns after clean disconnect. lwIP does not support timeout option.
+ * the timeout option, this function returns after a clean disconnect. lwIP does not support the timeout option.
  *
- * NOTE: Ensure that this API function is also called when socket send/receive API fails with error \ref CY_RSLT_MODULE_SECURE_SOCKETS_CLOSED.
+ * \note Ensure that this API function is also called when the socket send/receive API fails with the error \ref CY_RSLT_MODULE_SECURE_SOCKETS_CLOSED.
  *
- * @param[in] handle         Socket handle returned by either \ref cy_socket_create API function for client sockets,
+ * @param[in] handle         Socket handle returned by either the \ref cy_socket_create API function for client sockets,
  *                           or by the \ref cy_socket_accept API function for accepted sockets.
  *
  * @param[in] timeout        Maximum amount of time to wait in milliseconds for a clean disconnect.
@@ -621,7 +656,7 @@ cy_rslt_t cy_socket_disconnect(cy_socket_t handle, uint32_t timeout);
  * Binds the socket to the given socket address.
  *
  * @param[in] handle         Socket handle returned by the \ref cy_socket_create API function.
- * @param[in] address        Address to be bound to the socket.
+ * @param[in] address        Address to be bound to the socket. Refer \ref cy_socket_ip_address_t for IP address endienness.
  * @param[in] address_length Length of the \ref cy_socket_sockaddr_t structure.
  *
  * @return    CY_RSLT_SUCCESS on success; an error code on failure.
@@ -669,7 +704,7 @@ cy_rslt_t cy_socket_listen(cy_socket_t handle, int backlog);
  *                             and is listening for connections after a call to \ref cy_socket_listen.
  *                             This is the server-side socket that is reused to establish
  *                             connections across clients.
- * @param[out] address         Address of the peer socket in cy_socket_sockaddr_t structure.
+ * @param[out] address         Address of the peer socket in the cy_socket_sockaddr_t structure. Refer \ref cy_socket_ip_address_t for IP address endienness.
  * @param[out] address_length  Contains the actual size of the peer socket address.
  * @param[out] socket          Socket handle for the accepted connection with a client. This is
  *                             the socket that should be used for further communication over a
@@ -687,9 +722,9 @@ cy_rslt_t cy_socket_listen(cy_socket_t handle, int backlog);
 cy_rslt_t cy_socket_accept(cy_socket_t handle, cy_socket_sockaddr_t *address, uint32_t *address_length, cy_socket_t *socket);
 
 /**
- * Sends data over a connected socket.
+ * Sends data over a connected TCP/TLS socket.
  *
- * NOTE: Ensure that the \ref cy_socket_disconnect API function is called when this API function fails with the  CY_RSLT_MODULE_SECURE_SOCKETS_CLOSED error.
+ * \note Ensure that the \ref cy_socket_disconnect API function is called when this API function fails with the CY_RSLT_MODULE_SECURE_SOCKETS_CLOSED error.
  *
  * @param[in]  handle        Socket handle returned by either the \ref cy_socket_create API function for client sockets,
  *                           or by the \ref cy_socket_accept API function for accepted sockets.
@@ -711,41 +746,38 @@ cy_rslt_t cy_socket_accept(cy_socket_t handle, cy_socket_sockaddr_t *address, ui
 cy_rslt_t cy_socket_send(cy_socket_t handle, const void *buffer, uint32_t length, int flags, uint32_t *bytes_sent);
 
 /**
- * Sends the data on the socket.
+ * Sends a UDP datagram over a specified socket.
  *
- * This function sends the data through a connected or connectionless socket.
- * If the socket is connectionless, the data is sent to the address specified
- * by dest_addr. If the socket is connected, dest_addr is ignored.
+ * \note If an ARP entry for the specified destination address is not present in the ARP cache, this function sends an ARP request and waits for
+ *       \ref ARP_WAIT_TIME_IN_MSEC time for MAC address resolution. If the MAC address is not resolved within the timeout, this function
+ *       returns the error code \ref CY_RSLT_MODULE_SECURE_SOCKETS_ARP_TIMEOUT. Upon receiving this error, the caller can retry this API again after a brief delay.
  *
- * This API function is currently not supported; will be supported in a future release.
- *
- * NOTE: Ensure that the \ref cy_socket_disconnect API function is called when this API function fails with the CY_RSLT_MODULE_SECURE_SOCKETS_CLOSED error.
- *
- * @param[in]  handle        Socket handle returned by either the \ref cy_socket_create API function for client sockets,
- *                           or by the \ref cy_socket_accept API function for accepted sockets.
- * @param[in]  buffer        Buffer containing the data to be sent.
- * @param[in]  length        Length of the data to be sent.
- * @param[in]  flags         Flags to indicate send options. Currently, this argument is not used; this is reserved for the future.
- * @param[in]  dest_addr     Pointer to the \ref cy_socket_sockaddr_t structure that contains the destination
- *                           address to send the data to.
+ * @param[in]  handle         Socket handle returned by the \ref cy_socket_create API function for UDP sockets.
+ * @param[in]  buffer         Buffer containing the data to be sent.
+ * @param[in]  length         Length of the data to be sent.
+ * @param[in]  flags          Flags to indicate send options. Currently, this argument is not used; this is reserved for the future.
+ * @param[in]  dest_addr      Pointer to the \ref cy_socket_sockaddr_t structure that contains the destination
+ *                            address to send the data to. Refer \ref cy_socket_ip_address_t for IP address endienness.
  * @param[in]  address_length Length of the \ref cy_socket_sockaddr_t structure.
- * @param[out] bytes_sent    Number of bytes sent.
+ * @param[out] bytes_sent     Number of bytes sent.
  *
  * @return    CY_RSLT_SUCCESS on success; an error code on failure. On success, it also returns the number of bytes sent.
  *            Important error code related to this API function is: \n
- *            CY_RSLT_MODULE_SECURE_SOCKETS_NOT_SUPPORTED
+ *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET \n
+ *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_NETIF_DOES_NOT_EXIST \n
+ *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_ARP_TIMEOUT
  */
 cy_rslt_t cy_socket_sendto(cy_socket_t handle, const void *buffer, uint32_t length, int flags, const cy_socket_sockaddr_t *dest_addr, uint32_t address_length, uint32_t *bytes_sent);
 
 /**
- * Receives the data over a connected socket.
+ * Receives the data from a connected TCP/TLS socket.
  *
- * NOTE: Ensure that the \ref cy_socket_disconnect API function is called when this API function fails with the CY_RSLT_MODULE_SECURE_SOCKETS_CLOSED error.
+ * \note Ensure that the \ref cy_socket_disconnect API function is called when this API function fails with the CY_RSLT_MODULE_SECURE_SOCKETS_CLOSED error.
  *
- * @param[in]  handle         Socket handle returned by either \ref cy_socket_create API function for client sockets,
+ * @param[in]  handle         Socket handle returned by either the \ref cy_socket_create API function for client sockets,
  *                            or by \ref cy_socket_accept API function for accepted sockets.
  * @param[out] buffer         Buffer into which received data will be placed.
- * @param[in]  length         Size of the data buffer
+ * @param[in]  length         Size of the data buffer.
  * @param[in]  flags          Not currently used. Should be set to \ref CY_SOCKET_FLAGS_NONE.
  * @param[out] bytes_received Number of bytes received.
  *
@@ -760,39 +792,40 @@ cy_rslt_t cy_socket_sendto(cy_socket_t handle, const void *buffer, uint32_t leng
 cy_rslt_t cy_socket_recv(cy_socket_t handle, void *buffer, uint32_t length, int flags, uint32_t *bytes_received);
 
 /**
- * Receives the data from the socket.
+ * Receives a UDP datagram for the specified socket.
  *
- * This function receives the data from a connected or connectionless socket.
- * If the socket is connectionless, the source address from where the data is received is updated in
- * src_addr. If the socket is connected, src_addr is ignored by this API function.
+ * \note
+ * 1. If the datagram is larger than the supplied buffer, excess bytes in the datagram is discarded.
+ * 2. To receive data from a specific source address, the caller should set \ref CY_SOCKET_FLAGS_RECVFROM_SRC_FILTER flag in the 'flags' parameter, and assign
+ *    the source address through the 'src_addr' parameter. If \ref CY_SOCKET_FLAGS_RECVFROM_SRC_FILTER flag is set and src_addr is NULL, this function
+ *    returns with the error code \ref CY_RSLT_MODULE_SECURE_SOCKETS_BADARG.
  *
- * This API function is currently not supported; will be supported in a future release.
+ * @param[in]      handle             Socket handle returned by either the \ref cy_socket_create API function for client sockets,
+ *                                    or by \ref cy_socket_accept API function for accepted sockets.
+ * @param[out]     buffer             Buffer into which the received data will be placed.
+ * @param[in]      length             Size of the data buffer.
+ * @param[in]      flags              Flags to control the datagram to be received.
+ *                                    Refer \ref CY_SOCKET_FLAGS_RECVFROM_NONE and \ref CY_SOCKET_FLAGS_RECVFROM_SRC_FILTER.
+ * @param[in, out] src_addr           Pointer to the \ref cy_socket_sockaddr_t structure to store the sender's address.
+ *                                    If passed as NULL, the sender's address is not returned to the caller.
+ *                                    If the \ref CY_SOCKET_FLAGS_RECVFROM_SRC_FILTER flag is set, it contains the source address from which the datagram to be received.
+ *                                    Refer \ref cy_socket_ip_address_t for IP address endienness.
+ * @param[in]      src_addr_length    Pointer containing source address length. Currently, this argument is not used; this is reserved for the future.
+ * @param[out]     bytes_received     Number of bytes received.
  *
- * NOTE: Ensure that the \ref cy_socket_disconnect API function is called when this API function fails with the CY_RSLT_MODULE_SECURE_SOCKETS_CLOSED error.
- *
- * @param[in]      handle          Socket handle returned by either \ref cy_socket_create API function for client sockets,
- *                                 or by \ref cy_socket_accept API function for accepted sockets.
- * @param[out]     buffer          Buffer into which the received data will be placed.
- * @param[in]      length          Size of the data buffer
- * @param[in]      flags           Not currently used. Should be set to \ref CY_SOCKET_FLAGS_NONE.
- * @param[out]     src_addr        A null pointer, or pointer to \ref cy_socket_sockaddr_t in which the
- *                                 sender address is to be stored.
- * @param[in, out] address_length  Length of the \ref cy_socket_sockaddr_t structure given as the input.
- *                                 On return, it contains the length address stored in src_addr.
- * @param[out]     bytes_received  Number of bytes received.
- *
- * @return     CY_RSLT_SUCCESS on success; an error code on failure. On success, it also returns the number of bytes received.
+ * @return     CY_RSLT_SUCCESS on success; an error code on failure. On success, it returns the number of bytes received. If src_addr is not NULL it also returns sender address.
  *             Important error code related to this API function is: \n
- *             \ref CY_RSLT_MODULE_SECURE_SOCKETS_NOT_SUPPORTED
+ *             \ref CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET \n
+ *             \ref CY_RSLT_MODULE_SECURE_SOCKETS_BADARG
  */
-cy_rslt_t cy_socket_recvfrom(cy_socket_t handle, void *buffer, uint32_t length, int flags, const cy_socket_sockaddr_t *src_addr, uint32_t address_length, uint32_t *bytes_received);
+cy_rslt_t cy_socket_recvfrom(cy_socket_t handle, void *buffer, uint32_t length, int flags, cy_socket_sockaddr_t *src_addr, uint32_t *src_addr_length, uint32_t *bytes_received);
 
 /**
  * Sets a particular socket option.
  * This API function can be called multiple times for the same socket to set various socket options.
  *
- * @param[in] handle         The handle of the socket to set the option for.
- * @param[in] level          The level at which the option resides:\n
+ * @param[in] handle         Handle of the socket to set the option for.
+ * @param[in] level          Level at which the option resides:\n
  *                           \ref CY_SOCKET_SOL_SOCKET \n
  *                           \ref CY_SOCKET_SOL_TCP \n
  *                           \ref CY_SOCKET_SOL_TLS
@@ -825,8 +858,8 @@ cy_rslt_t cy_socket_setsockopt(cy_socket_t handle, int level, int optname, const
 /**
  * Gets the value of a particular socket option.
  *
- * @param[in] handle         The handle of the socket to get the option value for.
- * @param[in] level          The level at which the option resides:\n
+ * @param[in] handle         Handle of the socket to get the option value for.
+ * @param[in] level          Level at which the option resides:\n
  *                           \ref CY_SOCKET_SOL_SOCKET \n
  *                           \ref CY_SOCKET_SOL_TCP \n
  *                           \ref CY_SOCKET_SOL_TLS
@@ -838,8 +871,8 @@ cy_rslt_t cy_socket_setsockopt(cy_socket_t handle, int level, int optname, const
  *                           \ref CY_SOCKET_SO_TCP_USER_TIMEOUT \n
  *                           \ref CY_SOCKET_SO_SERVER_NAME_INDICATION \n
  **                          \ref CY_SOCKET_SO_TLS_AUTH_MODE
- * @param[out] optval        A buffer containing the value of the option to get.
- * @param[in, out] optlen    The length of the option value. It is a value-result argument;
+ * @param[out] optval        Buffer containing the value of the option to get.
+ * @param[in, out] optlen    Length of the option value. It is a value-result argument;
  *                           the caller provides the size of the buffer pointed to by optval,
  *                           and is modified by this function on return to indicate
  *                           the actual size of the value returned.
@@ -856,9 +889,9 @@ cy_rslt_t cy_socket_getsockopt(cy_socket_t handle, int level, int optname, void 
 /**
  * Resolves a host name using Domain Name Service.
  *
- * @param[in]  hostname        The hostname to resolve. It should be a null-terminated string containing ASCII characters.
- * @param[in]  ip_ver          The IP version type for which the hostname has to be resolved.
- * @param[out] addr            The IP address of the specified host.
+ * @param[in]  hostname        Hostname to resolve. It should be a null-terminated string containing ASCII characters.
+ * @param[in]  ip_ver          IP version type \ref cy_socket_ip_version_t for which the hostname has to be resolved.
+ * @param[out] addr            IP address of the specified host. Refer \ref cy_socket_ip_address_t for IP address endienness.
  *
  * @return    On success it returns CY_RSLT_SUCCESS and the IP address of the specified host. Returns an error code on failure.
  *            Important error codes related to this API function are: \n
@@ -873,13 +906,13 @@ cy_rslt_t cy_socket_gethostbyname(const char *hostname, cy_socket_ip_version_t i
  * @param[in]      handle        Socket handle returned by either the \ref cy_socket_create API function for client sockets,
  *                               or by \ref cy_socket_accept API function for accepted sockets.
  * @param[in, out] rwflags       On input, the flags indicate whether the socket needs to be polled for read/write/read-write operation.
- *                               On return, the flags are updated to indicate the status of the socket readiness for read/write/read-write operation.
+ *                               On return, the flags are updated to indicate the status of the socket readiness for a read/write/read-write operation.
  * @param[in]      timeout       Maximum amount of time in milliseconds to wait before returning. If timeout is zero, the function
  *                               returns immediately. If timeout is \ref CY_SOCKET_NEVER_TIMEOUT, the function waits indefinitely.
  *
- * @return    On success, it returns CY_RSLT_SUCCESS. CY_SOCKET_POLL_READ flag is set
- *            in parameter rwflags if data is available for read. CY_SOCKET_POLL_WRITE flag is set
- *            if socket is ready for write operations. Returns an error code on failure.
+ * @return    On success, it returns CY_RSLT_SUCCESS. The CY_SOCKET_POLL_READ flag is set
+ *            in the rwflags parameter if data is available for read. The CY_SOCKET_POLL_WRITE flag is set
+ *            if the socket is ready for write operations. Returns an error code on failure.
  *            Important error codes related to this API function are: \n
  *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET \n
  *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_NOT_CONNECTED
@@ -887,24 +920,25 @@ cy_rslt_t cy_socket_gethostbyname(const char *hostname, cy_socket_ip_version_t i
 cy_rslt_t cy_socket_poll(cy_socket_t handle, uint32_t *rwflags, uint32_t timeout);
 
 /**
- * Shuts down the socket send and/or receive operations.
+ * Shuts down the send and/or receive operation on the given TCP socket.
  *
- * This API function is currently not supported; will be supported in a future release.
+ * \note This API is not applicable for UDP.
  *
  * @param[in] handle        Socket handle.
- * @param[in] how           Socket shutdown modes. Supported modes: \ref CY_SOCKET_SHUT_RD
- *                          \ref CY_SOCKET_SHUT_WR \ref CY_SOCKET_SHUT_RDWR
+ * @param[in] how           Socket shutdown modes. Supported modes: \ref CY_SOCKET_SHUT_RD,
+ *                          \ref CY_SOCKET_SHUT_WR, and \ref CY_SOCKET_SHUT_RDWR.
  *
  * @return    CY_RSLT_SUCCESS on success; an error code on failure.
  *            Important error code related to this API function is: \n
  *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET
+ *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_BADARG
  */
 cy_rslt_t cy_socket_shutdown(cy_socket_t handle, int how);
 
 /**
  * Releases the resources allocated for the socket by the \ref cy_socket_create function.
  *
- * NOTE: This API function should be called only if the socket handle is created using the \ref cy_socket_create API fuction; otherwise the behavior is undefined.
+ * \note This API function should be called only if the socket handle is created using the \ref cy_socket_create API fuction; otherwise the behavior is undefined.
  *
  * @param[in] handle        Socket handle returned by the \ref cy_socket_create API function.
  * @return    CY_RSLT_SUCCESS on success; an error code on failure.

@@ -16,7 +16,7 @@
  */
 
 /** @file
- *  Defines the Cypress TLS Interface.
+ *  Defines the TLS Interface.
  *
  *  This file provides prototypes of functions for establishing
  *  TLS connections with a remote host.
@@ -24,10 +24,10 @@
  */
 
 #include "cy_tls.h"
-#include "cy_tls_debug.h"
 #include "cy_rtc.h"
 #include "cyhal.h"
 #include "cyabs_rtos.h"
+#include "cy_log.h"
 #include <mbedtls/ssl.h>
 #include <mbedtls/entropy.h>
 #include <mbedtls/ctr_drbg.h>
@@ -39,6 +39,12 @@
 #include <string.h>
 #include <time.h>
 #include <mbedtls/platform_time.h>
+
+#ifdef ENABLE_SECURE_SOCKETS_LOGS
+#define tls_cy_log_msg cy_log_msg
+#else
+#define tls_cy_log_msg(a,b,c,...)
+#endif
 
 typedef struct cy_tls_context_mbedtls
 {
@@ -158,7 +164,7 @@ static int cy_tls_internal_send(void *context, const unsigned char *buffer, size
 {
     cy_tls_context_mbedtls_t *tls_ctx = ( cy_tls_context_mbedtls_t * ) context;
     cy_rslt_t result;
-    uint32_t bytes_sent;
+    uint32_t bytes_sent = 0;
 
     if(context == NULL || buffer == NULL || length <= 0)
     {
@@ -169,6 +175,14 @@ static int cy_tls_internal_send(void *context, const unsigned char *buffer, size
     if( result == CY_RSLT_SUCCESS)
     {
         return bytes_sent;
+    }
+    else if(result == CY_RSLT_MODULE_TLS_TIMEOUT)
+    {
+        return MBEDTLS_ERR_SSL_TIMEOUT;
+    }
+    else if(result == CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE)
+    {
+        return MBEDTLS_ERR_SSL_ALLOC_FAILED;
     }
 
     return -1;
@@ -187,9 +201,9 @@ static int cy_tls_internal_send(void *context, const unsigned char *buffer, size
  */
 static int cy_tls_internal_recv(void *context, unsigned char *buffer, size_t length)
 {
-    cy_tls_context_mbedtls_t *ctx = ( cy_tls_context_mbedtls_t * ) context;
+    cy_tls_context_mbedtls_t *ctx = (cy_tls_context_mbedtls_t *) context;
     cy_rslt_t result;
-    uint32_t bytes_received;
+    uint32_t bytes_received = 0;
 
     if(context == NULL || buffer == NULL || length <= 0)
     {
@@ -197,10 +211,17 @@ static int cy_tls_internal_recv(void *context, unsigned char *buffer, size_t len
     }
 
     result =  ctx->cy_tls_network_recv(ctx->caller_context, buffer, length, &bytes_received);
-
     if(result == CY_RSLT_SUCCESS)
     {
         return bytes_received;
+    }
+    else if(result == CY_RSLT_MODULE_TLS_TIMEOUT)
+    {
+        return MBEDTLS_ERR_SSL_TIMEOUT;
+    }
+    else if(result == CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE)
+    {
+        return MBEDTLS_ERR_SSL_ALLOC_FAILED;
     }
 
     return -1;
@@ -242,7 +263,7 @@ static cy_rslt_t cy_tls_internal_load_root_ca_certificates(mbedtls_x509_crt** ro
     result = mbedtls_x509_crt_parse(*root_ca_certs, (const unsigned char *)trusted_ca_certificates, cert_length + 1);
     if(result != 0)
     {
-        TLS_LIBRARY_ERROR((" mbedtls_x509_crt_parse failed 0x%x\r\n", -result));
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_x509_crt_parse failed 0x%x\r\n", -result);
         mbedtls_x509_crt_free(*root_ca_certs);
         free(*root_ca_certs);
         *root_ca_certs = NULL;
@@ -258,7 +279,7 @@ cy_rslt_t cy_tls_release_global_root_ca_certificates(void)
     result = cy_tls_internal_release_root_ca_certificates(root_ca_certificates);
     if(result != CY_RSLT_SUCCESS)
     {
-        TLS_LIBRARY_ERROR(("cy_tls_release_global_root_ca_certificates failed\r\n"));
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "cy_tls_release_global_root_ca_certificates failed\r\n");
     }
     root_ca_certificates = NULL;
 
@@ -403,7 +424,7 @@ cy_rslt_t cy_tls_create_identity(const char *certificate_data, const uint32_t ce
         ret = mbedtls_x509_crt_parse( &identity->certificate, (const unsigned char *) certificate_data, certificate_len + 1 );
         if (ret != 0)
         {
-            TLS_LIBRARY_ERROR((" mbedtls_x509_crt_parse failed with error %d\r\n", ret));
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_x509_crt_parse failed with error %d\r\n", ret);
             result = CY_RSLT_MODULE_TLS_PARSE_CERTIFICATE;
         }
     }
@@ -416,7 +437,7 @@ cy_rslt_t cy_tls_create_identity(const char *certificate_data, const uint32_t ce
         ret = mbedtls_pk_parse_key( &identity->private_key, (const unsigned char *) private_key, private_key_len+1, NULL, 0 );
         if ( ret != 0 )
         {
-            TLS_LIBRARY_ERROR((" mbedtls_pk_parse_key failed with error %d\r\n", ret));
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_pk_parse_key failed with error %d\r\n", ret);
             result = CY_RSLT_MODULE_TLS_PARSE_KEY;
         }
     }
@@ -503,13 +524,13 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint)
     if((ret = mbedtls_ctr_drbg_seed(&ctx->ctr_drbg, mbedtls_entropy_func,
             &ctx->entropy, (const unsigned char *) pers, strlen(pers))) != 0)
     {
-        TLS_LIBRARY_ERROR((" mbedtls_ctr_drbg_seed failed 0x%x\r\n", -ret));
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_ctr_drbg_seed failed 0x%x\r\n", -ret);
         return CY_RSLT_MODULE_TLS_ERROR;
     }
 
     if( (ret = mbedtls_ssl_config_defaults(&ctx->ssl_config, (int)endpoint, MBEDTLS_SSL_TRANSPORT_STREAM, MBEDTLS_SSL_PRESET_DEFAULT)) != 0)
     {
-        TLS_LIBRARY_ERROR((" mbedtls_ssl_config_defaults failed 0x%x\r\n", -ret));
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_ssl_config_defaults failed 0x%x\r\n", -ret);
         return CY_RSLT_MODULE_TLS_ERROR;
     }
 
@@ -525,7 +546,7 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint)
     ret = mbedtls_ssl_conf_max_frag_len(&ctx->ssl_config, ctx->mfl_code);
     if(ret)
     {
-        TLS_LIBRARY_ERROR((" mbedtls_ssl_conf_max_frag_len failed 0x%x\r\n", -ret));
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_ssl_conf_max_frag_len failed 0x%x\r\n", -ret);
         return CY_RSLT_MODULE_TLS_ERROR;
     }
 
@@ -534,7 +555,7 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint)
         ret = mbedtls_ssl_conf_alpn_protocols(&ctx->ssl_config, ctx->alpn_list);
         if(ret)
         {
-            TLS_LIBRARY_ERROR(("mbedtls_ssl_conf_alpn_protocols failed 0x%x\r\n", -ret));
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_ssl_conf_alpn_protocols failed 0x%x\r\n", -ret);
             return CY_RSLT_MODULE_TLS_ERROR;
         }
     }
@@ -554,44 +575,44 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint)
         ret = mbedtls_ssl_conf_own_cert(&ctx->ssl_config, &tls_identity->certificate, &tls_identity->private_key);
         if ( ret != 0)
         {
-            TLS_LIBRARY_ERROR(("mbedtls_ssl_conf_own_cert failed with error %d \r\n", ret));
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_ssl_conf_own_cert failed with error %d \r\n", ret);
             return CY_RSLT_MODULE_TLS_ERROR;
         }
     }
 
     if((ret = mbedtls_ssl_setup(&ctx->ssl_ctx, &ctx->ssl_config)) != 0)
     {
-        TLS_LIBRARY_ERROR((" mbedtls_ssl_config_defaults failed 0x%x\r\n", ret));
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_ssl_config_defaults failed 0x%x\r\n", ret);
         return CY_RSLT_MODULE_TLS_ERROR;
     }
 
     if((ret = mbedtls_ssl_set_hostname(&ctx->ssl_ctx, ctx->hostname)) != 0)
     {
-        TLS_LIBRARY_ERROR((" mbedtls_ssl_set_hostname failed 0x%x\r\n", ret));
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_ssl_set_hostname failed 0x%x\r\n", ret);
         return CY_RSLT_MODULE_TLS_ERROR;
     }
 
     mbedtls_ssl_set_bio(&ctx->ssl_ctx, context, cy_tls_internal_send, cy_tls_internal_recv, NULL);
 
-    TLS_LIBRARY_DEBUG(("Performing the TLS handshake\r\n"));
+    tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "Performing the TLS handshake\r\n");
 
-    TLS_LIBRARY_DEBUG(("cy_tls_handshake_mutex locked %s %d\n", __FILE__, __LINE__));
+    tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_tls_handshake_mutex locked %s %d\n", __FILE__, __LINE__);
     cy_rtos_get_mutex(&cy_tls_handshake_mutex, CY_RTOS_NEVER_TIMEOUT);
     while((ret = mbedtls_ssl_handshake( &ctx->ssl_ctx)) != 0)
     {
         if(ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE)
         {
             cy_rtos_set_mutex(&cy_tls_handshake_mutex);
-            TLS_LIBRARY_DEBUG(("cy_tls_handshake_mutex unlocked %s %d\n", __FILE__, __LINE__));
-            TLS_LIBRARY_ERROR(( " mbedtls_ssl_handshake failed 0x%x\r\n", -ret));
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_tls_handshake_mutex unlocked %s %d\n", __FILE__, __LINE__);
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_ssl_handshake failed 0x%x\r\n", -ret);
             return CY_RSLT_MODULE_TLS_ERROR;
         }
     }
     cy_rtos_set_mutex(&cy_tls_handshake_mutex);
-    TLS_LIBRARY_DEBUG(("cy_tls_handshake_mutex unlocked %s %d\n", __FILE__, __LINE__));
+    tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_tls_handshake_mutex unlocked %s %d\n", __FILE__, __LINE__);
 
     ctx->tls_handshake_successful = true;
-    TLS_LIBRARY_DEBUG(("TLS handshake successful \r\n"));
+    tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "TLS handshake successful \r\n");
 
     return CY_RSLT_SUCCESS;
 }
@@ -600,13 +621,15 @@ cy_rslt_t cy_tls_send(void *context, const unsigned char *data, uint32_t length,
 {
     cy_tls_context_mbedtls_t *ctx = (cy_tls_context_mbedtls_t *) context;
     size_t sent = 0;
-    int result;
-    cy_rslt_t ret = CY_RSLT_SUCCESS;
+    int ret;
+    cy_rslt_t result = CY_RSLT_SUCCESS;
 
     if(context == NULL || data == NULL || length == 0 || bytes_sent == NULL)
     {
         return CY_RSLT_MODULE_TLS_BADARG;
     }
+
+    *bytes_sent = 0;
 
     if(!ctx->tls_handshake_successful)
     {
@@ -615,31 +638,46 @@ cy_rslt_t cy_tls_send(void *context, const unsigned char *data, uint32_t length,
 
     while(sent < length)
     {
-        result = mbedtls_ssl_write(&ctx->ssl_ctx, data + sent, length-sent);
-
-        if(result > 0)
+        ret = mbedtls_ssl_write(&ctx->ssl_ctx, data + sent, length-sent);
+        if(ret > 0)
         {
             /* Update sent count. */
-            sent += result;
+            sent += ret;
         }
-        else if(0 == result)
+        else if(0 == ret)
         {
-            result = 0;
+            ret = 0;
             break;
         }
-        else if(MBEDTLS_ERR_SSL_WANT_WRITE != result)
+        else if(MBEDTLS_ERR_SSL_TIMEOUT == ret)
         {
-            TLS_LIBRARY_ERROR(( "mbedtls_ssl_write failed with error %d \r\n", -result));
-            ret = CY_RSLT_MODULE_TLS_ERROR;
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "Timeout\r\n");
+            result = CY_RSLT_MODULE_TLS_TIMEOUT;
+            break;
+        }
+        else if(MBEDTLS_ERR_SSL_ALLOC_FAILED == ret)
+        {
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "Alloc failed\r\n");
+            result = CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE;
+            break;
+        }
+        else if( (MBEDTLS_ERR_SSL_WANT_WRITE != ret) && (MBEDTLS_ERR_SSL_WANT_READ != ret) )
+        {
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_ssl_write failed with error %d \r\n", -ret);
+            result = CY_RSLT_MODULE_TLS_ERROR;
             break;
         }
     }
 
-    if( CY_RSLT_SUCCESS == ret)
+    /* Check if bytes sent is != 0 then return success. If not, return error */
+    if(sent != 0)
     {
+        /* Assign the number of bytes read */
         *bytes_sent = sent;
+        result = CY_RSLT_SUCCESS;
     }
-    return ret;
+
+    return result;
 }
 /*-----------------------------------------------------------*/
 cy_rslt_t cy_tls_recv(void *context, unsigned char *buffer, uint32_t length, uint32_t *bytes_received)
@@ -653,6 +691,8 @@ cy_rslt_t cy_tls_recv(void *context, unsigned char *buffer, uint32_t length, uin
     {
         return CY_RSLT_MODULE_TLS_BADARG;
     }
+
+    *bytes_received = 0;
 
     if(!ctx->tls_handshake_successful)
     {
@@ -677,17 +717,30 @@ cy_rslt_t cy_tls_recv(void *context, unsigned char *buffer, uint32_t length, uin
         else if((ret == 0) || (ret == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY) || (ret == MBEDTLS_ERR_SSL_CLIENT_RECONNECT))
         {
             /* Connection closed. Return error */
-            TLS_LIBRARY_DEBUG(("connection closed\r\n"));
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "connection closed\r\n");
             result = CY_RSLT_MODULE_TLS_CONNECTION_CLOSED;
+            break;
+        }
+        else if(ret == MBEDTLS_ERR_SSL_TIMEOUT)
+        {
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "Timeout\r\n");
+            result = CY_RSLT_MODULE_TLS_TIMEOUT;
+            break;
+        }
+        else if(ret == MBEDTLS_ERR_SSL_ALLOC_FAILED)
+        {
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "Alloc failed\r\n");
+            result = CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE;
             break;
         }
         else
         {
-            TLS_LIBRARY_DEBUG(("mbedtls_ssl_read returned -0x%x\r\n", -ret));
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "mbedtls_ssl_read returned -0x%x\r\n", -ret);
             result = CY_RSLT_MODULE_TLS_ERROR;
             break;
         }
     } while(read < length);
+
     /* Check if bytes read is != 0 then return success. If not, return error */
     if (read != 0)
     {
@@ -695,6 +748,7 @@ cy_rslt_t cy_tls_recv(void *context, unsigned char *buffer, uint32_t length, uin
         *bytes_received = read;
         result = CY_RSLT_SUCCESS;
     }
+
     return result;
 }
 /*-----------------------------------------------------------*/
@@ -734,7 +788,7 @@ cy_rslt_t cy_tls_config_cert_profile_param(cy_tls_md_type_t mds_type, cy_tls_rsa
             break;
 
         default:
-            TLS_LIBRARY_ERROR(("Message digest signature type [%d] is currently not supported\n",(int)mds_type));
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Message digest signature type [%d] is currently not supported\n",(int)mds_type);
             return CY_RSLT_MODULE_TLS_BADARG;
     }
 
@@ -749,7 +803,7 @@ cy_rslt_t cy_tls_config_cert_profile_param(cy_tls_md_type_t mds_type, cy_tls_rsa
             break;
 
         default:
-            TLS_LIBRARY_ERROR(("RSA min key length [%d] is not supported\n", (int)rsa_bit_len));
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "RSA min key length [%d] is not supported\n", (int)rsa_bit_len);
             return CY_RSLT_MODULE_TLS_BADARG;
     }
 
@@ -764,7 +818,7 @@ cy_rslt_t cy_tls_deinit(void)
 
     if(!init_ref_count)
     {
-        TLS_LIBRARY_ERROR(("library not initialized\n"));
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "library not initialized\n");
         return CY_RSLT_MODULE_TLS_ERROR;
     }
     init_ref_count--;

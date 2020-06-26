@@ -6,7 +6,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.13"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Cypress Secure Sockets: Typedefs</title>
+<title>Secure Sockets: Typedefs</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -30,7 +30,7 @@
  <tr style="height: 56px;">
   <td id="projectlogo"><a href="http://www.cypress.com/"><img alt="Logo" src="cypress_logo.png"/></a></td>
   <td id="projectalign" style="padding-left: 0.5em;">
-   <div id="projectname">Cypress Secure Sockets</div>
+   <div id="projectname">Secure Sockets</div>
   </td>
  </tr>
  </tbody>
@@ -81,10 +81,9 @@ $(document).ready(function(){initNavTree('group__group__cy__tls__typedefs.html',
 
 <div class="header">
   <div class="summary">
-<a href="#typedef-members">Typedefs</a> &#124;
-<a href="#enum-members">Enumerations</a>  </div>
+<a href="#typedef-members">Typedefs</a>  </div>
   <div class="headertitle">
-<div class="title">Typedefs<div class="ingroups"><a class="el" href="group__group__cy__tls.html">Cypress TLS API</a></div></div>  </div>
+<div class="title">Typedefs<div class="ingroups"><a class="el" href="group__group__cy__tls.html">TLS API</a></div></div>  </div>
 </div><!--header-->
 <div class="contents">
 <a name="details" id="details"></a><h2 class="groupheader">General Description</h2>
@@ -101,33 +100,6 @@ typedef void *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" 
 <tr class="memitem:ga58d8b1a23cfac4a8e7ad631cdb1b66a0"><td class="memItemLeft" align="right" valign="top">typedef cy_rslt_t(*&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__cy__tls__typedefs.html#ga58d8b1a23cfac4a8e7ad631cdb1b66a0">cy_network_recv_t</a>) (void *context, unsigned char *buffer, uint32_t length, uint32_t *bytes_received)</td></tr>
 <tr class="memdesc:ga58d8b1a23cfac4a8e7ad631cdb1b66a0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Callback function used by the underlying TLS stack for reading TLS handshake messages or the encrypted data from the network.  <a href="#ga58d8b1a23cfac4a8e7ad631cdb1b66a0">More...</a><br /></td></tr>
 <tr class="separator:ga58d8b1a23cfac4a8e7ad631cdb1b66a0"><td class="memSeparator" colspan="2">&#160;</td></tr>
-</table><table class="memberdecls">
-<tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="enum-members"></a>
-Enumerations</h2></td></tr>
-<tr class="memitem:gae33f7537fb953f44173ea3b6a6a1e939"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__cy__tls__typedefs.html#gae33f7537fb953f44173ea3b6a6a1e939">cy_tls_endpoint_type_t</a> { <br />
-&#160;&#160;<b>CY_TLS_ENDPOINT_CLIENT</b> = 0, 
-<br />
-&#160;&#160;<a class="el" href="group__group__cy__tls__typedefs.html#ggae33f7537fb953f44173ea3b6a6a1e939ad05b298daf3a4d36dfa24d2b14fd5fbf">CY_TLS_ENDPOINT_SERVER</a> = 1
-<br />
- }<tr class="memdesc:gae33f7537fb953f44173ea3b6a6a1e939"><td class="mdescLeft">&#160;</td><td class="mdescRight">Endpoint type for TLS handshake.  <a href="group__group__cy__tls__typedefs.html#gae33f7537fb953f44173ea3b6a6a1e939">More...</a><br /></td></tr>
-</td></tr>
-<tr class="separator:gae33f7537fb953f44173ea3b6a6a1e939"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:gad8adf739bb77cf42fd5e0b468c6677f6"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__cy__tls__typedefs.html#gad8adf739bb77cf42fd5e0b468c6677f6">cy_tls_md_type_t</a> { <a class="el" href="group__group__cy__tls__typedefs.html#ggad8adf739bb77cf42fd5e0b468c6677f6af6ba8572b9b01d7ec8bcf7442afecea0">CY_TLS_MD_SHA1</a>
- }<tr class="memdesc:gad8adf739bb77cf42fd5e0b468c6677f6"><td class="mdescLeft">&#160;</td><td class="mdescRight">Message digest type for configuring TLS certificate profile.  <a href="group__group__cy__tls__typedefs.html#gad8adf739bb77cf42fd5e0b468c6677f6">More...</a><br /></td></tr>
-</td></tr>
-<tr class="separator:gad8adf739bb77cf42fd5e0b468c6677f6"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:ga050d16fa3dbe50238685202474ddbe71"><td class="memItemLeft" align="right" valign="top"><a id="ga050d16fa3dbe50238685202474ddbe71"></a>enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__cy__tls__typedefs.html#ga050d16fa3dbe50238685202474ddbe71">cy_tls_rsa_min_key_len_t</a> { <br />
-&#160;&#160;<b>CY_TLS_RSA_MIN_KEY_LEN_1024</b> = 1024, 
-<br />
-&#160;&#160;<b>CY_TLS_RSA_MIN_KEY_LEN_2048</b> = 2048, 
-<br />
-&#160;&#160;<b>CY_TLS_RSA_MIN_KEY_LEN_3072</b> = 3072, 
-<br />
-&#160;&#160;<b>CY_TLS_RSA_MIN_KEY_LEN_4096</b> = 4096
-<br />
- }<tr class="memdesc:ga050d16fa3dbe50238685202474ddbe71"><td class="mdescLeft">&#160;</td><td class="mdescRight">Minimum RSA key length in bits. <br /></td></tr>
-</td></tr>
-<tr class="separator:ga050d16fa3dbe50238685202474ddbe71"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Typedef Documentation</h2>
 <a id="ga03ce59df2cb0bbf2a08e687e551c852e"></a>
@@ -145,9 +117,9 @@ Enumerations</h2></td></tr>
 <p>Callback function used by the underlying TLS stack for sending the TLS handshake messages and encrypted data over the network. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramdir">[in]</td><td class="paramname">context</td><td>Context provided by caller </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">context</td><td>User context provided at the time of callback registration. </td></tr>
     <tr><td class="paramdir">[in]</td><td class="paramname">buffer</td><td>Buffer of the data to send. </td></tr>
-    <tr><td class="paramdir">[in]</td><td class="paramname">length</td><td>Length of the buffer </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">length</td><td>Length of the buffer. </td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">bytes_sent</td><td>Number of bytes successfully sent over the network.</td></tr>
   </table>
   </dd>
@@ -171,7 +143,7 @@ Enumerations</h2></td></tr>
 <p>Callback function used by the underlying TLS stack for reading TLS handshake messages or the encrypted data from the network. </p>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
-    <tr><td class="paramdir">[in]</td><td class="paramname">context</td><td>Context provided at the time of callback registration. </td></tr>
+    <tr><td class="paramdir">[in]</td><td class="paramname">context</td><td>User context provided at the time of callback registration. </td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">buffer</td><td>Buffer into which the received data will be placed. </td></tr>
     <tr><td class="paramdir">[in]</td><td class="paramname">length</td><td>Size of the buffer. </td></tr>
     <tr><td class="paramdir">[out]</td><td class="paramname">bytes_received</td><td>Number of bytes received.</td></tr>
@@ -182,54 +154,13 @@ Enumerations</h2></td></tr>
 
 </div>
 </div>
-<h2 class="groupheader">Enumeration Type Documentation</h2>
-<a id="gae33f7537fb953f44173ea3b6a6a1e939"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#gae33f7537fb953f44173ea3b6a6a1e939">&#9670;&nbsp;</a></span>cy_tls_endpoint_type_t</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">enum <a class="el" href="group__group__cy__tls__typedefs.html#gae33f7537fb953f44173ea3b6a6a1e939">cy_tls_endpoint_type_t</a></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Endpoint type for TLS handshake. </p>
-<table class="fieldtable">
-<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="ggae33f7537fb953f44173ea3b6a6a1e939ad05b298daf3a4d36dfa24d2b14fd5fbf"></a>CY_TLS_ENDPOINT_SERVER&#160;</td><td class="fielddoc"><p>Endpoint is a client. </p>
-</td></tr>
-</table>
-
-</div>
-</div>
-<a id="gad8adf739bb77cf42fd5e0b468c6677f6"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#gad8adf739bb77cf42fd5e0b468c6677f6">&#9670;&nbsp;</a></span>cy_tls_md_type_t</h2>
-
-<div class="memitem">
-<div class="memproto">
-      <table class="memname">
-        <tr>
-          <td class="memname">enum <a class="el" href="group__group__cy__tls__typedefs.html#gad8adf739bb77cf42fd5e0b468c6677f6">cy_tls_md_type_t</a></td>
-        </tr>
-      </table>
-</div><div class="memdoc">
-
-<p>Message digest type for configuring TLS certificate profile. </p>
-<table class="fieldtable">
-<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="ggad8adf739bb77cf42fd5e0b468c6677f6af6ba8572b9b01d7ec8bcf7442afecea0"></a>CY_TLS_MD_SHA1&#160;</td><td class="fielddoc"><p>The SHA-1 message digest. </p>
-</td></tr>
-</table>
-
-</div>
-</div>
 </div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->
 <div id="nav-path" class="navpath">
     <ul>
         <li class="footer">
-            Generated for <b>Cypress Secure Sockets</b> by <b>Cypress Semiconductor Corporation</b>.
+            Generated for <b>Secure Sockets</b> by <b>Cypress Semiconductor Corporation</b>.
             All rights reserved.
         </li>
     </ul>

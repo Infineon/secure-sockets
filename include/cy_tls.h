@@ -16,18 +16,18 @@
  */
 
 /** @file
- *  Defines the Cypress TLS Interface.
+ *  Defines the TLS Interface.
  *
  *  This file provides functions for secure communication over the IP network.
  *
  */
 
 /**
- * \defgroup group_cy_tls Cypress TLS API
- * \brief The TLS API provides functions for secure communication over the IP network
+ * \defgroup group_cy_tls TLS API
+ * \brief The TLS API provides functions for secure communication over the IP network.
  * \addtogroup group_cy_tls
  * \{
- * \defgroup group_cy_tls_macros Macros
+ * \defgroup group_cy_tls_enums Enumerations
  * \defgroup group_cy_tls_typedefs Typedefs
  * \defgroup group_cy_tls_structures Structures
  * \defgroup group_cy_tls_functions Functions
@@ -50,7 +50,7 @@ extern "C" {
  *                      Enums
  ******************************************************/
 /**
- * \addtogroup group_cy_tls_typedefs
+ * \addtogroup group_cy_tls_enums
  * \{
  */
 
@@ -79,10 +79,16 @@ typedef enum {
     CY_TLS_RSA_MIN_KEY_LEN_3072 = 3072,
     CY_TLS_RSA_MIN_KEY_LEN_4096 = 4096,
 } cy_tls_rsa_min_key_len_t;
+/** \} group_cy_tls_enums */
 
 /******************************************************
  *                      Typedefs
  ******************************************************/
+
+/**
+ * \addtogroup group_cy_tls_typedefs
+ * \{
+ */
 
 /**
  * TLS context type.
@@ -92,9 +98,9 @@ typedef void * cy_tls_context_t;
 /**
  * Callback function used by the underlying TLS stack for sending the TLS handshake messages and encrypted data over the network.
  *
- * @param[in]  context     Context provided by caller
+ * @param[in]  context     User context provided at the time of callback registration.
  * @param[in]  buffer      Buffer of the data to send.
- * @param[in]  length      Length of the buffer
+ * @param[in]  length      Length of the buffer.
  * @param[out] bytes_sent  Number of bytes successfully sent over the network.
  *
  * @return     CY_RSLT_SUCCESS on success; an error code on failure. On success, it also returns the number of bytes sent.
@@ -104,7 +110,7 @@ typedef cy_rslt_t ( * cy_network_send_t )( void *context, const unsigned char *b
 /**
  * Callback function used by the underlying TLS stack for reading TLS handshake messages or the encrypted data from the network.
  *
- * @param[in]  context        Context provided at the time of callback registration.
+ * @param[in]  context        User context provided at the time of callback registration.
  * @param[out] buffer         Buffer into which the received data will be placed.
  * @param[in]  length         Size of the buffer.
  * @param[out] bytes_received Number of bytes received.
@@ -124,13 +130,13 @@ typedef cy_rslt_t ( * cy_network_recv_t )( void *context, unsigned char *buffer,
  */
 typedef struct cy_tls_params
 {
-    const char *      rootca_certificate;        /**< RootCA certificate in PEM format. It should be a 'null' terminated string.*/
+    const char *      rootca_certificate;        /**< RootCA certificate in PEM format. It should be a 'null'-terminated string.*/
     uint32_t          rootca_certificate_length; /**< RootCA certificate length, excluding the 'null' terminator. */
-    const void *      tls_identity;              /**< Pointer to memory containing the certificate and private key in underlying TLS stack format. */
+    const void *      tls_identity;              /**< Pointer to memory containing the certificate and private key in the underlying TLS stack format. */
     int               auth_mode;                 /**< TLS authentication mode. */
     unsigned char     mfl_code;                  /**< TLS max fragment length code. */
-    const char**      alpn_list;                 /**< ALPN protocol list to be passed in TLS ALPN extension. */
-    char*             hostname;                  /**< Server hostname used with SNI extension. */
+    const char**      alpn_list;                 /**< Application-Layer Protocol Negotiation (ALPN) protocol list to be passed in TLS ALPN extension. */
+    char*             hostname;                  /**< Server hostname used with the Server Name Indication (SNI) extension. */
     cy_network_recv_t network_recv;              /**< Pointer to a caller-defined network receive function. */
     cy_network_send_t network_send;              /**< Pointer to a caller-defined network send function. */
     void *            context;                   /**< User context. */
@@ -153,12 +159,12 @@ typedef struct cy_tls_params
  * Does general allocation and initialization of resources needed for the library.
  * This API function must be called before using any other context-based TLS API functions.
  *
- * NOTE:
+ * \note
  *  1. Helper APIs \ref cy_tls_load_global_root_ca_certificates, \ref cy_tls_release_global_root_ca_certificates,
- *     \ref cy_tls_create_identity and \ref cy_tls_delete_identity can be called without calling \ref cy_tls_init.
+ *     \ref cy_tls_create_identity, and \ref cy_tls_delete_identity can be called without calling \ref cy_tls_init.
  *
  *  2. \ref cy_tls_init and \ref cy_tls_deinit API functions are not thread-safe.
- *     Caller should ensure that these two API functions are not invoked simultaneously from different threads.
+ *     The caller must ensure that these two API functions are not invoked simultaneously from different threads.
  *
  *  3. This API function initializes the RTC using the default time instead of the actual time.
  *     Currently, the platform does not have support to get the current time; therefore, the default time is used for the RTC.
@@ -169,8 +175,8 @@ cy_rslt_t cy_tls_init( void );
 
 /**
  * Releases the resources allocated in the \ref cy_tls_init function.
- * NOTE: \ref cy_tls_init and \ref cy_tls_deinit API functions are not thread-safe.
- *        Caller should ensure that these two API functions are not invoked simultaneously from different threads.
+ * \note \ref cy_tls_init and \ref cy_tls_deinit API functions are not thread-safe.
+ *        The caller must ensure that these two API functions are not invoked simultaneously from different threads.
  *
  * @return     CY_RSLT_SUCCESS on success; an error code on failure.
  */
@@ -178,10 +184,10 @@ cy_rslt_t cy_tls_deinit( void );
 
 /** Initializes the global trusted RootCA certificates used for verifying certificates received during TLS handshake.
  *  This function parses the RootCA certificate chain and converts it to the underlying TLS stack format.
- *  It also stores the converted RootCA in its internal memory.
+ *  It also stores the converted RootCA in its internal memory. This function overrides previously loaded RootCA certificates.
  *
- *  NOTE: \ref cy_tls_load_global_root_ca_certificates and \ref cy_tls_release_global_root_ca_certificates API functions are not thread-safe.
- *        Caller should ensure that these two API functions are not invoked simultaneously from different threads.
+ *  \note \ref cy_tls_load_global_root_ca_certificates and \ref cy_tls_release_global_root_ca_certificates API functions are not thread-safe.
+ *        The caller must ensure that these two API functions are not invoked simultaneously from different threads.
  *
  * @param[in] trusted_ca_certificates  A chain of x509 certificates in PEM or DER format. It should be a null-terminated string.
  *                                     This chain of certificates comprise the public keys of the signing authorities.
@@ -199,8 +205,8 @@ cy_rslt_t cy_tls_load_global_root_ca_certificates( const char* trusted_ca_certif
 
 /** Releases the resources allocated by the \ref cy_tls_load_global_root_ca_certificates API function.
  *
- *  NOTE: \ref cy_tls_load_global_root_ca_certificates and \ref cy_tls_release_global_root_ca_certificates API functions are not thread-safe.
- *        Caller should ensure that these two API functions are not invoked simultaneously from different threads.
+ *  \note \ref cy_tls_load_global_root_ca_certificates and \ref cy_tls_release_global_root_ca_certificates API functions are not thread-safe.
+ *        The caller must ensure that these two API functions are not invoked simultaneously from different threads.
  *
  * @return cy_rslt_t    CY_RESULT_SUCCESS on success; an error code on failure.
  */
@@ -211,7 +217,7 @@ cy_rslt_t cy_tls_release_global_root_ca_certificates( void );
  *
  * @param[in] certificate_data       x509 certificate in PEM format. It should be a null-terminated string.
  * @param[in] certificate_len        Length of the certificate excluding the 'null' terminator.
- * @param[in] private_key            Private key in PEM format. It should be a null terminated string.
+ * @param[in] private_key            Private key in PEM format. It should be a null-terminated string.
  * @param[in] private_key_len        Length of the private key excluding the 'null' terminator.
  * @param[out] tls_identity          Pointer to a memory location containing the certificate and key in the underlying TLS stack format.
  *
@@ -238,10 +244,10 @@ cy_rslt_t cy_tls_delete_identity( void *tls_identity );
 /**
  * Creates a TLS context structure from the input parameters.
  * It allocates a TLS context structure and stores the RootCA, TLS identity,
- * send/receive callback functions, server name to be used in SNI extension,
- * protocol list to be added to ALPN extension, and user context.
- * The TLS parameters provided by the user are used in later cy_tls API function calls.
- * Memory holding the parameters should not be freed until completely done with using cy_tls API functions.
+ * send/receive callback functions, server name to be used in the SNI extension,
+ * protocol list to be added to the ALPN extension, and user context.
+ * TLS parameters provided by the user are used in later cy_tls API function calls.
+ * The memory holding the parameters should not be freed until completely done with using cy_tls API functions.
  *
  * @param[out] context Context handle returned by the TLS layer.
  * @param[in]  params  TLS parameters specified by the caller such as the server certificate.

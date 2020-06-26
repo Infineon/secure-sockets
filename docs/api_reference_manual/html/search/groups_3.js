@@ -1,6 +1,7 @@
 var searchData=
 [
-  ['macros',['Macros',['../group__group__cy__tls__macros.html',1,'']]],
-  ['macros',['Macros',['../group__group__secure__sockets__macros.html',1,'']]],
-  ['message_20sequence_20charts',['Message Sequence Charts',['../group__group__secure__sockets__mscs.html',1,'']]]
+  ['structures',['Structures',['../group__group__cy__tls__structures.html',1,'']]],
+  ['secure_20sockets_20api',['Secure Sockets API',['../group__group__secure__sockets.html',1,'']]],
+  ['secure_20sockets_20results_2ferror_20codes',['Secure Sockets results/error codes',['../group__group__secure__sockets__results.html',1,'']]],
+  ['structures',['Structures',['../group__group__secure__sockets__structures.html',1,'']]]
 ];

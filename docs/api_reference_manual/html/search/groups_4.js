@@ -1,6 +1,6 @@
 var searchData=
 [
-  ['structures',['Structures',['../group__group__cy__tls__structures.html',1,'']]],
-  ['secure_20sockets_20results_2ferror_20codes',['Secure Sockets results/error codes',['../group__group__secure__sockets__results.html',1,'']]],
-  ['structures',['Structures',['../group__group__secure__sockets__structures.html',1,'']]]
+  ['tls_20api',['TLS API',['../group__group__cy__tls.html',1,'']]],
+  ['typedefs',['Typedefs',['../group__group__cy__tls__typedefs.html',1,'']]],
+  ['typedefs',['Typedefs',['../group__group__secure__sockets__typedefs.html',1,'']]]
 ];

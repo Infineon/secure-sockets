@@ -11,7 +11,7 @@ var group__group__secure__sockets__functions =
     [ "cy_socket_send", "group__group__secure__sockets__functions.html#gaf6ba24a0e4e6eb3c24087938aa3ae021", null ],
     [ "cy_socket_sendto", "group__group__secure__sockets__functions.html#ga4bc4e8aed9916206f073cb22cf4009cc", null ],
     [ "cy_socket_recv", "group__group__secure__sockets__functions.html#gaeb1269bd36384293539dc749095412f7", null ],
-    [ "cy_socket_recvfrom", "group__group__secure__sockets__functions.html#gabd66627064ccb091602613bf127a3d56", null ],
+    [ "cy_socket_recvfrom", "group__group__secure__sockets__functions.html#ga29df5cbdaa9de0f324cf947454577727", null ],
     [ "cy_socket_setsockopt", "group__group__secure__sockets__functions.html#ga02e453d715d77075c59d751f6b07ae8f", null ],
     [ "cy_socket_getsockopt", "group__group__secure__sockets__functions.html#gaa417ff64790869ca839134b636d0f473", null ],
     [ "cy_socket_gethostbyname", "group__group__secure__sockets__functions.html#gaeb05bcbd775c36f5fe3fe9d676329494", null ],

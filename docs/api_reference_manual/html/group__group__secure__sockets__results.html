@@ -6,7 +6,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.13"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Cypress Secure Sockets: Secure Sockets results/error codes</title>
+<title>Secure Sockets: Secure Sockets results/error codes</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -30,7 +30,7 @@
  <tr style="height: 56px;">
   <td id="projectlogo"><a href="http://www.cypress.com/"><img alt="Logo" src="cypress_logo.png"/></a></td>
   <td id="projectalign" style="padding-left: 0.5em;">
-   <div id="projectname">Cypress Secure Sockets</div>
+   <div id="projectname">Secure Sockets</div>
   </td>
  </tr>
  </tbody>
@@ -83,11 +83,11 @@ $(document).ready(function(){initNavTree('group__group__secure__sockets__results
   <div class="summary">
 <a href="#define-members">Macros</a>  </div>
   <div class="headertitle">
-<div class="title">Secure Sockets results/error codes<div class="ingroups"><a class="el" href="group__group__secure__sockets.html">Cypress Secure Sockets API</a> &raquo; <a class="el" href="group__group__secure__sockets__macros.html">Macros</a></div></div>  </div>
+<div class="title">Secure Sockets results/error codes<div class="ingroups"><a class="el" href="group__group__secure__sockets.html">Secure Sockets API</a> &raquo; <a class="el" href="group__group__secure__sockets__macros.html">Macros</a></div></div>  </div>
 </div><!--header-->
 <div class="contents">
 <a name="details" id="details"></a><h2 class="groupheader">General Description</h2>
-<p>Cypress middleware APIs return results of type cy_rslt_t and comprise of three parts: </p>
+<p>Secure Sockets Library APIs return results of type cy_rslt_t and comprise of three parts: </p>
 <ul>
 <li>module base</li>
 <li>type</li>
@@ -180,6 +180,17 @@ Macros</h2></td></tr>
 #define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__secure__sockets__results.html#gaa6993d25f240ea318b81be9c1dbb1262">CY_RSLT_MODULE_SECURE_SOCKETS_NOT_INITIALIZED</a>&#160;&#160;&#160;( <a class="el" href="group__group__secure__sockets__results.html#ga47a0ff45a7680dc488de94c559f1cb31">CY_RSLT_SECURE_SOCKETS_ERR_BASE</a> + 17 )</td></tr>
 <tr class="memdesc:gaa6993d25f240ea318b81be9c1dbb1262"><td class="mdescLeft">&#160;</td><td class="mdescRight">Library not initialized. <br /></td></tr>
 <tr class="separator:gaa6993d25f240ea318b81be9c1dbb1262"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga124cf86b625393915202c81b9873fcde"><td class="memItemLeft" align="right" valign="top"><a id="ga124cf86b625393915202c81b9873fcde"></a>
+#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__secure__sockets__results.html#ga124cf86b625393915202c81b9873fcde">CY_RSLT_MODULE_SECURE_SOCKETS_NETIF_DOES_NOT_EXIST</a>&#160;&#160;&#160;( <a class="el" href="group__group__secure__sockets__results.html#ga47a0ff45a7680dc488de94c559f1cb31">CY_RSLT_SECURE_SOCKETS_ERR_BASE</a> + 18 )</td></tr>
+<tr class="memdesc:ga124cf86b625393915202c81b9873fcde"><td class="mdescLeft">&#160;</td><td class="mdescRight">Network interface does not exists. <br /></td></tr>
+<tr class="separator:ga124cf86b625393915202c81b9873fcde"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:gafe365734cca2ee1ad94cda64aec31d3f"><td class="memItemLeft" align="right" valign="top"><a id="gafe365734cca2ee1ad94cda64aec31d3f"></a>
+#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__secure__sockets__results.html#gafe365734cca2ee1ad94cda64aec31d3f">CY_RSLT_MODULE_SECURE_SOCKETS_ARP_TIMEOUT</a>&#160;&#160;&#160;( <a class="el" href="group__group__secure__sockets__results.html#ga47a0ff45a7680dc488de94c559f1cb31">CY_RSLT_SECURE_SOCKETS_ERR_BASE</a> + 19 )</td></tr>
+<tr class="memdesc:gafe365734cca2ee1ad94cda64aec31d3f"><td class="mdescLeft">&#160;</td><td class="mdescRight">ARP resolution timeout error. <br /></td></tr>
+<tr class="separator:gafe365734cca2ee1ad94cda64aec31d3f"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:gabb01e3617eec4fc087ea5b5be3f6b5ad"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__secure__sockets__results.html#gabb01e3617eec4fc087ea5b5be3f6b5ad">CY_RSLT_MODULE_SECURE_SOCKETS_BAD_NW_STACK_CONFIGURATION</a>&#160;&#160;&#160;( <a class="el" href="group__group__secure__sockets__results.html#ga47a0ff45a7680dc488de94c559f1cb31">CY_RSLT_SECURE_SOCKETS_ERR_BASE</a> + 20 )</td></tr>
+<tr class="memdesc:gabb01e3617eec4fc087ea5b5be3f6b5ad"><td class="mdescLeft">&#160;</td><td class="mdescRight">Both IPv4 and IPv6 network stack configuration is disabled.  <a href="#gabb01e3617eec4fc087ea5b5be3f6b5ad">More...</a><br /></td></tr>
+<tr class="separator:gabb01e3617eec4fc087ea5b5be3f6b5ad"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Macro Definition Documentation</h2>
 <a id="ga2a89a78e3b207e09012dd0c9ed8e49dd"></a>
@@ -199,13 +210,29 @@ Macros</h2></td></tr>
 
 </div>
 </div>
+<a id="gabb01e3617eec4fc087ea5b5be3f6b5ad"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#gabb01e3617eec4fc087ea5b5be3f6b5ad">&#9670;&nbsp;</a></span>CY_RSLT_MODULE_SECURE_SOCKETS_BAD_NW_STACK_CONFIGURATION</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define CY_RSLT_MODULE_SECURE_SOCKETS_BAD_NW_STACK_CONFIGURATION&#160;&#160;&#160;( <a class="el" href="group__group__secure__sockets__results.html#ga47a0ff45a7680dc488de94c559f1cb31">CY_RSLT_SECURE_SOCKETS_ERR_BASE</a> + 20 )</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Both IPv4 and IPv6 network stack configuration is disabled. </p>
+
+</div>
+</div>
 </div><!-- contents -->
 </div><!-- doc-content -->
 <!-- start footer part -->
 <div id="nav-path" class="navpath">
     <ul>
         <li class="footer">
-            Generated for <b>Cypress Secure Sockets</b> by <b>Cypress Semiconductor Corporation</b>.
+            Generated for <b>Secure Sockets</b> by <b>Cypress Semiconductor Corporation</b>.
             All rights reserved.
         </li>
     </ul>

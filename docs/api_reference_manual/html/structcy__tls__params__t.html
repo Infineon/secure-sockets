@@ -6,7 +6,7 @@
 <meta http-equiv="X-UA-Compatible" content="IE=9"/>
 <meta name="generator" content="Doxygen 1.8.13"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Cypress Secure Sockets: cy_tls_params_t Struct Reference</title>
+<title>Secure Sockets: cy_tls_params_t Struct Reference</title>
 <link href="tabs.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="jquery.js"></script>
 <script type="text/javascript" src="dynsections.js"></script>
@@ -30,7 +30,7 @@
  <tr style="height: 56px;">
   <td id="projectlogo"><a href="http://www.cypress.com/"><img alt="Logo" src="cypress_logo.png"/></a></td>
   <td id="projectalign" style="padding-left: 0.5em;">
-   <div id="projectname">Cypress Secure Sockets</div>
+   <div id="projectname">Secure Sockets</div>
   </td>
  </tr>
  </tbody>
@@ -83,7 +83,7 @@ $(document).ready(function(){initNavTree('structcy__tls__params__t.html','');});
   <div class="summary">
 <a href="#pub-attribs">Data Fields</a>  </div>
   <div class="headertitle">
-<div class="title">cy_tls_params_t Struct Reference<div class="ingroups"><a class="el" href="group__group__cy__tls.html">Cypress TLS API</a> &raquo; <a class="el" href="group__group__cy__tls__structures.html">Structures</a></div></div>  </div>
+<div class="title">cy_tls_params_t Struct Reference<div class="ingroups"><a class="el" href="group__group__cy__tls.html">TLS API</a> &raquo; <a class="el" href="group__group__cy__tls__structures.html">Structures</a></div></div>  </div>
 </div><!--header-->
 <div class="contents">
 <a name="details" id="details"></a><h2 class="groupheader">Description</h2>
@@ -98,7 +98,7 @@ Data Fields</h2></td></tr>
 <tr class="memdesc:a35aad84ed2472dd02d19b4af83ea4545"><td class="mdescLeft">&#160;</td><td class="mdescRight">RootCA certificate length, excluding the 'null' terminator.  <a href="#a35aad84ed2472dd02d19b4af83ea4545">More...</a><br /></td></tr>
 <tr class="separator:a35aad84ed2472dd02d19b4af83ea4545"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a573b570a103f6ebc9c9bf4d5a6e1d323"><td class="memItemLeft" align="right" valign="top">const void *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structcy__tls__params__t.html#a573b570a103f6ebc9c9bf4d5a6e1d323">tls_identity</a></td></tr>
-<tr class="memdesc:a573b570a103f6ebc9c9bf4d5a6e1d323"><td class="mdescLeft">&#160;</td><td class="mdescRight">Pointer to memory containing the certificate and private key in underlying TLS stack format.  <a href="#a573b570a103f6ebc9c9bf4d5a6e1d323">More...</a><br /></td></tr>
+<tr class="memdesc:a573b570a103f6ebc9c9bf4d5a6e1d323"><td class="mdescLeft">&#160;</td><td class="mdescRight">Pointer to memory containing the certificate and private key in the underlying TLS stack format.  <a href="#a573b570a103f6ebc9c9bf4d5a6e1d323">More...</a><br /></td></tr>
 <tr class="separator:a573b570a103f6ebc9c9bf4d5a6e1d323"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a06955dbf1136ae556cca7c39d0356274"><td class="memItemLeft" align="right" valign="top">int&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structcy__tls__params__t.html#a06955dbf1136ae556cca7c39d0356274">auth_mode</a></td></tr>
 <tr class="memdesc:a06955dbf1136ae556cca7c39d0356274"><td class="mdescLeft">&#160;</td><td class="mdescRight">TLS authentication mode.  <a href="#a06955dbf1136ae556cca7c39d0356274">More...</a><br /></td></tr>
@@ -107,10 +107,10 @@ Data Fields</h2></td></tr>
 <tr class="memdesc:a4149ff366e964d2cd1796b8738ecb018"><td class="mdescLeft">&#160;</td><td class="mdescRight">TLS max fragment length code.  <a href="#a4149ff366e964d2cd1796b8738ecb018">More...</a><br /></td></tr>
 <tr class="separator:a4149ff366e964d2cd1796b8738ecb018"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad0ee444760cdf55cbfbaf9f8e483b0b2"><td class="memItemLeft" align="right" valign="top">const char **&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structcy__tls__params__t.html#ad0ee444760cdf55cbfbaf9f8e483b0b2">alpn_list</a></td></tr>
-<tr class="memdesc:ad0ee444760cdf55cbfbaf9f8e483b0b2"><td class="mdescLeft">&#160;</td><td class="mdescRight">ALPN protocol list to be passed in TLS ALPN extension.  <a href="#ad0ee444760cdf55cbfbaf9f8e483b0b2">More...</a><br /></td></tr>
+<tr class="memdesc:ad0ee444760cdf55cbfbaf9f8e483b0b2"><td class="mdescLeft">&#160;</td><td class="mdescRight">Application-Layer Protocol Negotiation (ALPN) protocol list to be passed in TLS ALPN extension.  <a href="#ad0ee444760cdf55cbfbaf9f8e483b0b2">More...</a><br /></td></tr>
 <tr class="separator:ad0ee444760cdf55cbfbaf9f8e483b0b2"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:a1523b9b71441c583189b5afbff957765"><td class="memItemLeft" align="right" valign="top">char *&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structcy__tls__params__t.html#a1523b9b71441c583189b5afbff957765">hostname</a></td></tr>
-<tr class="memdesc:a1523b9b71441c583189b5afbff957765"><td class="mdescLeft">&#160;</td><td class="mdescRight">Server hostname used with SNI extension.  <a href="#a1523b9b71441c583189b5afbff957765">More...</a><br /></td></tr>
+<tr class="memdesc:a1523b9b71441c583189b5afbff957765"><td class="mdescLeft">&#160;</td><td class="mdescRight">Server hostname used with the Server Name Indication (SNI) extension.  <a href="#a1523b9b71441c583189b5afbff957765">More...</a><br /></td></tr>
 <tr class="separator:a1523b9b71441c583189b5afbff957765"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ab16d06b1abafbf35079bd7f878a2f690"><td class="memItemLeft" align="right" valign="top"><a class="el" href="group__group__cy__tls__typedefs.html#ga58d8b1a23cfac4a8e7ad631cdb1b66a0">cy_network_recv_t</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structcy__tls__params__t.html#ab16d06b1abafbf35079bd7f878a2f690">network_recv</a></td></tr>
 <tr class="memdesc:ab16d06b1abafbf35079bd7f878a2f690"><td class="mdescLeft">&#160;</td><td class="mdescRight">Pointer to a caller-defined network receive function.  <a href="#ab16d06b1abafbf35079bd7f878a2f690">More...</a><br /></td></tr>
@@ -136,7 +136,7 @@ Data Fields</h2></td></tr>
 </div><div class="memdoc">
 
 <p>RootCA certificate in PEM format. </p>
-<p>It should be a 'null' terminated string. </p>
+<p>It should be a 'null'-terminated string. </p>
 
 </div>
 </div>
@@ -168,7 +168,7 @@ Data Fields</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Pointer to memory containing the certificate and private key in underlying TLS stack format. </p>
+<p>Pointer to memory containing the certificate and private key in the underlying TLS stack format. </p>
 
 </div>
 </div>
@@ -216,7 +216,7 @@ Data Fields</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>ALPN protocol list to be passed in TLS ALPN extension. </p>
+<p>Application-Layer Protocol Negotiation (ALPN) protocol list to be passed in TLS ALPN extension. </p>
 
 </div>
 </div>
@@ -232,7 +232,7 @@ Data Fields</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p>Server hostname used with SNI extension. </p>
+<p>Server hostname used with the Server Name Indication (SNI) extension. </p>
 
 </div>
 </div>
@@ -290,7 +290,7 @@ Data Fields</h2></td></tr>
 <div id="nav-path" class="navpath">
     <ul>
         <li class="footer">
-            Generated for <b>Cypress Secure Sockets</b> by <b>Cypress Semiconductor Corporation</b>.
+            Generated for <b>Secure Sockets</b> by <b>Cypress Semiconductor Corporation</b>.
             All rights reserved.
         </li>
     </ul>

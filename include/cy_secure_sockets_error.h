@@ -16,7 +16,7 @@
  */
 
 /** @file
- *  Defines the Cypress Secure Sockets Interface Error codes.
+ *  Defines the Secure Sockets Interface Error codes.
  *
  */
 
@@ -35,7 +35,7 @@ extern "C" {
  * \defgroup group_secure_sockets_results Secure Sockets results/error codes
  * @ingroup group_secure_sockets_macros
  *
- * Cypress middleware APIs return results of type cy_rslt_t and comprise of three parts:
+ * Secure Sockets Library APIs return results of type cy_rslt_t and comprise of three parts:
  * - module base
  * - type
  * - error code
@@ -106,8 +106,13 @@ extern "C" {
 #define CY_RSLT_MODULE_SECURE_SOCKETS_NOT_SUPPORTED              ( CY_RSLT_SECURE_SOCKETS_ERR_BASE + 16 )
 /** Library not initialized */
 #define CY_RSLT_MODULE_SECURE_SOCKETS_NOT_INITIALIZED            ( CY_RSLT_SECURE_SOCKETS_ERR_BASE + 17 )
+/** Network interface does not exists */
+#define CY_RSLT_MODULE_SECURE_SOCKETS_NETIF_DOES_NOT_EXIST       ( CY_RSLT_SECURE_SOCKETS_ERR_BASE + 18 )
+/** ARP resolution timeout error */
+#define CY_RSLT_MODULE_SECURE_SOCKETS_ARP_TIMEOUT                ( CY_RSLT_SECURE_SOCKETS_ERR_BASE + 19 )
+/** Both IPv4 and IPv6 network stack configuration is disabled. */
+#define CY_RSLT_MODULE_SECURE_SOCKETS_BAD_NW_STACK_CONFIGURATION ( CY_RSLT_SECURE_SOCKETS_ERR_BASE + 20 )
 /** \} group_secure_sockets_macros */
-
 #ifdef __cplusplus
 } /*extern "C" */
 #endif
