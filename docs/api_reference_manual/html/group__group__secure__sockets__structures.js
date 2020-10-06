@@ -13,5 +13,9 @@ var group__group__secure__sockets__structures =
     [ "cy_socket_opt_callback_t", "structcy__socket__opt__callback__t.html", [
       [ "callback", "structcy__socket__opt__callback__t.html#a7f321e77df24f3b06ade13f44ce43053", null ],
       [ "arg", "structcy__socket__opt__callback__t.html#a648e1c4f3fe8fcb9d2be2a2c4716b359", null ]
+    ] ],
+    [ "cy_socket_ip_mreq_t", "structcy__socket__ip__mreq__t.html", [
+      [ "multi_addr", "structcy__socket__ip__mreq__t.html#afbd0341c76b9026737ee7db33237fb8e", null ],
+      [ "if_addr", "structcy__socket__ip__mreq__t.html#af355ca415d98f381b1e39d95a3741acc", null ]
     ] ]
 ];

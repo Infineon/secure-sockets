@@ -29,50 +29,81 @@
 #include "cy_log.h"
 #include <lwip/api.h>
 #include <lwip/tcp.h>
+#include <lwip/udp.h>
 #include <lwip/etharp.h>
 #include <ethernet.h>
+
+#if LWIP_IPV4 && LWIP_IGMP
+#include <lwip/igmp.h>
+#endif
+
+#if LWIP_IPV6_MLD && LWIP_IPV6
+#include <lwip/mld6.h>
+#endif
 
 typedef struct cy_socket_ctx cy_socket_ctx_t;
 
 struct cy_socket_ctx
 {
-    struct netconn* conn_handler;  /**< netconn handler returned with netconn_new */
-    cy_mutex_t      netconn_mutex; /**<* Serializes netconn API calls for a socket */
+    struct netconn*       conn_handler;           /**< netconn handler returned with netconn_new */
+    cy_mutex_t            netconn_mutex;          /**<* Serializes netconn API calls for a socket */
     struct
     {
         cy_socket_opt_callback_t connect_request;
         cy_socket_opt_callback_t receive;
         cy_socket_opt_callback_t disconnect;
-    } callbacks;                            /**<* Socket callback functions */
-    void*           tls_ctx;                /**< tls context of underlying security stack */
-    const void*     tls_identity;           /**< contains certificate/key pair */
-    char*           rootca_certificate;     /**< RootCA certificate specific to the socket */
-    int             rootca_certificate_len; /**< Length of ca_cert */
-    bool            enforce_tls;            /**< Enforce TLS connection */
-    int             auth_mode;              /**< TLS authentication mode */
-    unsigned char   mfl_code;               /**< TLS maximum fragment length */
-    char*           alpn;                   /**< ALPN string */
-    char**          alpn_list;              /**< ALPN array of strings to be passed to mbedtls */
-    uint32_t        alpn_count;             /**< Number of protocols in ALPN list */
-    char*           hostname;               /**< Server hostname used with SNI extension */
-    uint32_t        status;                 /**< socket status */
-    struct pbuf*    buf ;                   /**< Receive data \c pbuf structure */
-    u16_t           offset;                 /**< Receive data \c pbuf  offset */
-    int             id;                     /**< Socket id used in mapping from netconn to cy socket */
-    int             send_events;            /**< Send events received from LwIP */
-    int             role;                   /**< Used for identifying if the socket is server or client */
-    int             transport_protocol;     /**< Used for identifying transport protocol TCP, TLS or UDP */
-    cy_socket_ctx_t *server_socket_ref;     /**< Used for getting server socket of an accepted socket */
-    cy_socket_ctx_t *next_client;           /**< This is the list of accepted sockets of a server socket */
-    cy_mutex_t      client_list_mutex;      /**< Used for protecting the server sockets accepted socket list */
+    } callbacks;                                  /**<* Socket callback functions */
+    void*                 tls_ctx;                /**< tls context of underlying security stack */
+    const void*           tls_identity;           /**< contains certificate/key pair */
+    char*                 rootca_certificate;     /**< RootCA certificate specific to the socket */
+    int                   rootca_certificate_len; /**< Length of ca_cert */
+    bool                  enforce_tls;            /**< Enforce TLS connection */
+    int                   auth_mode;              /**< TLS authentication mode */
+    unsigned char         mfl_code;               /**< TLS maximum fragment length */
+    char*                 alpn;                   /**< ALPN string */
+    char**                alpn_list;              /**< ALPN array of strings to be passed to mbedtls */
+    uint32_t              alpn_count;             /**< Number of protocols in ALPN list */
+    char*                 hostname;               /**< Server hostname used with SNI extension */
+    uint32_t              status;                 /**< socket status */
+    struct pbuf*          buf;                    /**< Receive data \c pbuf structure */
+    u16_t                 offset;                 /**< Receive data \c pbuf  offset */
+    int                   id;                     /**< Socket id used in mapping from netconn to cy socket */
+    int                   send_events;            /**< Send events received from LwIP */
+    int                   role;                   /**< Used for identifying if the socket is server or client */
+    int                   transport_protocol;     /**< Used for identifying transport protocol TCP, TLS or UDP */
+    cy_socket_ctx_t       *server_socket_ref;     /**< Used for getting server socket of an accepted socket */
+    cy_socket_ctx_t       *next_client;           /**< This is the list of accepted sockets of a server socket */
+    cy_mutex_t            client_list_mutex;      /**< Used for protecting the server sockets accepted socket list */
 #if LWIP_SO_RCVTIMEO
-    bool            is_recvtimeout_set;     /**< Used to check whether receive timeout is set by the application */
+    bool                  is_recvtimeout_set;     /**< Used to check whether receive timeout is set by the application */
 #endif
 
 #if LWIP_SO_SNDTIMEO
-    bool            is_sendtimeout_set;     /**< Used to check whether send timeout is set by the application */
+    bool                  is_sendtimeout_set;     /**< Used to check whether send timeout is set by the application */
 #endif
+    bool                  is_authmode_set;        /**< Used to check whether TLS authentication mode is set by the application */
+    cy_socket_interface_t iface_type;             /**< Network interface to be used with the socket */
 };
+
+typedef struct cy_socket_multicast_pair
+{
+  cy_socket_ctx_t       *socket;         /**< Socket */
+  cy_socket_ip_address_t if_addr;        /**< Interface IP address */
+  cy_socket_ip_address_t multi_addr;     /**< multicast group address */
+}cy_socket_multicast_pair_t;
+
+/* Used to keep track of the registered multicast members */
+typedef struct cy_socket_multicast_info
+{
+    cy_socket_multicast_pair_t *multicast_member_list;      /**< List of multicast addresses registered */
+    uint32_t                    multicast_member_status;    /**< Each bit in this member indicates status of corresponding entry in multicast_member_list. */
+    uint8_t                     multicast_member_count;     /**< Number of multicast addresses registered */
+}cy_socket_multicast_info_t;
+
+static cy_socket_multicast_info_t multicast_info;
+
+/* Mutex to protect the multicast info */
+static cy_mutex_t multicast_join_leave_mutex;
 
 typedef enum
 {
@@ -88,10 +119,18 @@ typedef enum
 #define SECURE_SOCKETS_MAX_FRAG_LEN_4096    4
 #define SECURE_SOCKETS_MAX_FRAG_LEN_INVALID 5
 
+/* Secure sockets thread stack size */
+#ifndef SECURE_SOCKETS_THREAD_STACKSIZE
+#define SECURE_SOCKETS_THREAD_STACKSIZE    (6 * 1024)
+#endif
+
 /* Sleep time in each loop while waiting for ARP resolution */
 #define ARP_CACHE_CHECK_INTERVAL_IN_MSEC    5
 
 #define NUM_SOCKETS                         MEMP_NUM_NETCONN
+
+/* Maximum number of multicast groups supported. */
+#define SECURE_SOCKETS_MAX_MULTICAST_GROUPS 10
 
 #define UNUSED_ARG(arg)                     (void)(arg)
 
@@ -177,32 +216,32 @@ static cy_rslt_t convert_lwip_to_secure_socket_ip_addr(cy_socket_ip_address_t *d
     return result;
 }
 
-static cy_rslt_t convert_secure_socket_to_lwip_ip_addr(ip_addr_t *dest, const cy_socket_sockaddr_t *src)
+static cy_rslt_t convert_secure_socket_to_lwip_ip_addr(ip_addr_t *dest, const cy_socket_ip_address_t *src)
 {
     cy_rslt_t result = CY_RSLT_SUCCESS;
 
     memset(dest, 0, sizeof(ip_addr_t));
 
 #if LWIP_IPV6 && LWIP_IPV4
-    if(src->ip_address.version == CY_SOCKET_IP_VER_V4)
+    if(src->version == CY_SOCKET_IP_VER_V4)
     {
-        ip_addr_set_ip4_u32(dest, src->ip_address.ip.v4);
+        ip_addr_set_ip4_u32(dest, src->ip.v4);
         dest->type = IPADDR_TYPE_V4;
     }
     else
     {
-        dest->u_addr.ip6.addr[0] = src->ip_address.ip.v6[0];
-        dest->u_addr.ip6.addr[1] = src->ip_address.ip.v6[1];
-        dest->u_addr.ip6.addr[2] = src->ip_address.ip.v6[2];
-        dest->u_addr.ip6.addr[3] = src->ip_address.ip.v6[3];
+        dest->u_addr.ip6.addr[0] = src->ip.v6[0];
+        dest->u_addr.ip6.addr[1] = src->ip.v6[1];
+        dest->u_addr.ip6.addr[2] = src->ip.v6[2];
+        dest->u_addr.ip6.addr[3] = src->ip.v6[3];
         dest->type = IPADDR_TYPE_V6;
     }
 #else
 
 #if LWIP_IPV4
-    if(src->ip_address.version == CY_SOCKET_IP_VER_V4)
+    if(src->version == CY_SOCKET_IP_VER_V4)
     {
-        ip_addr_set_ip4_u32(dest, src->ip_address.ip.v4);
+        ip_addr_set_ip4_u32(dest, src->ip.v4);
     }
     else
     {
@@ -210,12 +249,12 @@ static cy_rslt_t convert_secure_socket_to_lwip_ip_addr(ip_addr_t *dest, const cy
         result = CY_RSLT_MODULE_SECURE_SOCKETS_BADARG;
     }
 #elif LWIP_IPV6
-    if(src->ip_address.version == CY_SOCKET_IP_VER_V6)
+    if(src->version == CY_SOCKET_IP_VER_V6)
     {
-        dest->addr[0] = src->ip_address.ip.v6[0];
-        dest->addr[1] = src->ip_address.ip.v6[1];
-        dest->addr[2] = src->ip_address.ip.v6[2];
-        dest->addr[3] = src->ip_address.ip.v6[3];
+        dest->addr[0] = src->ip.v6[0];
+        dest->addr[1] = src->ip.v6[1];
+        dest->addr[2] = src->ip.v6[2];
+        dest->addr[3] = src->ip.v6[3];
     }
     else
     {
@@ -229,6 +268,64 @@ static cy_rslt_t convert_secure_socket_to_lwip_ip_addr(ip_addr_t *dest, const cy
 
 #endif /* LWIP_IPV6 && LWIP_IPV4 */
     return result;
+}
+
+/* Find the index of the next registered slot in the multicast list. Caller should ensure to call
+ * this helper function only when at-least one member is registered, else the while will become indefinite.
+ * This function should be called under a mutex lock. */
+static uint32_t next_registered_multicast_slot(uint32_t index)
+{
+    while(!(multicast_info.multicast_member_status & (0x0001 << index)))
+    {
+        index++;
+    }
+    return index;
+}
+
+/* Find the index of the next free slot in the multicast list. Ensure to call this function only when the
+ * total registered count is not reached the maximum. This function should be called under a mutex lock. */
+static uint32_t next_free_multicast_slot(uint32_t index)
+{
+    while(multicast_info.multicast_member_status & (0x0001 << index))
+    {
+        index++;
+    }
+    return index;
+}
+
+/* Set the status of the given input slot in the multicast list. This function should be called under a mutex lock. */
+static void set_multicast_slot_status_bit(uint32_t index)
+{
+    multicast_info.multicast_member_status |= (0x0001 << index);
+}
+
+/* Clear the status of the given input slot in the multicast list. This function should be called under a mutex lock. */
+static void clear_multicast_slot_status_bit(uint32_t index)
+{
+    multicast_info.multicast_member_status &= ~(0x0001 << index);
+}
+
+/* Find the index of the given input member in the multicast list. */
+static int find_multicast_member_index(cy_socket_ctx_t *socket, const cy_socket_ip_mreq_t *imr)
+{
+    uint32_t count = 0;
+    uint32_t index = 0;
+
+    while(count < multicast_info.multicast_member_count)
+    {
+        index = next_registered_multicast_slot(index);
+
+        if( memcmp(&multicast_info.multicast_member_list[index].multi_addr, &imr->multi_addr, sizeof(imr->multi_addr)) == 0 &&
+            memcmp(&multicast_info.multicast_member_list[index].if_addr, &imr->if_addr, sizeof(imr->if_addr)) == 0 &&
+            multicast_info.multicast_member_list[index].socket == socket )
+        {
+            return index;
+        }
+        count++;
+        index++;
+    }
+
+    return -1;
 }
 
 static cy_socket_ctx_t* alloc_socket()
@@ -271,6 +368,7 @@ static cy_socket_ctx_t* alloc_socket()
 
             socket_list[i].used = 1;
             socket_list[i].ctx->id = i;
+            socket_list[i].ctx->iface_type = CY_SOCKET_STA_INTERFACE;
             cy_rtos_set_mutex(&socket_list_mutex);
             ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_list_mutex unlocked %s %d\r\n", __FILE__, __LINE__);
             return socket_list[i].ctx;
@@ -473,13 +571,17 @@ static cy_rslt_t lwip_to_secure_socket_error(err_t error)
             return CY_RSLT_MODULE_SECURE_SOCKETS_NOT_CONNECTED;
 
         case ERR_ARG:
+        case ERR_VAL:
             return CY_RSLT_MODULE_SECURE_SOCKETS_BADARG;
 
-        case ERR_BUF:
-        case ERR_RTE:
-        case ERR_VAL:
-        case ERR_WOULDBLOCK:
         case ERR_USE:
+            return CY_RSLT_MODULE_SECURE_SOCKETS_ADDRESS_IN_USE;
+
+        case ERR_RTE:
+            return CY_RSLT_MODULE_SECURE_SOCKETS_ERROR_ROUTING;
+
+        case ERR_BUF:
+        case ERR_WOULDBLOCK:
         case ERR_IF:
         default:
             return CY_RSLT_MODULE_SECURE_SOCKETS_TCPIP_ERROR;
@@ -501,6 +603,9 @@ static cy_rslt_t tls_to_secure_socket_error(cy_rslt_t error)
 
         case CY_RSLT_MODULE_TLS_CONNECTION_CLOSED:
             return CY_RSLT_MODULE_SECURE_SOCKETS_CLOSED;
+
+        case CY_RSLT_MODULE_TLS_SOCKET_NOT_CONNECTED:
+            return CY_RSLT_MODULE_SECURE_SOCKETS_NOT_CONNECTED;
 
         case CY_RSLT_MODULE_TLS_TIMEOUT:
             return CY_RSLT_MODULE_SECURE_SOCKETS_TIMEOUT;
@@ -548,7 +653,7 @@ static cy_rslt_t secure_socket_to_tls_error(cy_rslt_t error)
  * NOTE: The LwIP stack drops the datagram packet if the entry doesn't exist in ARP Cache table for the given IP address.
  */
 /*-----------------------------------------------------------*/
-static cy_rslt_t eth_arp_resolve(ip4_addr_t *dest_addr)
+static cy_rslt_t eth_arp_resolve(ip4_addr_t *dest_addr, cy_socket_interface_t iface_type)
 {
     ssize_t arp_index = -1;
     struct netif *netif;
@@ -556,12 +661,28 @@ static cy_rslt_t eth_arp_resolve(ip4_addr_t *dest_addr)
     struct eth_addr *eth_ret = NULL;
     const ip4_addr_t *ip_ret = NULL;
     int32_t arp_waittime = ARP_WAIT_TIME_IN_MSEC;
+    cy_lwip_nw_interface_role_t role;
     err_t err;
 
     ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "eth_arp_resolve Start\r\n");
 
+    if(iface_type != CY_SOCKET_STA_INTERFACE  && iface_type != CY_SOCKET_AP_INTERFACE)
+    {
+        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Invalid interface type \r\n");
+        return CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET;
+    }
+
+    if(iface_type == CY_SOCKET_STA_INTERFACE)
+    {
+        role = CY_LWIP_STA_NW_INTERFACE;
+    }
+    else
+    {
+        role = CY_LWIP_AP_NW_INTERFACE;
+    }
+
     ipv4addr = dest_addr;
-    netif = cy_lwip_get_interface();
+    netif = cy_lwip_get_interface(role);
     if(netif == NULL)
     {
         ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "cy_lwip_get_interface returned NULL \r\n");
@@ -774,6 +895,17 @@ static void cy_process_connect_disconnect_notification_event(void *arg)
     cy_rtos_get_mutex(&socket_list_mutex, CY_RTOS_NEVER_TIMEOUT);
     socket_ctx = (cy_socket_ctx_t *)socket_list[socket_id].ctx;
 
+    /* By the time worker function is scheduled for disconnect event, application might have deleted the socket.
+     * In that case socket_ctx will be NULL. So do NULL check for socket_ctx before accessing it.
+     */
+    if( socket_ctx == NULL )
+    {
+        cy_rtos_set_mutex(&socket_list_mutex);
+        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_list_mutex unlocked %s %d\r\n", __FILE__, __LINE__);
+        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "Callback function invoked on a deleted socket \r\n");
+        return;
+    }
+
     /* Connect event occurs on server socket's conn handler */
     if((socket_ctx->status & SOCKET_STATUS_FLAG_LISTENING) ==  SOCKET_STATUS_FLAG_LISTENING)
     {
@@ -899,7 +1031,7 @@ static void internal_netconn_event_callback(struct netconn *conn, enum netconn_e
 }
 /*-----------------------------------------------------------*/
 /*
- * @brief Network send helper function.
+ * @brief Network send helper function. Function call to this function should be protected by netconn_mutex.
  */
 static cy_rslt_t network_send(void *context, const unsigned char *data_buffer, uint32_t data_buffer_length, uint32_t *bytes_sent)
 {
@@ -908,29 +1040,13 @@ static cy_rslt_t network_send(void *context, const unsigned char *data_buffer, u
 
     *bytes_sent = 0;
 
-    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "netconn_mutex locked %s %d\n", __FILE__, __LINE__);
-    cy_rtos_get_mutex(&ctx->netconn_mutex, CY_RTOS_NEVER_TIMEOUT);
-
-    if( (ctx->status & SOCKET_STATUS_FLAG_CONNECTED) !=  SOCKET_STATUS_FLAG_CONNECTED )
-    {
-        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Socket not connected \r\n");
-        cy_rtos_set_mutex(&ctx->netconn_mutex);
-        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "netconn_mutex unlocked %s %d\n", __FILE__, __LINE__);
-        return CY_RSLT_MODULE_SECURE_SOCKETS_NOT_CONNECTED;
-    }
-
-    ret = netconn_write_partly(ctx->conn_handler, data_buffer, data_buffer_length, 0, (size_t *)bytes_sent) ;
+    ret = netconn_write_partly(ctx->conn_handler, data_buffer, data_buffer_length, 0, (size_t *)bytes_sent);
     if(ret != ERR_OK)
     {
         *bytes_sent = 0;
-        cy_rtos_set_mutex(&ctx->netconn_mutex);
-        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "netconn_mutex unlocked %s %d\n", __FILE__, __LINE__);
         ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "netconn_write_partly failed with error %d\n", ret);
         return  LWIP_TO_CY_SECURE_SOCKETS_ERR(ret) ;
     }
-
-    cy_rtos_set_mutex(&ctx->netconn_mutex);
-    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "netconn_mutex unlocked %s %d\n", __FILE__, __LINE__);
 
     return CY_RSLT_SUCCESS;
 }
@@ -948,7 +1064,7 @@ static cy_rslt_t tls_network_send_callback(void *context, const unsigned char *d
 }
 /*-----------------------------------------------------------*/
 /*
- * @brief Network receive helper function.
+ * @brief Network receive helper function. Function call to this function should be protected by netconn_mutex.
  */
 static cy_rslt_t network_receive(void *context, unsigned char *buffer, uint32_t len, uint32_t *bytes_received)
 {
@@ -961,17 +1077,6 @@ static cy_rslt_t network_receive(void *context, unsigned char *buffer, uint32_t 
     cy_socket_ctx_t *ctx = (cy_socket_ctx_t *)context;
 
     *bytes_received = 0;
-
-    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "netconn_mutex locked %s %d\n", __FILE__, __LINE__);
-    cy_rtos_get_mutex(&ctx->netconn_mutex, CY_RTOS_NEVER_TIMEOUT);
-
-    if( (ctx->status & SOCKET_STATUS_FLAG_CONNECTED) !=  SOCKET_STATUS_FLAG_CONNECTED )
-    {
-        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Socket not connected \r\n");
-        cy_rtos_set_mutex(&ctx->netconn_mutex);
-        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "netconn_mutex unlocked %s %d\n", __FILE__, __LINE__);
-        return CY_RSLT_MODULE_SECURE_SOCKETS_NOT_CONNECTED;
-    }
 
     do
     {
@@ -987,8 +1092,6 @@ static cy_rslt_t network_receive(void *context, unsigned char *buffer, uint32_t 
                 }
                 else
                 {
-                    cy_rtos_set_mutex(&ctx->netconn_mutex);
-                    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "netconn_mutex unlocked %s %d\n", __FILE__, __LINE__);
                     ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "netconn_recv_tcp_pbuf returned %d\n", ret);
                     return LWIP_TO_CY_SECURE_SOCKETS_ERR(ret);
                 }
@@ -1041,8 +1144,6 @@ static cy_rslt_t network_receive(void *context, unsigned char *buffer, uint32_t 
 
     }while(total_received < len);
 
-    cy_rtos_set_mutex(&ctx->netconn_mutex);
-    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "netconn_mutex unlocked %s %d\n", __FILE__, __LINE__);
     *bytes_received = total_received;
 
     return CY_RSLT_SUCCESS;
@@ -1090,11 +1191,35 @@ cy_rslt_t cy_socket_init(void)
             return CY_RSLT_MODULE_SECURE_SOCKETS_NOMEM;
         }
 
+        memset(&multicast_info, 0 , sizeof(multicast_info));
+
+        result = cy_rtos_init_mutex(&multicast_join_leave_mutex);
+        if(CY_RSLT_SUCCESS != result)
+        {
+            cy_rtos_deinit_mutex(&socket_list_mutex);
+            cy_rtos_deinit_mutex(&accept_recv_event_mutex);
+            cy_rtos_deinit_mutex(&netconn_recvfrom_mutex);
+
+            return CY_RSLT_MODULE_SECURE_SOCKETS_NOMEM;
+        }
+
+        /* Allocate memory for multicast member list. */
+        multicast_info.multicast_member_list = (cy_socket_multicast_pair_t *)malloc(sizeof(cy_socket_multicast_pair_t) * SECURE_SOCKETS_MAX_MULTICAST_GROUPS);
+        if(multicast_info.multicast_member_list == NULL)
+        {
+            cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "malloc failed for multicast member list\r\n");
+            cy_rtos_deinit_mutex(&socket_list_mutex);
+            cy_rtos_deinit_mutex(&accept_recv_event_mutex);
+            cy_rtos_deinit_mutex(&netconn_recvfrom_mutex);
+            cy_rtos_deinit_mutex(&multicast_join_leave_mutex);
+            return CY_RSLT_MODULE_SECURE_SOCKETS_NOMEM;
+        }
+
         memset(&params, 0, sizeof(params));
         params.name = "Socket";
         params.priority = CY_RTOS_PRIORITY_ABOVENORMAL;
         params.stack = NULL;
-        params.stack_size = (6 * 1024);
+        params.stack_size = SECURE_SOCKETS_THREAD_STACKSIZE;
         params.num_entries = 0;
 
         /* create a worker thread */
@@ -1105,6 +1230,12 @@ cy_rslt_t cy_socket_init(void)
             cy_rtos_deinit_mutex(&socket_list_mutex);
             cy_rtos_deinit_mutex(&accept_recv_event_mutex);
             cy_rtos_deinit_mutex(&netconn_recvfrom_mutex);
+            cy_rtos_deinit_mutex(&multicast_join_leave_mutex);
+            if(multicast_info.multicast_member_list)
+            {
+                free(multicast_info.multicast_member_list);
+                multicast_info.multicast_member_list = NULL;
+            }
             return result;
         }
         /* Initialized the TLS library */
@@ -1115,6 +1246,12 @@ cy_rslt_t cy_socket_init(void)
             cy_rtos_deinit_mutex(&socket_list_mutex);
             cy_rtos_deinit_mutex(&accept_recv_event_mutex);
             cy_rtos_deinit_mutex(&netconn_recvfrom_mutex);
+            cy_rtos_deinit_mutex(&multicast_join_leave_mutex);
+            if(multicast_info.multicast_member_list)
+            {
+                free(multicast_info.multicast_member_list);
+                multicast_info.multicast_member_list = NULL;
+            }
             cy_worker_thread_delete(&socket_worker);
             return result;
         }
@@ -1202,9 +1339,13 @@ cy_rslt_t cy_socket_create(int domain, int type, int protocol, cy_socket_t * han
             conn_type = NETCONN_TCP_IPV6;
         }
 #endif
+
+        ctx->is_authmode_set = false;
         if(protocol == CY_SOCKET_IPPROTO_TLS)
         {
             ctx->enforce_tls = true;
+            /* Set the default TLS authentication mode to verify required. */
+            ctx->auth_mode = CY_SOCKET_TLS_VERIFY_REQUIRED;
         }
     }
     else if(protocol == CY_SOCKET_IPPROTO_UDP)
@@ -1232,24 +1373,23 @@ cy_rslt_t cy_socket_create(int domain, int type, int protocol, cy_socket_t * han
     ctx->conn_handler = conn;
     ctx->conn_handler->socket = ctx->id;
 
-
 #if LWIP_SO_RCVTIMEO
-        ctx->is_recvtimeout_set = false;
+    ctx->is_recvtimeout_set = false;
 
-        /**
-         * Setting the receive timeout is necessary to avoid indefinite blocking while trying
-         * to read more bytes than what was actually received.
-         */
-        netconn_set_recvtimeout(ctx->conn_handler, DEFAULT_RECV_TIMEOUT_IN_MSEC);
+    /**
+     * Setting the receive timeout is necessary to avoid indefinite blocking while trying
+     * to read more bytes than what was actually received.
+     */
+    netconn_set_recvtimeout(ctx->conn_handler, DEFAULT_RECV_TIMEOUT_IN_MSEC);
 #endif
 
 #if LWIP_SO_SNDTIMEO
-        ctx->is_sendtimeout_set = false;
+    ctx->is_sendtimeout_set = false;
 
-        /**
-         * Setting the send timeout to default value.
-         */
-        netconn_set_sendtimeout(ctx->conn_handler, DEFAULT_SEND_TIMEOUT_IN_MSEC);
+    /**
+     * Setting the send timeout to default value.
+     */
+    netconn_set_sendtimeout(ctx->conn_handler, DEFAULT_SEND_TIMEOUT_IN_MSEC);
 #endif
 
     *handle = ctx;
@@ -1260,7 +1400,7 @@ cy_rslt_t cy_socket_create(int domain, int type, int protocol, cy_socket_t * han
 /*-----------------------------------------------------------*/
 cy_rslt_t cy_socket_setsockopt(cy_socket_t handle, int level, int optname, const void *optval, uint32_t optlen)
 {
-    cy_socket_ctx_t * ctx = NULL;
+    cy_socket_ctx_t *ctx = NULL;
     cy_socket_opt_callback_t *callback_opt;
 
     ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_socket_setsockopt Start\r\n");
@@ -1269,7 +1409,7 @@ cy_rslt_t cy_socket_setsockopt(cy_socket_t handle, int level, int optname, const
         ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "invalid handle\r\n");
         return CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET;
     }
-    if( ((level < CY_SOCKET_SOL_SOCKET) || (level > CY_SOCKET_SOL_TLS)) ||
+    if( ((level < CY_SOCKET_SOL_SOCKET) || (level > CY_SOCKET_SOL_IP)) ||
         ((optval == NULL) && (optname != CY_SOCKET_SO_CONNECT_REQUEST_CALLBACK) && (optname != CY_SOCKET_SO_RECEIVE_CALLBACK) && (optname != CY_SOCKET_SO_DISCONNECT_CALLBACK)) ||
         ((optval != NULL) && (optlen == 0)) )
     {
@@ -1299,7 +1439,8 @@ cy_rslt_t cy_socket_setsockopt(cy_socket_t handle, int level, int optname, const
                 }
                 case CY_SOCKET_SO_TLS_AUTH_MODE:
                 {
-                    ctx->auth_mode = *((int *)optval);
+                    ctx->auth_mode = *((cy_socket_tls_auth_mode_t *)optval);
+                    ctx->is_authmode_set = true;
                     break;
                 }
                 case CY_SOCKET_SO_SERVER_NAME_INDICATION:
@@ -1474,6 +1615,35 @@ cy_rslt_t cy_socket_setsockopt(cy_socket_t handle, int level, int optname, const
                     break;
                 }
 
+                case CY_SOCKET_SO_BROADCAST:
+#if IP_SOF_BROADCAST
+                {
+                    uint8_t broadcast = *((uint8_t *)optval);
+
+                    if(broadcast == 0 || broadcast == 1)
+                    {
+                        if(broadcast)
+                        {
+                            ip_set_option(ctx->conn_handler->pcb.ip, SOF_BROADCAST);
+                        }
+                        else
+                        {
+                            ip_reset_option(ctx->conn_handler->pcb.ip, SOF_BROADCAST);
+                        }
+                    }
+                    else
+                    {
+                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Invalid option value\r\n");
+                        return CY_RSLT_MODULE_SECURE_SOCKETS_BADARG;
+                    }
+                    break;
+                }
+#else
+                {
+                    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Incompatible Socket option\r\n");
+                    return CY_RSLT_MODULE_SECURE_SOCKETS_OPTION_NOT_SUPPORTED;
+                }
+#endif
                 case CY_SOCKET_SO_RECEIVE_CALLBACK:
                 {
                     if(optval != NULL)
@@ -1520,6 +1690,49 @@ cy_rslt_t cy_socket_setsockopt(cy_socket_t handle, int level, int optname, const
                 {
                     ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Invalid Socket option = [%d]\r\n", optname);
                     return CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_OPTION;
+                }
+
+                case CY_SOCKET_SO_BINDTODEVICE:
+                {
+                    struct netif *netif;
+                    cy_socket_interface_t iface_type = ( *(cy_socket_interface_t *)optval);
+
+                    if(iface_type == CY_SOCKET_STA_INTERFACE)
+                    {
+                        netif = cy_lwip_get_interface(CY_LWIP_STA_NW_INTERFACE);
+                    }
+                    else if (iface_type == CY_SOCKET_AP_INTERFACE)
+                    {
+                        netif = cy_lwip_get_interface(CY_LWIP_AP_NW_INTERFACE);
+                    }
+                    else
+                    {
+                        cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Invalid interface type \r\n");
+                        return CY_RSLT_MODULE_SECURE_SOCKETS_BADARG;
+                    }
+                    if(netif == NULL)
+                    {
+                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "cy_lwip_get_interface returned NULL \r\n");
+                        return CY_RSLT_MODULE_SECURE_SOCKETS_NETIF_DOES_NOT_EXIST;
+                    }
+
+                    if(NETCONNTYPE_GROUP(netconn_type(ctx->conn_handler)) == NETCONN_TCP)
+                    {
+                        tcp_bind_netif(ctx->conn_handler->pcb.tcp, netif);
+                    }
+                    else if(NETCONNTYPE_GROUP(netconn_type(ctx->conn_handler)) == NETCONN_UDP)
+                    {
+                        udp_bind_netif(ctx->conn_handler->pcb.udp, netif);
+                    }
+                    else
+                    {
+                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Invalid socket error \r\n");
+                        return CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET;
+                    }
+
+                    ctx->iface_type = iface_type;
+
+                    break;
                 }
             }
             break;
@@ -1573,6 +1786,152 @@ cy_rslt_t cy_socket_setsockopt(cy_socket_t handle, int level, int optname, const
                 }
             }
             break;
+
+        case CY_SOCKET_SOL_IP:
+            switch(optname)
+            {
+                case CY_SOCKET_SO_JOIN_MULTICAST_GROUP:
+                case CY_SOCKET_SO_LEAVE_MULTICAST_GROUP:
+                {
+                    ip_addr_t if_addr;
+                    ip_addr_t multi_addr;
+                    int member_index;
+                    err_t err = ERR_OK;
+                    cy_rslt_t result = CY_RSLT_SUCCESS;
+                    const cy_socket_ip_mreq_t *imr = (const cy_socket_ip_mreq_t *)optval;
+
+                    convert_secure_socket_to_lwip_ip_addr(&if_addr, &imr->if_addr);
+                    convert_secure_socket_to_lwip_ip_addr(&multi_addr, &imr->multi_addr);
+
+                    /* Check if the address to join/leave is a valid multiast address. */
+                    if(!ip_addr_ismulticast(&multi_addr))
+                    {
+                        cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Invalid multicast address\r\n");
+                        return CY_RSLT_MODULE_SECURE_SOCKETS_BADARG;
+                    }
+
+                    do
+                    {
+                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "multicast_join_leave_mutex locked %s %d\n", __FILE__, __LINE__);
+                        cy_rtos_get_mutex(&multicast_join_leave_mutex, CY_RTOS_NEVER_TIMEOUT);
+
+                        if(imr->if_addr.version != imr->multi_addr.version)
+                        {
+                            cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "multicast group address type and interface address type are not same\r\n");
+                            result = CY_RSLT_MODULE_SECURE_SOCKETS_BADARG;
+                            break;
+                        }
+
+                        member_index = find_multicast_member_index(ctx, imr);
+
+                        if(optname == CY_SOCKET_SO_JOIN_MULTICAST_GROUP)
+                        {
+                            if(member_index != -1)
+                            {
+                                ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "multicast_join_leave_mutex unlocked %s %d\n", __FILE__, __LINE__);
+                                result = CY_RSLT_MODULE_SECURE_SOCKETS_ADDRESS_IN_USE;
+                                break;
+                            }
+
+                            if(multicast_info.multicast_member_count == SECURE_SOCKETS_MAX_MULTICAST_GROUPS)
+                            {
+                                ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "Registered multicast member count is already reached maximum allowed count %s %d\n", __FILE__, __LINE__);
+                                result = CY_RSLT_MODULE_SECURE_SOCKETS_MAX_MEMBERSHIP_ERROR;
+                                break;
+                            }
+
+                            member_index = next_free_multicast_slot(0);
+#if LWIP_IPV4
+                            if(IP_IS_V4(&if_addr))
+                            {
+                                err = igmp_joingroup(ip_2_ip4(&if_addr), ip_2_ip4(&multi_addr));
+                                if(err != ERR_OK)
+                                {
+                                    cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "igmp_joingroup failed with error %d\r\n", err);
+                                    break;
+                                }
+                            }
+#endif
+#if LWIP_IPV6
+                            if(IP_IS_V6(&if_addr))
+                            {
+                                err = mld6_joingroup(ip_2_ip6(&if_addr), ip_2_ip6(&multi_addr));
+                                if(err != ERR_OK)
+                                {
+                                    cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mld6_joingroup failed with error %d\r\n", err);
+                                    break;
+                                }
+                            }
+#endif
+                            set_multicast_slot_status_bit(member_index);
+                            memcpy(&multicast_info.multicast_member_list[member_index].if_addr, &imr->if_addr, sizeof(imr->if_addr));
+                            memcpy(&multicast_info.multicast_member_list[member_index].multi_addr, &imr->multi_addr, sizeof(imr->multi_addr));
+                            multicast_info.multicast_member_list[member_index].socket = ctx;
+                            multicast_info.multicast_member_count++;
+                        }
+                        else
+                        {
+                            if(member_index == -1)
+                            {
+                                result = CY_RSLT_MODULE_SECURE_SOCKETS_MULTICAST_ADDRESS_NOT_REGISTERED;
+                                break;
+                            }
+
+                            clear_multicast_slot_status_bit(member_index);
+                            multicast_info.multicast_member_count--;
+#if LWIP_IPV4
+                            if (IP_IS_V4(&if_addr))
+                            {
+                                err = igmp_leavegroup(ip_2_ip4(&if_addr), ip_2_ip4(&multi_addr));
+                                if(err != ERR_OK)
+                                {
+                                    cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "igmp_leavegroup failed with error %d\r\n", err);
+                                    break;
+                                }
+                            }
+#endif
+#if LWIP_IPV6
+                            if (IP_IS_V6(&if_addr))
+                            {
+                                err = mld6_leavegroup(ip_2_ip6(&if_addr), ip_2_ip6(&multi_addr));
+                                if(err != ERR_OK)
+                                {
+                                    cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mld6_leavegroup failed with error %d\r\n", err);
+                                    break;
+                                }
+                            }
+#endif
+                        }
+                    } while(0);
+
+                    cy_rtos_set_mutex(&multicast_join_leave_mutex);
+                    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "multicast_join_leave_mutex unlocked %s %d\n", __FILE__, __LINE__);
+
+                    if(err != ERR_OK)
+                    {
+                        result = lwip_to_secure_socket_error(err);
+                    }
+                    return result;
+                }
+
+                case CY_SOCKET_SO_IP_MULTICAST_TTL:
+                {
+                    if(NETCONNTYPE_GROUP(netconn_type(ctx->conn_handler)) != NETCONN_UDP)
+                    {
+                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Multicast TTL option is supported only for UDP sockets\r\n");
+                        return CY_RSLT_MODULE_SECURE_SOCKETS_OPTION_NOT_SUPPORTED;
+                    }
+                    udp_set_multicast_ttl(ctx->conn_handler->pcb.udp, *(u8_t *)optval);
+                    break;
+                }
+
+                default:
+                {
+                    cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Invalid Socket option = [%d]\r\n", optname);
+                    return CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_OPTION;
+                }
+
+            }
     }
     ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_socket_setsockopt End\r\n");
     return CY_RSLT_SUCCESS;
@@ -1604,8 +1963,8 @@ cy_rslt_t cy_socket_getsockopt(cy_socket_t handle,  int level, int optname, void
             {
                 case CY_SOCKET_SO_TLS_AUTH_MODE:
                 {
-                    *((int *)optval) = ctx->auth_mode;
-                    *optlen = sizeof(ctx->auth_mode);
+                    *((cy_socket_tls_auth_mode_t *)optval) = (cy_socket_tls_auth_mode_t)ctx->auth_mode;
+                    *optlen = sizeof(cy_socket_tls_auth_mode_t);
                     break;
                 }
                 case CY_SOCKET_SO_SERVER_NAME_INDICATION:
@@ -1688,6 +2047,27 @@ cy_rslt_t cy_socket_getsockopt(cy_socket_t handle,  int level, int optname, void
                     *optlen = sizeof(int);
                     break;
                 }
+
+                case CY_SOCKET_SO_BROADCAST:
+#if IP_SOF_BROADCAST
+                {
+                    if( SOF_BROADCAST == ip_get_option(ctx->conn_handler->pcb.ip, SOF_BROADCAST))
+                    {
+                        *(uint8_t *)optval = 1;
+                    }
+                    else
+                    {
+                        *(uint8_t *)optval = 0;
+                    }
+                    *optlen = sizeof(uint8_t);
+                    break;
+                }
+#else
+                {
+                    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Incompatible Socket option\r\n");
+                    return CY_RSLT_MODULE_SECURE_SOCKETS_OPTION_NOT_SUPPORTED;
+                }
+#endif
                 default:
                 {
                     ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Invalid Socket option\r\n");
@@ -1750,6 +2130,31 @@ cy_rslt_t cy_socket_getsockopt(cy_socket_t handle,  int level, int optname, void
             }
         }
         break;
+
+        case CY_SOCKET_SOL_IP:
+        {
+            switch(optname)
+            {
+                case CY_SOCKET_SO_IP_MULTICAST_TTL:
+                {
+                    if(NETCONNTYPE_GROUP(netconn_type(ctx->conn_handler)) != NETCONN_UDP)
+                    {
+                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Multicast TTL option is supported only for UDP sockets\r\n");
+                        return CY_RSLT_MODULE_SECURE_SOCKETS_OPTION_NOT_SUPPORTED;
+                    }
+                    *(uint8_t *)optval = udp_get_multicast_ttl(ctx->conn_handler->pcb.udp);
+                    *optlen = sizeof(uint8_t);
+
+                    break;
+                }
+                default:
+                {
+                    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Invalid Socket option\r\n");
+                    return CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_OPTION;
+                }
+            }
+        }
+        break;
         default:
         {
             ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Invalid level\r\n");
@@ -1767,8 +2172,8 @@ cy_rslt_t cy_socket_connect(cy_socket_t handle, cy_socket_sockaddr_t * address, 
     cy_socket_ctx_t * ctx;
     ip_addr_t remote;
     cy_tls_params_t tls_params = { 0 };
-    err_t result;
-    cy_rslt_t ret;
+    err_t ret;
+    cy_rslt_t result = CY_RSLT_SUCCESS;
 
     UNUSED_ARG(address_length);
 
@@ -1785,24 +2190,29 @@ cy_rslt_t cy_socket_connect(cy_socket_t handle, cy_socket_sockaddr_t * address, 
         return CY_RSLT_MODULE_SECURE_SOCKETS_BADARG;
     }
 
-
     ctx = (cy_socket_ctx_t *) handle;
 
     memset(&remote, 0, sizeof(ip_addr_t));
 
     /* convert IP format from secure socket to LWIP */
-    ret = convert_secure_socket_to_lwip_ip_addr(&remote, address);
-    if(ret != CY_RSLT_SUCCESS)
+    result = convert_secure_socket_to_lwip_ip_addr(&remote, &address->ip_address);
+    if(result != CY_RSLT_SUCCESS)
     {
         ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Failed conversion from secure socket to LWIP \r\n");
-        return ret;
+        return result;
     }
 
-    result = netconn_connect(ctx->conn_handler, &remote, address->port) ;
-    if( result != ERR_OK)
+    /* Acquire mutex, so that socket disconnect and connect are in sync. While connect operation is in progress
+     * this mutex lock will prevent disconnection. */
+    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "netconn_mutex locked %s %d\n", __FILE__, __LINE__);
+    cy_rtos_get_mutex(&ctx->netconn_mutex, CY_RTOS_NEVER_TIMEOUT);
+
+    ret = netconn_connect(ctx->conn_handler, &remote, address->port) ;
+    if(ret != ERR_OK)
     {
-        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "netconn_connect failed with error = %d \r\n", result);
-        return LWIP_TO_CY_SECURE_SOCKETS_ERR(result);
+        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "netconn_connect failed with error = %d \r\n", ret);
+        result = LWIP_TO_CY_SECURE_SOCKETS_ERR(ret);
+        goto exit;
     }
     ctx->status |=  SOCKET_STATUS_FLAG_CONNECTED;
 
@@ -1818,22 +2228,30 @@ cy_rslt_t cy_socket_connect(cy_socket_t handle, cy_socket_sockaddr_t * address, 
         tls_params.mfl_code = ctx->mfl_code;
         tls_params.hostname = ctx->hostname;
         tls_params.alpn_list = (const char**)ctx->alpn_list;
-        ret = cy_tls_create_context(&ctx->tls_ctx, &tls_params);
-        if(ret != CY_RSLT_SUCCESS)
+        result = cy_tls_create_context(&ctx->tls_ctx, &tls_params);
+        if(result != CY_RSLT_SUCCESS)
         {
-            ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "cy_tls_create_context failed \n");
-            return TLS_TO_CY_SECURE_SOCKETS_ERR(ret);
+            ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "cy_tls_create_context failed with error %lu\n", result);
+            result = TLS_TO_CY_SECURE_SOCKETS_ERR(result);
+            goto exit;
         }
-        ret = cy_tls_connect(ctx->tls_ctx, CY_TLS_ENDPOINT_CLIENT);
-        if(ret != CY_RSLT_SUCCESS)
+        result = cy_tls_connect(ctx->tls_ctx, CY_TLS_ENDPOINT_CLIENT);
+        if(result != CY_RSLT_SUCCESS)
         {
-            ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "cy_tls_connect failed with error %lu\n", ret);
-            return TLS_TO_CY_SECURE_SOCKETS_ERR(ret);
+            ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "cy_tls_connect failed with error %lu\n", result);
+            result = TLS_TO_CY_SECURE_SOCKETS_ERR(result);
+            goto exit;
         }
         ctx->status |=  SOCKET_STATUS_FLAG_SECURED;
     }
+
+exit:
+    cy_rtos_set_mutex(&ctx->netconn_mutex);
+    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "netconn_mutex unlocked %s %d\n", __FILE__, __LINE__);
+
     ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_socket_connect End\r\n");
-    return CY_RSLT_SUCCESS;
+
+    return result;
 }
 /*-----------------------------------------------------------*/
 cy_rslt_t cy_socket_disconnect(cy_socket_t handle, uint32_t timeout)
@@ -1924,7 +2342,10 @@ cy_rslt_t cy_socket_disconnect(cy_socket_t handle, uint32_t timeout)
         }
     }
 
-    /* Delete the netconn */
+    /* LwIP doesn't allow reusing netconn object once it's closed. Also for server mode sockets, the client sockets
+     * needs to be managed internally without expecting the caller to invoke cy_socket_delete() for the accepted client sockets.
+     * Hence deleting the netconn object in this function (i.e., cy_socket_disconnect) instead of cy_socket_delete.
+     */
     if(ctx->conn_handler)
     {
         error = netconn_delete(ctx->conn_handler);
@@ -1984,6 +2405,19 @@ cy_rslt_t cy_socket_send(cy_socket_t handle, const void *data, uint32_t size, in
 
     ctx = (cy_socket_ctx_t *) handle;
 
+    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "netconn_mutex locked %s %d\n", __FILE__, __LINE__);
+    cy_rtos_get_mutex(&ctx->netconn_mutex, CY_RTOS_NEVER_TIMEOUT);
+
+    /* Check if the socket is not in connected state. */
+    if( !( (!ctx->enforce_tls && ( ctx->status & SOCKET_STATUS_FLAG_CONNECTED) ==  SOCKET_STATUS_FLAG_CONNECTED) ||
+           ( (ctx->status & SOCKET_STATUS_FLAG_SECURED) ==  SOCKET_STATUS_FLAG_SECURED) ) )
+    {
+        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Socket not connected \r\n");
+        cy_rtos_set_mutex(&ctx->netconn_mutex);
+        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "netconn_mutex unlocked %s %d\n", __FILE__, __LINE__);
+        return CY_RSLT_MODULE_SECURE_SOCKETS_NOT_CONNECTED;
+    }
+
     if(ctx->enforce_tls)
     {
         /* Send through TLS pipe. */
@@ -2002,6 +2436,10 @@ cy_rslt_t cy_socket_send(cy_socket_t handle, const void *data, uint32_t size, in
             ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_network_send failed with error code %lu\n", ret);
         }
     }
+
+    cy_rtos_set_mutex(&ctx->netconn_mutex);
+    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "netconn_mutex unlocked %s %d\n", __FILE__, __LINE__);
+
     ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_socket_send End\r\n");
     return ret;
 }
@@ -2037,7 +2475,7 @@ cy_rslt_t cy_socket_sendto(cy_socket_t handle, const void *buffer, uint32_t leng
     memset(&remote, 0, sizeof(remote));
 
     /* convert IP format from secure socket to LWIP */
-    result = convert_secure_socket_to_lwip_ip_addr(&remote, dest_addr);
+    result = convert_secure_socket_to_lwip_ip_addr(&remote, &dest_addr->ip_address);
     if( result != CY_RSLT_SUCCESS )
     {
         ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Failed conversion from secure socket to LWIP \r\n");
@@ -2048,7 +2486,7 @@ cy_rslt_t cy_socket_sendto(cy_socket_t handle, const void *buffer, uint32_t leng
     if(CY_SOCKET_IP_VER_V4 == dest_addr->ip_address.version)
     {
         /* If destination is not present in the ARP table, try to resolve it */
-        result = eth_arp_resolve(ip_2_ip4(&remote));
+        result = eth_arp_resolve(ip_2_ip4(&remote), ctx->iface_type);
         if(result != CY_RSLT_SUCCESS)
         {
             ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "eth_arp_resolve failed\r\n");
@@ -2119,6 +2557,19 @@ cy_rslt_t cy_socket_recv(cy_socket_t handle, void * data, uint32_t size, int fla
 
     ctx = (cy_socket_ctx_t *)handle;
 
+    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "netconn_mutex locked %s %d\n", __FILE__, __LINE__);
+    cy_rtos_get_mutex(&ctx->netconn_mutex, CY_RTOS_NEVER_TIMEOUT);
+
+    /* Check if the socket is not in connected state. */
+    if( !( (!ctx->enforce_tls && ( ctx->status & SOCKET_STATUS_FLAG_CONNECTED) ==  SOCKET_STATUS_FLAG_CONNECTED) ||
+           ( (ctx->status & SOCKET_STATUS_FLAG_SECURED) ==  SOCKET_STATUS_FLAG_SECURED) ) )
+    {
+        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Socket not connected \r\n");
+        cy_rtos_set_mutex(&ctx->netconn_mutex);
+        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "netconn_mutex unlocked %s %d\n", __FILE__, __LINE__);
+        return CY_RSLT_MODULE_SECURE_SOCKETS_NOT_CONNECTED;
+    }
+
     if(ctx->enforce_tls)
     {
         /* Send through TLS pipe, if negotiated. */
@@ -2127,7 +2578,6 @@ cy_rslt_t cy_socket_recv(cy_socket_t handle, void * data, uint32_t size, int fla
         {
             ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_tls_recv failed with error %ld\n", ret);
             ret = TLS_TO_CY_SECURE_SOCKETS_ERR(ret);
-            return ret;
         }
     }
     else
@@ -2135,11 +2585,12 @@ cy_rslt_t cy_socket_recv(cy_socket_t handle, void * data, uint32_t size, int fla
         ret = network_receive((void *)ctx, data, size, bytes_received);
         if(ret != CY_RSLT_SUCCESS)
         {
-
             ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "network_recv_callback failed with error [0x%lX]\n", ret);
-            return ret;
         }
     }
+
+    cy_rtos_set_mutex(&ctx->netconn_mutex);
+    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "netconn_mutex unlocked %s %d\n", __FILE__, __LINE__);
 
     ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_socket_recv End\r\n");
     return ret;
@@ -2210,7 +2661,7 @@ cy_rslt_t cy_socket_recvfrom(cy_socket_t handle, void *buffer, uint32_t length, 
         memset(&remote, 0, sizeof(ip_addr_t));
 
         /* convert IP format from secure socket to LWIP */
-        result = convert_secure_socket_to_lwip_ip_addr(&remote, src_addr);
+        result = convert_secure_socket_to_lwip_ip_addr(&remote, &src_addr->ip_address);
         if( result != CY_RSLT_SUCCESS )
         {
             ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Failed conversion from secure socket to LWIP \r\n");
@@ -2282,7 +2733,13 @@ cy_rslt_t cy_socket_gethostbyname(const char *hostname, cy_socket_ip_version_t i
 {
     err_t          result;
     ip_addr_t      ip_address ;
-    uint8_t        dns_type;
+    uint8_t        dns_type = NETCONN_DNS_IPV4;
+
+    /* dns_type is only used when both LWIP_IPV4 and LWIP_IPV6 is enabled in LWIP configuration file.
+     * otherwise dns_type is unused and gives warning during compilation. To fix the warning, made variable
+     * UNUSED but still can be used for case when both LWIP_IPV4 and LWIP_IPV6 enabled.
+     */
+    UNUSED_VARIABLE(dns_type);
 
     ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_socket_gethostbyname Start\r\n");
     if( (NULL == hostname) || (NULL == addr))
@@ -2491,6 +2948,55 @@ cy_rslt_t cy_socket_delete(cy_socket_t handle)
     }
     else
     {
+        int member_index = 0;
+        int count = 0;
+        int num_multicast_groups = 0;
+        ip_addr_t if_addr;
+        ip_addr_t multi_addr;
+        err_t err = ERR_OK;
+
+        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "multicast_join_leave_mutex locked %s %d\n", __FILE__, __LINE__);
+        cy_rtos_get_mutex(&multicast_join_leave_mutex, CY_RTOS_NEVER_TIMEOUT);
+
+        num_multicast_groups = multicast_info.multicast_member_count;
+        while(count < num_multicast_groups)
+        {
+            member_index = next_registered_multicast_slot(member_index);
+
+            if(multicast_info.multicast_member_list[member_index].socket == ctx)
+            {
+                convert_secure_socket_to_lwip_ip_addr(&if_addr, &multicast_info.multicast_member_list[member_index].if_addr);
+                convert_secure_socket_to_lwip_ip_addr(&multi_addr, &multicast_info.multicast_member_list[member_index].multi_addr);
+#if LWIP_IPV4
+                if(IP_IS_V4(&if_addr))
+                {
+                    err = igmp_leavegroup(ip_2_ip4(&if_addr), ip_2_ip4(&multi_addr));
+                    if(err != ERR_OK)
+                    {
+                        cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "igmp_leavegroup failed with error %d\r\n", err);
+                    }
+                }
+#endif
+#if LWIP_IPV6
+                if(IP_IS_V6(&if_addr))
+                {
+                    err = mld6_leavegroup(ip_2_ip6(&if_addr), ip_2_ip6(&multi_addr));
+                    if(err != ERR_OK)
+                    {
+                        cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mld6_leavegroup failed with error %d\r\n", err);
+                    }
+                }
+#endif
+                clear_multicast_slot_status_bit(member_index);
+                multicast_info.multicast_member_count--;
+            }
+            member_index++;
+            count++;
+        }
+
+        cy_rtos_set_mutex(&multicast_join_leave_mutex);
+        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "multicast_join_leave_mutex unlocked %s %d\n", __FILE__, __LINE__);
+
         netconn_delete(ctx->conn_handler);
         ctx->conn_handler = NULL;
     }
@@ -2529,6 +3035,23 @@ cy_rslt_t cy_socket_deinit(void)
         cy_rtos_deinit_mutex(&socket_list_mutex);
         cy_rtos_deinit_mutex(&accept_recv_event_mutex);
         cy_rtos_deinit_mutex(&netconn_recvfrom_mutex);
+
+        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "multicast_join_leave_mutex locked %s %d\n", __FILE__, __LINE__);
+        cy_rtos_get_mutex(&multicast_join_leave_mutex, CY_RTOS_NEVER_TIMEOUT);
+        if(multicast_info.multicast_member_list)
+        {
+            free(multicast_info.multicast_member_list);
+            multicast_info.multicast_member_list = NULL;
+        }
+
+        multicast_info.multicast_member_status = 0;
+        multicast_info.multicast_member_count = 0;
+
+        cy_rtos_set_mutex(&multicast_join_leave_mutex);
+        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "multicast_join_leave_mutex unlocked %s %d\n", __FILE__, __LINE__);
+
+        cy_rtos_deinit_mutex(&multicast_join_leave_mutex);
+
         cy_worker_thread_delete(&socket_worker);
     }
     ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_socket_deinit End\r\n");
@@ -2561,7 +3084,7 @@ cy_rslt_t cy_socket_bind(cy_socket_t handle, cy_socket_sockaddr_t *address, uint
     memset(&ipaddr, 0, sizeof(ipaddr));
 
     /* Convert IP format from secure socket to LWIP */
-    result = convert_secure_socket_to_lwip_ip_addr(&ipaddr, address);
+    result = convert_secure_socket_to_lwip_ip_addr(&ipaddr, &address->ip_address);
     if(result != CY_RSLT_SUCCESS)
     {
         ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Failed conversion from secure socket to LWIP \r\n");
@@ -2614,7 +3137,7 @@ cy_rslt_t cy_socket_listen(cy_socket_t handle, int backlog)
 
     if(!ctx->is_recvtimeout_set)
     {
-         // Reset recv timeout for server socket to zero if application has not set it.
+        /* Reset recv timeout for server socket to zero if application has not set it. */
         netconn_set_recvtimeout(ctx->conn_handler, 0);
     }
 
@@ -2634,6 +3157,12 @@ cy_rslt_t cy_socket_listen(cy_socket_t handle, int backlog)
     }
     ctx->role = CY_TLS_ENDPOINT_SERVER;
     ctx->status |=  SOCKET_STATUS_FLAG_LISTENING;
+
+    /* If user has not set the authentication mode, set the default authentication mode to NONE. */
+    if(!ctx->is_authmode_set)
+    {
+        ctx->auth_mode = CY_SOCKET_TLS_VERIFY_NONE;
+    }
 
     ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_socket_listen End\r\n");
     return CY_RSLT_SUCCESS;

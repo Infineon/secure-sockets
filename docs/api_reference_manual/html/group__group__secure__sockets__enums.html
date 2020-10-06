@@ -108,6 +108,14 @@ Enumerations</h2></td></tr>
  }<tr class="memdesc:gaf0599f554a1154ae83b4f587520fa705"><td class="mdescLeft">&#160;</td><td class="mdescRight">Options for socket option <a class="el" href="group__group__secure__sockets__macros.html#ga9ce4ab8fca2ff7306f05f7433835f394">CY_SOCKET_SO_TLS_AUTH_MODE</a>.  <a href="group__group__secure__sockets__enums.html#gaf0599f554a1154ae83b4f587520fa705">More...</a><br /></td></tr>
 </td></tr>
 <tr class="separator:gaf0599f554a1154ae83b4f587520fa705"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga6a02f37745fb60c714f996c4b6b9d4f7"><td class="memItemLeft" align="right" valign="top">enum &#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__secure__sockets__enums.html#ga6a02f37745fb60c714f996c4b6b9d4f7">cy_socket_interface_t</a> { <br />
+&#160;&#160;<a class="el" href="group__group__secure__sockets__enums.html#gga6a02f37745fb60c714f996c4b6b9d4f7a4c29893d5c30a68987a78f2d5db9cff1">CY_SOCKET_STA_INTERFACE</a> = 0, 
+<br />
+&#160;&#160;<a class="el" href="group__group__secure__sockets__enums.html#gga6a02f37745fb60c714f996c4b6b9d4f7a48dee990dfe5215a3e280708445fbe84">CY_SOCKET_AP_INTERFACE</a> = 1
+<br />
+ }<tr class="memdesc:ga6a02f37745fb60c714f996c4b6b9d4f7"><td class="mdescLeft">&#160;</td><td class="mdescRight">Options for socket option <a class="el" href="group__group__secure__sockets__macros.html#ga9bcc73d3e5fd22f8cceb98f57507703d">CY_SOCKET_SO_BINDTODEVICE</a>.  <a href="group__group__secure__sockets__enums.html#ga6a02f37745fb60c714f996c4b6b9d4f7">More...</a><br /></td></tr>
+</td></tr>
+<tr class="separator:ga6a02f37745fb60c714f996c4b6b9d4f7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Enumeration Type Documentation</h2>
 <a id="ga97cb501a58195859467b126cf2a2789d"></a>
@@ -146,11 +154,33 @@ Enumerations</h2></td></tr>
 
 <p>Options for socket option <a class="el" href="group__group__secure__sockets__macros.html#ga9ce4ab8fca2ff7306f05f7433835f394">CY_SOCKET_SO_TLS_AUTH_MODE</a>. </p>
 <table class="fieldtable">
-<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="ggaf0599f554a1154ae83b4f587520fa705a5e65bc0e49bff7bd34ee1059c97f1d10"></a>CY_SOCKET_TLS_VERIFY_NONE&#160;</td><td class="fielddoc"><p>Peer certificate is not checked (default authentication mode.) </p>
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="ggaf0599f554a1154ae83b4f587520fa705a5e65bc0e49bff7bd34ee1059c97f1d10"></a>CY_SOCKET_TLS_VERIFY_NONE&#160;</td><td class="fielddoc"><p>Peer certificate is not checked (default authentication mode for server sockets). </p>
 </td></tr>
 <tr><td class="fieldname"><a id="ggaf0599f554a1154ae83b4f587520fa705a3f29601bc8744e1493a2429c3382bc05"></a>CY_SOCKET_TLS_VERIFY_OPTIONAL&#160;</td><td class="fielddoc"><p>Peer certificate is checked, but the handshake continues even if verification fails. </p>
 </td></tr>
-<tr><td class="fieldname"><a id="ggaf0599f554a1154ae83b4f587520fa705a68f0cd442bb9f64416a6351f6d8c5a78"></a>CY_SOCKET_TLS_VERIFY_REQUIRED&#160;</td><td class="fielddoc"><p>Peer must present a valid certificate; handshake is aborted if verification failed. </p>
+<tr><td class="fieldname"><a id="ggaf0599f554a1154ae83b4f587520fa705a68f0cd442bb9f64416a6351f6d8c5a78"></a>CY_SOCKET_TLS_VERIFY_REQUIRED&#160;</td><td class="fielddoc"><p>Peer must present a valid certificate; handshake is aborted if verification failed (default authentication mode for client sockets). </p>
+</td></tr>
+</table>
+
+</div>
+</div>
+<a id="ga6a02f37745fb60c714f996c4b6b9d4f7"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ga6a02f37745fb60c714f996c4b6b9d4f7">&#9670;&nbsp;</a></span>cy_socket_interface_t</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">enum <a class="el" href="group__group__secure__sockets__enums.html#ga6a02f37745fb60c714f996c4b6b9d4f7">cy_socket_interface_t</a></td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Options for socket option <a class="el" href="group__group__secure__sockets__macros.html#ga9bcc73d3e5fd22f8cceb98f57507703d">CY_SOCKET_SO_BINDTODEVICE</a>. </p>
+<table class="fieldtable">
+<tr><th colspan="2">Enumerator</th></tr><tr><td class="fieldname"><a id="gga6a02f37745fb60c714f996c4b6b9d4f7a4c29893d5c30a68987a78f2d5db9cff1"></a>CY_SOCKET_STA_INTERFACE&#160;</td><td class="fielddoc"><p>STA or Client Interface. </p>
+</td></tr>
+<tr><td class="fieldname"><a id="gga6a02f37745fb60c714f996c4b6b9d4f7a48dee990dfe5215a3e280708445fbe84"></a>CY_SOCKET_AP_INTERFACE&#160;</td><td class="fielddoc"><p>softAP Interface </p>
 </td></tr>
 </table>
 

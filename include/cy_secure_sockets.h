@@ -43,84 +43,6 @@
 
 /**
 *
-********************************************************************************
-* \mainpage Overview
-********************************************************************************
-* Secure Sockets Library provides APIs to create software that can send and/or receive data over the network using sockets. This library supports both secure and non-secure sockets, and abstracts the complexity involved in directly using network stack and security stack APIs. This library supports both IPv4 and IPv6 addressing modes for UDP and TCP sockets.
-*
-********************************************************************************
-* \section section_features Features and Functionality
-********************************************************************************
-* Features supported:
-* * Supports non-secure TCP and UDP sockets
-* * Secure TCP (TLS) socket communication using mbed TLS library
-* * Supports both IPv4 and IPv6 addressing. Only link-local IPv6 addressing is supported
-* * Thread-safe APIs
-* * Provides APIs for both Client and Server mode operations
-* * Supports both Synchronous and Asynchronous APIs for receiving data on socket
-* * Asynchronous Server APIs for accepting client connections
-* * Provides a socket-option API to configure send/receive timeout, callback for asynchronous mode, TCP keepalive parameters, certificate/key, and TLS extensions
-*
-********************************************************************************
-* \section section_platforms Supported Platforms
-********************************************************************************
-This library and its features are supported on the following PSoC 6 platforms:
-* * [PSoC6 WiFi-BT Prototyping Kit (CY8CPROTO-062-4343W)](https://www.cypress.com/documentation/development-kitsboards/psoc-6-wi-fi-bt-prototyping-kit-cy8cproto-062-4343w)
-* * [PSoC 62S2 Wi-Fi BT Pioneer Kit (CY8CKIT-062S2-43012)](https://www.cypress.com/documentation/development-kitsboards/psoc-62s2-wi-fi-bt-pioneer-kit-cy8ckit-062s2-43012)
-*
-********************************************************************************
-* \section section_integration Integration Notes
-********************************************************************************
-* * Secure Sockets Library configures default send and receive timeout values to 10 seconds for a newly created socket. Default timeout values can be changed by modifying the DEFAULT_SEND_TIMEOUT_IN_MSEC and DEFAULT_RECV_TIMEOUT_IN_MSEC macros in the cy_secure_sockets.h file. To configure the timeout values specific to socket, use the cy_socket_setsockopt API function. To change the send timeout, use the CY_SOCKET_SO_SNDTIMEO socket option; similarly, for receive timeout, use the CY_SOCKET_SO_RCVTIMEO socket option. Adjust the default timeout values based on the network speed or use case.
-* * Secure Sockets Library has been designed to support different flavors of TCP/IP stack or security stack. Currently, lwIP and mbed TLS are the default network and security stacks respectively. Therefore, any application that uses secure sockets must ensure that the following COMPONENTS are defined in the code example project's makefile - LWIP and MBEDTLS.
-* * Applications using Secure Sockets Library must include only the cy_secure_sockets.h file for non-secure connections. For secure connections, the application must include both cy_secure_sockets.h and cy_tls.h header files.
-* * Secure Sockets Library disables all the debug log messages by default. To enable log messages, the application must perform the following:
-*      -# Add `ENABLE_SECURE_SOCKETS_LOGS` macro to the *DEFINES* in the code example's Makefile. The Makefile entry would look like as follows:
-*         \code
-*           DEFINES+=ENABLE_SECURE_SOCKETS_LOGS
-*         \endcode
-*      -# Call the `cy_log_init()` function provided by the *cy-log* module. cy-log is part of the *connectivity-utilities* library. See [connectivity-utilities library API documentation](https://cypresssemiconductorco.github.io/connectivity-utilities/api_reference_manual/html/group__logging__utils.html) for cy-log details.
-* * To ease the integration of Wi-Fi connectivity components to code examples, this Secure Socket Library has been bundled into the [Wi-Fi Middleware Core Library v2.0.0](https://github.com/cypresssemiconductorco/wifi-mw-core).
-*
-********************************************************************************
-* \section section_code_snippet Code Snippets
-********************************************************************************
-********************************************************************************
-* \subsection snip1 Code Snippet 1: Create TCP Socket
-*  This code snippet demonstrates how to initialize and create a TCP socket using an IPv4 address domain.
-* \snippet doxygen_secure_socket_code_snippet.c snippet_create_socket
-********************************************************************************
-* \subsection snip2 Code Snippet 2: Create Secure TCP Socket
-* This code snippet demonstrates how to initialize and create a TCP socket using an IPv4 address domain and set the TLS credentials to be used for securing the socket communication.
-* \snippet doxygen_secure_socket_code_snippet.c snippet_create_secure_socket
-********************************************************************************
-* \subsection snip3 Code Snippet 3: TCP Client Connect
-* This code snippet demonstrates how to create a TCP client using an IPv4 address domain and connect to a TCP server. After connection is established with the TCP server, the client sends a message to the TCP server and waits for a message from the server.
-* \snippet doxygen_secure_socket_code_snippet.c snippet_tcp_client
-********************************************************************************
-* \subsection snip4 Code Snippet 4: TCP Server - Listening for client connection
-* This code snippet demonstrates how to create a TCP server using an IPv4 address domain and accept a TCP client connection. The server implementation in this snippet waits for a client connection and a message from the connected client. Upon receiving a message from the client, it sends a response message back to the client.
-* \snippet doxygen_secure_socket_code_snippet.c snippet_tcp_server
-********************************************************************************
-* \subsection snip5 Code Snippet 5: TCP IPv6 Client Connect
-* This code snippet demonstrates how to create a TCP client using an IPv6 address domain and connect to a TCP server. After connection is established with the TCP server, the client sends a message to the TCP server and waits for a message from the server.
-* \snippet doxygen_secure_socket_code_snippet.c snippet_tcp_ipv6_client
-********************************************************************************
-* \subsection snip6 Code Snippet 6: Create UDP Socket
-* This code snippet demonstrates how to initialize and create a UDP socket using an IPv4 address domain.
-* \snippet doxygen_secure_socket_code_snippet.c snippet_create_udp_socket
-********************************************************************************
-* \subsection snip7 Code Snippet 7: UDP Client - Send data to a UDP server using an IPv4 address
-* This code snippet demonstrates how to create a UDP client using an IPv4 address domain and send data to a UDP server. After sending data to the UDP server, this UDP client waits for a response message from the server.
-* \snippet doxygen_secure_socket_code_snippet.c snippet_udp_client
-********************************************************************************
-* \subsection snip8 Code Snippet 8: UDP Server - Receive data from a UDP client using an IPv4 address
-* This code snippet demonstrates how to create a UDP server using an IPv4 address domain and receive data from a UDP client.
-* \snippet doxygen_secure_socket_code_snippet.c snippet_udp_server
-********************************************************************************
-*/
-/**
-*
 * \addtogroup group_secure_sockets_mscs
 * \{
 *
@@ -210,7 +132,7 @@ extern "C" {
 #define CY_SOCKET_SOL_SOCKET     ( 1 )   /**< Level option for \ref cy_socket_setsockopt() - Socket-level option. */
 #define CY_SOCKET_SOL_TCP        ( 2 )   /**< Level option for \ref cy_socket_setsockopt() - TCP protocol-level option. */
 #define CY_SOCKET_SOL_TLS        ( 3 )   /**< Level option for \ref cy_socket_setsockopt() - TLS protocol-level option. */
-
+#define CY_SOCKET_SOL_IP         ( 4 )   /**< Level option for \ref cy_socket_setsockopt() - IP protocol-level option. */
 /*
  * Options for optname in \ref cy_socket_setsockopt() and cy_socket_getsockopt().
  */
@@ -424,6 +346,69 @@ extern "C" {
  */
 #define CY_SOCKET_SO_TLS_MFL       ( 17 )
 
+/**
+ * Join an IPv4 (or) IPv6 multicast group.
+ * This option is not supported in \ref cy_socket_getsockopt.
+ *
+ * \note
+ *  1. This implementation supports up to 10 multicast groups in total, and across the sockets. This is due to the underlying Wi-Fi Host Driver (WHD) limitation.
+ *  2. The maximum number of IPv4 and IPv6 multicast groups to be supported can be configured using the configuration options provided by the network stack.
+ *     However, if the total count of both IPv4 and IPv6 multicast groups is more than 10, any attempts to join a new multicast group will fail.
+ *
+ * Arguments related to this optname:
+ *   * Option value: Pointer holding the multicast group address and local IP address values in \ref cy_socket_ip_mreq_t structure type.
+ *   * Level: \ref CY_SOCKET_SOL_IP
+ */
+#define CY_SOCKET_SO_JOIN_MULTICAST_GROUP   ( 18 )
+
+/**
+ * Leave an IPv4 (or) IPv6 multicast group.
+ * This option is not supported in \ref cy_socket_getsockopt.
+ *
+ * Arguments related to this optname:
+ *   * Option value: Pointer holding the multicast group address and local IP address values in \ref cy_socket_ip_mreq_t structure type.
+ *   * Level: \ref CY_SOCKET_SOL_IP
+ */
+#define CY_SOCKET_SO_LEAVE_MULTICAST_GROUP  ( 19 )
+
+/**
+ * Set the time-to-live value of outgoing multicast packets for this socket.
+ *
+ * Arguments related to this optname:
+ *   * Option value: Pointer holding the time-to-live value in uint8_t type.
+ *                   The value of this socket option should be in the range 0 <= value <= 255.
+ *                   For IPv4, this value is measured in seconds; for IPv6, it is measured in hop limit.
+ *   * Level: \ref CY_SOCKET_SOL_IP
+ */
+#define CY_SOCKET_SO_IP_MULTICAST_TTL ( 20 )
+
+/**
+ * Enable/disable sending and receiving broadcast messages on the socket.
+ *
+ * \note Use this socket option only when broadcast filter is enabled in the network stack configuration.
+ *       If broadcast filter is disabled in network stack configuration, broadcast messages cannot be controlled
+ *       with this socket option.
+ *
+ * Arguments related to this optname:
+ *   * Option value: Pointer holding the uint8_t value.
+ *                   Value "1" enables broadcast messages.
+ *                   Value "0" disables broadcast messages.
+ *   * Level: \ref CY_SOCKET_SOL_SOCKET
+ */
+#define CY_SOCKET_SO_BROADCAST       ( 21 )
+
+/**
+ * Set the network interface to be used for sending and receiving data on the socket.
+ * This socket option can be called for more than once for a socket to change the interface it's bound to.
+ *
+ * This option is not supported in \ref cy_socket_getsockopt.
+ *
+ * Arguments related to this optname:
+ *   * Option value: Pointer holding the interface type value in \ref cy_socket_interface_t type.
+ *   * Level: \ref CY_SOCKET_SOL_SOCKET
+ */
+#define CY_SOCKET_SO_BINDTODEVICE    ( 22 )
+
 /*
  * \ref cy_socket_send() input flags. One or more flags can be combined.
  */
@@ -431,13 +416,13 @@ extern "C" {
 #define CY_SOCKET_FLAGS_MORE       ( 0x1 ) /**< \ref cy_socket_send() input flags - The caller indicates that there is additional data to be sent. This flag is applicable only for TCP connections. Caller will not set this flag for the last data chunk to be sent. */
 
 /*
- * \ref cy_socket_recvfrom() input flags. One or more flags can be combined
+ * \ref cy_socket_recvfrom() input flags. One or more flags can be combined.
  */
 #define CY_SOCKET_FLAGS_RECVFROM_NONE          ( 0x0 ) /**< \ref cy_socket_recvfrom() input flags - No flag. */
 #define CY_SOCKET_FLAGS_RECVFROM_SRC_FILTER    ( 0x1 ) /**< \ref cy_socket_recvfrom() input flags - Used for filtering of input packets. Packets are received only from the user-specified source address. */
 
 /*
- * \ref cy_socket_poll() input flags.
+ * \ref cy_socket_poll() input flags. One or more flags can be combined.
  */
 #define CY_SOCKET_POLL_READ  ( 1 ) /**< \ref cy_socket_poll() input flags - Check for pending data.  */
 #define CY_SOCKET_POLL_WRITE ( 2 ) /**< \ref cy_socket_poll() input flags - Check whether write is possible. */
@@ -478,10 +463,19 @@ typedef enum
  */
 typedef enum
 {
-    CY_SOCKET_TLS_VERIFY_NONE = 0,     /**< Peer certificate is not checked (default authentication mode.) */
+    CY_SOCKET_TLS_VERIFY_NONE = 0,     /**< Peer certificate is not checked (default authentication mode for server sockets). */
     CY_SOCKET_TLS_VERIFY_OPTIONAL = 1, /**< Peer certificate is checked, but the handshake continues even if verification fails. */
-    CY_SOCKET_TLS_VERIFY_REQUIRED = 2  /**< Peer must present a valid certificate; handshake is aborted if verification failed. */
+    CY_SOCKET_TLS_VERIFY_REQUIRED = 2  /**< Peer must present a valid certificate; handshake is aborted if verification failed (default authentication mode for client sockets). */
 } cy_socket_tls_auth_mode_t;
+
+/**
+ * Options for socket option \ref CY_SOCKET_SO_BINDTODEVICE
+ */
+typedef enum
+{
+    CY_SOCKET_STA_INTERFACE = 0,   /**< STA or Client Interface  */
+    CY_SOCKET_AP_INTERFACE  = 1    /**< softAP Interface         */
+} cy_socket_interface_t;
 
 /** \} group_secure_sockets_enums */
 
@@ -544,6 +538,14 @@ typedef struct cy_socket_opt_callback
     void * arg;                    /**< Caller-defined context to be used with the callback function. */
 } cy_socket_opt_callback_t;
 
+/**
+ * Option value type for \ref CY_SOCKET_SO_JOIN_MULTICAST_GROUP, and \ref CY_SOCKET_SO_LEAVE_MULTICAST_GROUP socket options.
+ */
+typedef struct cy_socket_ip_mreq {
+    cy_socket_ip_address_t multi_addr; /**< IP multicast address of the group. */
+    cy_socket_ip_address_t if_addr;    /**< Local IP address of the interface. */
+} cy_socket_ip_mreq_t;
+
 /** \} group_secure_sockets_structures */
 
 /**
@@ -586,9 +588,16 @@ cy_rslt_t cy_socket_deinit( void );
 /**
  * Creates a new socket.
  *
- * \note Secure Sockets library configures default send and receive timeout values to 10 seconds for a newly created socket.
- *       These default values can be overridden using the \ref cy_socket_setsockopt API. Adjust the default timeout values based on the network speed or use case.
- *       For example, to change the send timeout, use the \ref CY_SOCKET_SO_SNDTIMEO socket option; similarly, for receive timeout, use the \ref CY_SOCKET_SO_RCVTIMEO socket option.
+ * \note
+ * 1. \ref cy_socket_create() function creates a dual-stack socket if domain passed is \ref CY_SOCKET_DOMAIN_AF_INET6.
+ * 2. Secure Sockets Library configures default send and receive timeout values to 10 seconds for a newly created socket.
+ *    These default values can be overridden using the \ref cy_socket_setsockopt API. Adjust the default timeout values based on the network speed or use case.
+ *    For example, to change the send timeout, use the \ref CY_SOCKET_SO_SNDTIMEO socket option; similarly, for receive timeout, use the \ref CY_SOCKET_SO_RCVTIMEO socket option.
+ *
+ * 3. Secure Socket Library sets default TLS authentication mode for TLS client sockets to \ref CY_SOCKET_TLS_VERIFY_REQUIRED. For TLS server sockets,
+ *    it sets the default TLS authentication mode to CY_SOCKET_TLS_VERIFY_NONE. To override the default authentication mode,
+ *    use \ref cy_socket_setsockopt with the \ref CY_SOCKET_SO_TLS_AUTH_MODE socket option.
+ * 4. To use a socket for multicast operations over SoftAP interface, user must bind the socket to the SoftAP interface using \ref CY_SOCKET_SO_BINDTODEVICE socket option after creating the socket.
  *
  * Valid type/protocol combinations are:
  *   - \ref CY_SOCKET_TYPE_STREAM with \ref CY_SOCKET_IPPROTO_TCP or \ref CY_SOCKET_IPPROTO_TLS
@@ -614,8 +623,13 @@ cy_rslt_t cy_socket_create(int domain, int type, int protocol, cy_socket_t *hand
  * For secure (TLS) sockets, before calling this API function, the following TLS configuration can be set:
  * 1. RootCA using the \ref cy_tls_load_global_root_ca_certificates or \ref cy_socket_setsockopt API function with \ref CY_SOCKET_SO_TRUSTED_ROOTCA_CERTIFICATE.
  * 2. Certificate/key pair with \ref cy_tls_create_identity and \ref cy_socket_setsockopt with \ref CY_SOCKET_SO_TLS_IDENTITY.
- * 3. For TLS connections, the default authentication mode set is \ref CY_SOCKET_TLS_VERIFY_NONE. To override the default authentication mode,
+ * 3. For TLS client sockets, the default authentication mode set is \ref CY_SOCKET_TLS_VERIFY_REQUIRED. To override the default authentication mode,
  *    use \ref cy_socket_setsockopt with the \ref CY_SOCKET_SO_TLS_AUTH_MODE socket option.
+ * 4. The default mbed TLS configuration provided by the *Wi-Fi Middleware Core Library* disables the validity period verification of the certificates.
+ *    To perform this verification, enable MBEDTLS_HAVE_TIME_DATE in the [mbedtls_user_config.h] (https://github.com/cypresssemiconductorco/wifi-mw-core/blob/master/configs/mbedtls_user_config.h) file. Ensure that the system time is set prior to the \ref cy_socket_connect() function call.
+ *    To set the system time, get the time from the NTP server and set the system's RTC time using the Cy_RTC_SetDateAndTime() function provided by the *PSoC 6 Peripheral Driver Library* module.
+ *    See [https://cypresssemiconductorco.github.io/psoc6pdl/pdl_api_reference_manual/html/group__group__rtc.html] for reference. See the code snippet to get the time from NTP
+ *    server in the Secure Sockets Library documentation.
  *
  * @param[in] handle         Socket handle returned by the \ref cy_socket_create API function.
  * @param[in] address        Pointer to the \ref cy_socket_sockaddr_t structure that contains the address to connect the socket to. Refer \ref cy_socket_ip_address_t for IP address endienness.
@@ -765,7 +779,8 @@ cy_rslt_t cy_socket_send(cy_socket_t handle, const void *buffer, uint32_t length
  *            Important error code related to this API function is: \n
  *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET \n
  *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_NETIF_DOES_NOT_EXIST \n
- *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_ARP_TIMEOUT
+ *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_ARP_TIMEOUT \n
+ *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_ERROR_ROUTING
  */
 cy_rslt_t cy_socket_sendto(cy_socket_t handle, const void *buffer, uint32_t length, int flags, const cy_socket_sockaddr_t *dest_addr, uint32_t address_length, uint32_t *bytes_sent);
 
@@ -842,7 +857,11 @@ cy_rslt_t cy_socket_recvfrom(cy_socket_t handle, void *buffer, uint32_t length, 
  *                           \ref CY_SOCKET_SO_SERVER_NAME_INDICATION \n
  *                           \ref CY_SOCKET_SO_ALPN_PROTOCOLS \n
  *                           \ref CY_SOCKET_SO_TLS_AUTH_MODE \n
- *                           \ref CY_SOCKET_SO_TLS_MFL
+ *                           \ref CY_SOCKET_SO_TLS_MFL \n
+ *                           \ref CY_SOCKET_SO_JOIN_MULTICAST_GROUP \n
+ *                           \ref CY_SOCKET_SO_LEAVE_MULTICAST_GROUP \n
+ *                           \ref CY_SOCKET_SO_IP_MULTICAST_TTL \n
+ *                           \ref CY_SOCKET_SO_BROADCAST
  * @param[in] optval         A buffer containing the value of the option to set.
  * @param[in] optlen         The length of the buffer pointed to by optval.
  *
@@ -851,7 +870,11 @@ cy_rslt_t cy_socket_recvfrom(cy_socket_t handle, void *buffer, uint32_t length, 
  *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_BADARG \n
  *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET \n
  *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_ALREADY_CONNECTED \n
- *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_OPTION
+ *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_OPTION \n
+ *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_ADDRESS_IN_USE \n
+ *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_MAX_MEMBERSHIP_ERROR \n
+ *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_MULTICAST_ADDRESS_NOT_REGISTERED \n
+ *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_OPTION_NOT_SUPPORTED
  */
 cy_rslt_t cy_socket_setsockopt(cy_socket_t handle, int level, int optname, const void *optval, uint32_t optlen);
 
@@ -882,7 +905,8 @@ cy_rslt_t cy_socket_setsockopt(cy_socket_t handle, int level, int optname, const
  *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_BADARG \n
  *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET \n
  *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_OPTION \n
- *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_PROTOCOL_NOT_SUPPORTED
+ *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_PROTOCOL_NOT_SUPPORTED \n
+ *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_OPTION_NOT_SUPPORTED
  */
 cy_rslt_t cy_socket_getsockopt(cy_socket_t handle, int level, int optname, void *optval, uint32_t *optlen);
 

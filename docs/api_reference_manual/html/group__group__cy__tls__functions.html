@@ -151,7 +151,6 @@ Functions</h2></td></tr>
 <dl class="section note"><dt>Note</dt><dd><ol type="1">
 <li>Helper APIs <a class="el" href="group__group__cy__tls__functions.html#ga186918ab7a9c658fb7e3cc6f00e0d6d9">cy_tls_load_global_root_ca_certificates</a>, <a class="el" href="group__group__cy__tls__functions.html#ga5e76c0d24388071a0ba60b38a9367bd0">cy_tls_release_global_root_ca_certificates</a>, <a class="el" href="group__group__cy__tls__functions.html#ga3d2408681bbcea3b869cb5ae21cd0d5e">cy_tls_create_identity</a>, and <a class="el" href="group__group__cy__tls__functions.html#ga6e0540b152880d64f30eab5dfb33de2a">cy_tls_delete_identity</a> can be called without calling <a class="el" href="group__group__cy__tls__functions.html#gaa78e119aa59d26d68ff2e879d55cdac8">cy_tls_init</a>.</li>
 <li><a class="el" href="group__group__cy__tls__functions.html#gaa78e119aa59d26d68ff2e879d55cdac8">cy_tls_init</a> and <a class="el" href="group__group__cy__tls__functions.html#gaccea15eaf0ad36001b914bd53b327a84">cy_tls_deinit</a> API functions are not thread-safe. The caller must ensure that these two API functions are not invoked simultaneously from different threads.</li>
-<li>This API function initializes the RTC using the default time instead of the actual time. Currently, the platform does not have support to get the current time; therefore, the default time is used for the RTC.</li>
 </ol>
 </dd></dl>
 <dl class="section return"><dt>Returns</dt><dd>CY_RSLT_SUCCESS on success; an error code on failure. </dd></dl>

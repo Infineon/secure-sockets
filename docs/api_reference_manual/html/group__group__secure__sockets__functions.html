@@ -234,7 +234,13 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Creates a new socket. </p>
-<dl class="section note"><dt>Note</dt><dd>Secure Sockets library configures default send and receive timeout values to 10 seconds for a newly created socket. These default values can be overridden using the <a class="el" href="group__group__secure__sockets__functions.html#ga02e453d715d77075c59d751f6b07ae8f">cy_socket_setsockopt</a> API. Adjust the default timeout values based on the network speed or use case. For example, to change the send timeout, use the <a class="el" href="group__group__secure__sockets__macros.html#ga6d99d154509bf7293f13ac97b7fd5b68">CY_SOCKET_SO_SNDTIMEO</a> socket option; similarly, for receive timeout, use the <a class="el" href="group__group__secure__sockets__macros.html#ga1fcbd0b7ab0d808a7d0a88eaffe04e00">CY_SOCKET_SO_RCVTIMEO</a> socket option.</dd></dl>
+<dl class="section note"><dt>Note</dt><dd><ol type="1">
+<li><a class="el" href="group__group__secure__sockets__functions.html#ga30bbbf20a277e2a7e622df504b014a4b">cy_socket_create()</a> function creates a dual-stack socket if domain passed is <a class="el" href="group__group__secure__sockets__macros.html#gaa2d04e27350109a0084d8ea90eb24a27">CY_SOCKET_DOMAIN_AF_INET6</a>.</li>
+<li>Secure Sockets Library configures default send and receive timeout values to 10 seconds for a newly created socket. These default values can be overridden using the <a class="el" href="group__group__secure__sockets__functions.html#ga02e453d715d77075c59d751f6b07ae8f">cy_socket_setsockopt</a> API. Adjust the default timeout values based on the network speed or use case. For example, to change the send timeout, use the <a class="el" href="group__group__secure__sockets__macros.html#ga6d99d154509bf7293f13ac97b7fd5b68">CY_SOCKET_SO_SNDTIMEO</a> socket option; similarly, for receive timeout, use the <a class="el" href="group__group__secure__sockets__macros.html#ga1fcbd0b7ab0d808a7d0a88eaffe04e00">CY_SOCKET_SO_RCVTIMEO</a> socket option.</li>
+<li>Secure Socket Library sets default TLS authentication mode for TLS client sockets to <a class="el" href="group__group__secure__sockets__enums.html#ggaf0599f554a1154ae83b4f587520fa705a68f0cd442bb9f64416a6351f6d8c5a78">CY_SOCKET_TLS_VERIFY_REQUIRED</a>. For TLS server sockets, it sets the default TLS authentication mode to CY_SOCKET_TLS_VERIFY_NONE. To override the default authentication mode, use <a class="el" href="group__group__secure__sockets__functions.html#ga02e453d715d77075c59d751f6b07ae8f">cy_socket_setsockopt</a> with the <a class="el" href="group__group__secure__sockets__macros.html#ga9ce4ab8fca2ff7306f05f7433835f394">CY_SOCKET_SO_TLS_AUTH_MODE</a> socket option.</li>
+<li>To use a socket for multicast operations over SoftAP interface, user must bind the socket to the SoftAP interface using <a class="el" href="group__group__secure__sockets__macros.html#ga9bcc73d3e5fd22f8cceb98f57507703d">CY_SOCKET_SO_BINDTODEVICE</a> socket option after creating the socket.</li>
+</ol>
+</dd></dl>
 <p>Valid type/protocol combinations are:</p><ul>
 <li><a class="el" href="group__group__secure__sockets__macros.html#gac0610ba6e8fe01ccbaacf89145f9285a">CY_SOCKET_TYPE_STREAM</a> with <a class="el" href="group__group__secure__sockets__macros.html#ga1c6d23edbc333c85d3e7a8702dcf22a1">CY_SOCKET_IPPROTO_TCP</a> or <a class="el" href="group__group__secure__sockets__macros.html#ga1114a6ecf098cf499e2c9ad3d651efc3">CY_SOCKET_IPPROTO_TLS</a></li>
 <li><a class="el" href="group__group__secure__sockets__macros.html#ga9ea5c6f97612e469393306ddefc38657">CY_SOCKET_TYPE_DGRAM</a> with <a class="el" href="group__group__secure__sockets__macros.html#ga2bbff715a00d6ce5ff669b12a75c7441">CY_SOCKET_IPPROTO_UDP</a></li>
@@ -291,7 +297,8 @@ Functions</h2></td></tr>
 <p>For secure (TLS) sockets, before calling this API function, the following TLS configuration can be set:</p><ol type="1">
 <li>RootCA using the <a class="el" href="group__group__cy__tls__functions.html#ga186918ab7a9c658fb7e3cc6f00e0d6d9">cy_tls_load_global_root_ca_certificates</a> or <a class="el" href="group__group__secure__sockets__functions.html#ga02e453d715d77075c59d751f6b07ae8f">cy_socket_setsockopt</a> API function with <a class="el" href="group__group__secure__sockets__macros.html#ga5bdbb8938476af809b4af8f5f7c2da2d">CY_SOCKET_SO_TRUSTED_ROOTCA_CERTIFICATE</a>.</li>
 <li>Certificate/key pair with <a class="el" href="group__group__cy__tls__functions.html#ga3d2408681bbcea3b869cb5ae21cd0d5e">cy_tls_create_identity</a> and <a class="el" href="group__group__secure__sockets__functions.html#ga02e453d715d77075c59d751f6b07ae8f">cy_socket_setsockopt</a> with <a class="el" href="group__group__secure__sockets__macros.html#gafa0ac839774a33feeb037dbb0c449cc3">CY_SOCKET_SO_TLS_IDENTITY</a>.</li>
-<li>For TLS connections, the default authentication mode set is <a class="el" href="group__group__secure__sockets__enums.html#ggaf0599f554a1154ae83b4f587520fa705a5e65bc0e49bff7bd34ee1059c97f1d10">CY_SOCKET_TLS_VERIFY_NONE</a>. To override the default authentication mode, use <a class="el" href="group__group__secure__sockets__functions.html#ga02e453d715d77075c59d751f6b07ae8f">cy_socket_setsockopt</a> with the <a class="el" href="group__group__secure__sockets__macros.html#ga9ce4ab8fca2ff7306f05f7433835f394">CY_SOCKET_SO_TLS_AUTH_MODE</a> socket option.</li>
+<li>For TLS client sockets, the default authentication mode set is <a class="el" href="group__group__secure__sockets__enums.html#ggaf0599f554a1154ae83b4f587520fa705a68f0cd442bb9f64416a6351f6d8c5a78">CY_SOCKET_TLS_VERIFY_REQUIRED</a>. To override the default authentication mode, use <a class="el" href="group__group__secure__sockets__functions.html#ga02e453d715d77075c59d751f6b07ae8f">cy_socket_setsockopt</a> with the <a class="el" href="group__group__secure__sockets__macros.html#ga9ce4ab8fca2ff7306f05f7433835f394">CY_SOCKET_SO_TLS_AUTH_MODE</a> socket option.</li>
+<li>The default mbed TLS configuration provided by the <em>Wi-Fi Middleware Core Library</em> disables the validity period verification of the certificates. To perform this verification, enable MBEDTLS_HAVE_TIME_DATE in the <a href="https://github.com/cypresssemiconductorco/wifi-mw-core/blob/master/configs/mbedtls_user_config.h">mbedtls_user_config.h</a> file. Ensure that the system time is set prior to the <a class="el" href="group__group__secure__sockets__functions.html#ga2e07189d60c7e6a130302d2e2db19653">cy_socket_connect()</a> function call. To set the system time, get the time from the NTP server and set the system's RTC time using the Cy_RTC_SetDateAndTime() function provided by the <em>PSoC 6 Peripheral Driver Library</em> module. See [<a href="https://cypresssemiconductorco.github.io/psoc6pdl/pdl_api_reference_manual/html/group__group__rtc.html">https://cypresssemiconductorco.github.io/psoc6pdl/pdl_api_reference_manual/html/group__group__rtc.html</a>] for reference. See the code snippet to get the time from NTP server in the Secure Sockets Library documentation.</li>
 </ol>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
@@ -645,7 +652,8 @@ Functions</h2></td></tr>
 <dl class="section return"><dt>Returns</dt><dd>CY_RSLT_SUCCESS on success; an error code on failure. On success, it also returns the number of bytes sent. Important error code related to this API function is: <br />
  <a class="el" href="group__group__secure__sockets__results.html#ga8ab175e739acbc1da3458c6f2c9980b4">CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET</a> <br />
  <a class="el" href="group__group__secure__sockets__results.html#ga124cf86b625393915202c81b9873fcde">CY_RSLT_MODULE_SECURE_SOCKETS_NETIF_DOES_NOT_EXIST</a> <br />
- <a class="el" href="group__group__secure__sockets__results.html#gafe365734cca2ee1ad94cda64aec31d3f">CY_RSLT_MODULE_SECURE_SOCKETS_ARP_TIMEOUT</a> </dd></dl>
+ <a class="el" href="group__group__secure__sockets__results.html#gafe365734cca2ee1ad94cda64aec31d3f">CY_RSLT_MODULE_SECURE_SOCKETS_ARP_TIMEOUT</a> <br />
+ <a class="el" href="group__group__secure__sockets__results.html#ga4c4dd80221b242250b7223b5697c2234">CY_RSLT_MODULE_SECURE_SOCKETS_ERROR_ROUTING</a> </dd></dl>
 
 </div>
 </div>
@@ -860,7 +868,11 @@ Functions</h2></td></tr>
  <a class="el" href="group__group__secure__sockets__macros.html#gaa3f2b7a10cc58ae014640a8547949974">CY_SOCKET_SO_SERVER_NAME_INDICATION</a> <br />
  <a class="el" href="group__group__secure__sockets__macros.html#ga6bb302019f176eed7e436157fbc085f6">CY_SOCKET_SO_ALPN_PROTOCOLS</a> <br />
  <a class="el" href="group__group__secure__sockets__macros.html#ga9ce4ab8fca2ff7306f05f7433835f394">CY_SOCKET_SO_TLS_AUTH_MODE</a> <br />
- <a class="el" href="group__group__secure__sockets__macros.html#ga0f0041158626e01c411e117ca6e2c5d5">CY_SOCKET_SO_TLS_MFL</a> </td></tr>
+ <a class="el" href="group__group__secure__sockets__macros.html#ga0f0041158626e01c411e117ca6e2c5d5">CY_SOCKET_SO_TLS_MFL</a> <br />
+ <a class="el" href="group__group__secure__sockets__macros.html#ga6eb3fccf457611f775c37e58442449b3">CY_SOCKET_SO_JOIN_MULTICAST_GROUP</a> <br />
+ <a class="el" href="group__group__secure__sockets__macros.html#gaa3b9e9b88b1affecbb653fb1375771e3">CY_SOCKET_SO_LEAVE_MULTICAST_GROUP</a> <br />
+ <a class="el" href="group__group__secure__sockets__macros.html#gac562af7498a20fba804f7d14ce8a059c">CY_SOCKET_SO_IP_MULTICAST_TTL</a> <br />
+ <a class="el" href="group__group__secure__sockets__macros.html#gaed20b264dc3c370f3136ef8923f5ad89">CY_SOCKET_SO_BROADCAST</a> </td></tr>
     <tr><td class="paramdir">[in]</td><td class="paramname">optval</td><td>A buffer containing the value of the option to set. </td></tr>
     <tr><td class="paramdir">[in]</td><td class="paramname">optlen</td><td>The length of the buffer pointed to by optval.</td></tr>
   </table>
@@ -870,7 +882,11 @@ Functions</h2></td></tr>
  <a class="el" href="group__group__secure__sockets__results.html#ga11aea8ad5dfd9ea5de446b30d6db82d6">CY_RSLT_MODULE_SECURE_SOCKETS_BADARG</a> <br />
  <a class="el" href="group__group__secure__sockets__results.html#ga8ab175e739acbc1da3458c6f2c9980b4">CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET</a> <br />
  <a class="el" href="group__group__secure__sockets__results.html#ga78e2f95d77864f1b4c1511246411b593">CY_RSLT_MODULE_SECURE_SOCKETS_ALREADY_CONNECTED</a> <br />
- <a class="el" href="group__group__secure__sockets__results.html#gafec24692af0732924ead22a68118a926">CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_OPTION</a> </dd></dl>
+ <a class="el" href="group__group__secure__sockets__results.html#gafec24692af0732924ead22a68118a926">CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_OPTION</a> <br />
+ <a class="el" href="group__group__secure__sockets__results.html#ga573fe397cab9144679d5738ac76cb2cd">CY_RSLT_MODULE_SECURE_SOCKETS_ADDRESS_IN_USE</a> <br />
+ <a class="el" href="group__group__secure__sockets__results.html#gaaea93bdacfc849de370d75e3816de6cf">CY_RSLT_MODULE_SECURE_SOCKETS_MAX_MEMBERSHIP_ERROR</a> <br />
+ <a class="el" href="group__group__secure__sockets__results.html#gaa73d6c7fb948ef5025102cb326826086">CY_RSLT_MODULE_SECURE_SOCKETS_MULTICAST_ADDRESS_NOT_REGISTERED</a> <br />
+ <a class="el" href="group__group__secure__sockets__results.html#ga2a89a78e3b207e09012dd0c9ed8e49dd">CY_RSLT_MODULE_SECURE_SOCKETS_OPTION_NOT_SUPPORTED</a> </dd></dl>
 
 </div>
 </div>
@@ -943,7 +959,8 @@ Functions</h2></td></tr>
  <a class="el" href="group__group__secure__sockets__results.html#ga11aea8ad5dfd9ea5de446b30d6db82d6">CY_RSLT_MODULE_SECURE_SOCKETS_BADARG</a> <br />
  <a class="el" href="group__group__secure__sockets__results.html#ga8ab175e739acbc1da3458c6f2c9980b4">CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET</a> <br />
  <a class="el" href="group__group__secure__sockets__results.html#gafec24692af0732924ead22a68118a926">CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_OPTION</a> <br />
- <a class="el" href="group__group__secure__sockets__results.html#gadbf2f8f83f4bd800effdd3e58a266ceb">CY_RSLT_MODULE_SECURE_SOCKETS_PROTOCOL_NOT_SUPPORTED</a> </dd></dl>
+ <a class="el" href="group__group__secure__sockets__results.html#gadbf2f8f83f4bd800effdd3e58a266ceb">CY_RSLT_MODULE_SECURE_SOCKETS_PROTOCOL_NOT_SUPPORTED</a> <br />
+ <a class="el" href="group__group__secure__sockets__results.html#ga2a89a78e3b207e09012dd0c9ed8e49dd">CY_RSLT_MODULE_SECURE_SOCKETS_OPTION_NOT_SUPPORTED</a> </dd></dl>
 
 </div>
 </div>

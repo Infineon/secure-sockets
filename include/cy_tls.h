@@ -166,9 +166,6 @@ typedef struct cy_tls_params
  *  2. \ref cy_tls_init and \ref cy_tls_deinit API functions are not thread-safe.
  *     The caller must ensure that these two API functions are not invoked simultaneously from different threads.
  *
- *  3. This API function initializes the RTC using the default time instead of the actual time.
- *     Currently, the platform does not have support to get the current time; therefore, the default time is used for the RTC.
- *
  * @return     CY_RSLT_SUCCESS on success; an error code on failure.
  */
 cy_rslt_t cy_tls_init( void );

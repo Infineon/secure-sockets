@@ -28,6 +28,7 @@
 #include "cyhal.h"
 #include "cyabs_rtos.h"
 #include "cy_log.h"
+#include "cy_result_mw.h"
 #include <mbedtls/ssl.h>
 #include <mbedtls/entropy.h>
 #include <mbedtls/ctr_drbg.h>
@@ -87,9 +88,6 @@ static mbedtls_x509_crt* root_ca_certificates = NULL;
 /* TLS library usage count */
 static int init_ref_count = 0;
 
-/** mutex for serializing TLS handshake */
-static cy_mutex_t cy_tls_handshake_mutex;
-
 /*
  * Default custom cert profile
  */
@@ -136,19 +134,6 @@ mbedtls_time_t get_current_time(mbedtls_time_t *t)
     return ret ;
 }
 
-/* Default time configuration */
-cy_stc_rtc_config_t cfg =
-{
-        .sec = 0,
-        .min = 0,
-        .hour = 0,
-        .amPm = CY_RTC_AM,
-        .hrFormat = CY_RTC_24_HOURS,
-        .dayOfWeek = CY_RTC_SATURDAY,
-        .date = 1,
-        .month = 1,
-        .year = 20
-} ;
 /*-----------------------------------------------------------*/
 
 /**
@@ -183,6 +168,13 @@ static int cy_tls_internal_send(void *context, const unsigned char *buffer, size
     else if(result == CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE)
     {
         return MBEDTLS_ERR_SSL_ALLOC_FAILED;
+    }
+    /* mbed TLS expects negative return value on error. So apply minus on the existing TLS result code,
+     * and return it to mbedTLS. This return is value converted back to positive value in cy_tls_send function
+     * before returning it to the Secure Sockets Layer. */
+    else if((result == CY_RSLT_MODULE_TLS_CONNECTION_CLOSED) || (result == CY_RSLT_MODULE_TLS_SOCKET_NOT_CONNECTED))
+    {
+        return -result;
     }
 
     return -1;
@@ -222,6 +214,13 @@ static int cy_tls_internal_recv(void *context, unsigned char *buffer, size_t len
     else if(result == CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE)
     {
         return MBEDTLS_ERR_SSL_ALLOC_FAILED;
+    }
+    /* mbed TLS expects negative return value on error. So apply minus on the existing TLS result code,
+     * and return it to mbedTLS. This return is value converted back to positive value in cy_tls_recv function
+     * before returning it to the Secure Sockets Layer. */
+    else if((result == CY_RSLT_MODULE_TLS_CONNECTION_CLOSED) || (result == CY_RSLT_MODULE_TLS_SOCKET_NOT_CONNECTED))
+    {
+        return -result;
     }
 
     return -1;
@@ -371,29 +370,11 @@ cy_rslt_t cy_tls_init(void)
 
     if(!init_ref_count)
     {
-        /* Note: Ideally Cy_RTC_Init should be called with the actual current time. Currently there is no support
-         * in the platform to get the current time, hence default has been chosen. For example NTP can be used to
-         * get the current time.
-         */
-        result = Cy_RTC_Init(&cfg) ;
-        if (result != CY_RSLT_SUCCESS)
-        {
-            return CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE ;
-        }
-
         mbedtls_platform_set_time(get_current_time);
+    }
 
-        result = cy_rtos_init_mutex(&cy_tls_handshake_mutex);
-        if(CY_RSLT_SUCCESS != result)
-        {
-            return CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE;
-        }
-        init_ref_count++;
-    }
-    else
-    {
-        init_ref_count++;
-    }
+    init_ref_count++;
+
     return result;
 }
 /*-----------------------------------------------------------*/
@@ -519,7 +500,7 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint)
     mbedtls_ssl_init(&ctx->ssl_ctx);
     mbedtls_ssl_config_init(&ctx->ssl_config);
     mbedtls_ctr_drbg_init(&ctx->ctr_drbg);
-    mbedtls_entropy_init( &ctx->entropy );
+    mbedtls_entropy_init(&ctx->entropy);
 
     if((ret = mbedtls_ctr_drbg_seed(&ctx->ctr_drbg, mbedtls_entropy_func,
             &ctx->entropy, (const unsigned char *) pers, strlen(pers))) != 0)
@@ -565,7 +546,7 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint)
         cy_tls_internal_load_root_ca_certificates(&ctx->mbedtls_ca_cert, ctx->rootca_certificate,  ctx->rootca_certificate_length);
         mbedtls_ssl_conf_ca_chain(&ctx->ssl_config, ctx->mbedtls_ca_cert, NULL);
     }
-    else
+    else if(root_ca_certificates)
     {
         mbedtls_ssl_conf_ca_chain(&ctx->ssl_config, root_ca_certificates, NULL);
     }
@@ -596,20 +577,19 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint)
 
     tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "Performing the TLS handshake\r\n");
 
-    tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_tls_handshake_mutex locked %s %d\n", __FILE__, __LINE__);
-    cy_rtos_get_mutex(&cy_tls_handshake_mutex, CY_RTOS_NEVER_TIMEOUT);
     while((ret = mbedtls_ssl_handshake( &ctx->ssl_ctx)) != 0)
     {
         if(ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE)
         {
-            cy_rtos_set_mutex(&cy_tls_handshake_mutex);
-            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_tls_handshake_mutex unlocked %s %d\n", __FILE__, __LINE__);
+            mbedtls_ssl_free(&ctx->ssl_ctx);
+            mbedtls_ssl_config_free(&ctx->ssl_config);
+            mbedtls_ctr_drbg_free(&ctx->ctr_drbg);
+            mbedtls_entropy_free(&ctx->entropy);
+
             tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_ssl_handshake failed 0x%x\r\n", -ret);
             return CY_RSLT_MODULE_TLS_ERROR;
         }
     }
-    cy_rtos_set_mutex(&cy_tls_handshake_mutex);
-    tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_tls_handshake_mutex unlocked %s %d\n", __FILE__, __LINE__);
 
     ctx->tls_handshake_successful = true;
     tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "TLS handshake successful \r\n");
@@ -659,6 +639,16 @@ cy_rslt_t cy_tls_send(void *context, const unsigned char *data, uint32_t length,
         {
             tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "Alloc failed\r\n");
             result = CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE;
+            break;
+        }
+        /* mbed TLS expects negative return value on error from cy_tls_internal_send function. So cy_tls_internal_send function applies
+         * minus on the existing TLS result code, and returns it to mbedTLS. mbed TLS returns same error code that is returned by
+         * cy_tls_internal_send function. So check the ret with minus applied on TLS error code, but return the positive value to
+         * the Secure Sockets Layer. */
+        else if((ret == -CY_RSLT_MODULE_TLS_CONNECTION_CLOSED) || (ret == -CY_RSLT_MODULE_TLS_SOCKET_NOT_CONNECTED))
+        {
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket is closed or not connected\r\n");
+            result = -ret;
             break;
         }
         else if( (MBEDTLS_ERR_SSL_WANT_WRITE != ret) && (MBEDTLS_ERR_SSL_WANT_READ != ret) )
@@ -733,6 +723,16 @@ cy_rslt_t cy_tls_recv(void *context, unsigned char *buffer, uint32_t length, uin
             result = CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE;
             break;
         }
+        /* mbed TLS expects negative return value on error from cy_tls_internal_recv function. So cy_tls_internal_recv function applies
+         * minus on the existing TLS result code, and returns it to mbedTLS. mbed TLS returns same error code that is returned by
+         * cy_tls_internal_recv function. So check the ret with minus applied on TLS error code, but return the positive value to
+         * the Secure Sockets Layer. */
+        else if((ret == -CY_RSLT_MODULE_TLS_CONNECTION_CLOSED) || (ret == -CY_RSLT_MODULE_TLS_SOCKET_NOT_CONNECTED))
+        {
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket is closed or not connected\r\n");
+            result = -ret;
+            break;
+        }
         else
         {
             tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "mbedtls_ssl_read returned -0x%x\r\n", -ret);
@@ -772,7 +772,10 @@ cy_rslt_t cy_tls_delete_context(cy_tls_context_t context)
         /* Cleanup mbedTLS. */
         mbedtls_ssl_close_notify(&ctx->ssl_ctx);
         mbedtls_ssl_free(&ctx->ssl_ctx);
-        mbedtls_ssl_config_free( &ctx->ssl_config);
+        mbedtls_ssl_config_free(&ctx->ssl_config);
+
+        mbedtls_ctr_drbg_free(&ctx->ctr_drbg);
+        mbedtls_entropy_free(&ctx->entropy);
     }
     free(context);
     return CY_RSLT_SUCCESS;
@@ -822,10 +825,7 @@ cy_rslt_t cy_tls_deinit(void)
         return CY_RSLT_MODULE_TLS_ERROR;
     }
     init_ref_count--;
-    if(!init_ref_count)
-    {
-        cy_rtos_deinit_mutex(&cy_tls_handshake_mutex);
-    }
+
     return result;
 }
 /*-----------------------------------------------------------*/

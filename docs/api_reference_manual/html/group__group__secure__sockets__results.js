@@ -20,5 +20,9 @@ var group__group__secure__sockets__results =
     [ "CY_RSLT_MODULE_SECURE_SOCKETS_NOT_INITIALIZED", "group__group__secure__sockets__results.html#gaa6993d25f240ea318b81be9c1dbb1262", null ],
     [ "CY_RSLT_MODULE_SECURE_SOCKETS_NETIF_DOES_NOT_EXIST", "group__group__secure__sockets__results.html#ga124cf86b625393915202c81b9873fcde", null ],
     [ "CY_RSLT_MODULE_SECURE_SOCKETS_ARP_TIMEOUT", "group__group__secure__sockets__results.html#gafe365734cca2ee1ad94cda64aec31d3f", null ],
-    [ "CY_RSLT_MODULE_SECURE_SOCKETS_BAD_NW_STACK_CONFIGURATION", "group__group__secure__sockets__results.html#gabb01e3617eec4fc087ea5b5be3f6b5ad", null ]
+    [ "CY_RSLT_MODULE_SECURE_SOCKETS_BAD_NW_STACK_CONFIGURATION", "group__group__secure__sockets__results.html#gabb01e3617eec4fc087ea5b5be3f6b5ad", null ],
+    [ "CY_RSLT_MODULE_SECURE_SOCKETS_ADDRESS_IN_USE", "group__group__secure__sockets__results.html#ga573fe397cab9144679d5738ac76cb2cd", null ],
+    [ "CY_RSLT_MODULE_SECURE_SOCKETS_MAX_MEMBERSHIP_ERROR", "group__group__secure__sockets__results.html#gaaea93bdacfc849de370d75e3816de6cf", null ],
+    [ "CY_RSLT_MODULE_SECURE_SOCKETS_MULTICAST_ADDRESS_NOT_REGISTERED", "group__group__secure__sockets__results.html#gaa73d6c7fb948ef5025102cb326826086", null ],
+    [ "CY_RSLT_MODULE_SECURE_SOCKETS_ERROR_ROUTING", "group__group__secure__sockets__results.html#ga4c4dd80221b242250b7223b5697c2234", null ]
 ];
