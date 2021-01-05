@@ -39,6 +39,7 @@ var group__group__secure__sockets__macros =
     [ "CY_SOCKET_SO_IP_MULTICAST_TTL", "group__group__secure__sockets__macros.html#gac562af7498a20fba804f7d14ce8a059c", null ],
     [ "CY_SOCKET_SO_BROADCAST", "group__group__secure__sockets__macros.html#gaed20b264dc3c370f3136ef8923f5ad89", null ],
     [ "CY_SOCKET_SO_BINDTODEVICE", "group__group__secure__sockets__macros.html#ga9bcc73d3e5fd22f8cceb98f57507703d", null ],
+    [ "CY_SOCKET_SO_IP_TOS", "group__group__secure__sockets__macros.html#gacaf74e4db4c47e33cf258b1e83c4f3eb", null ],
     [ "CY_SOCKET_FLAGS_NONE", "group__group__secure__sockets__macros.html#ga91444208828cd6b96895d64b879513d4", null ],
     [ "CY_SOCKET_FLAGS_MORE", "group__group__secure__sockets__macros.html#ga41fcdecad22d4585c47271f11d23a147", null ],
     [ "CY_SOCKET_FLAGS_RECVFROM_NONE", "group__group__secure__sockets__macros.html#gaaa0463c0472f262600893c33d3a40f0a", null ],

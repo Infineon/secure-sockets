@@ -1921,7 +1921,19 @@ cy_rslt_t cy_socket_setsockopt(cy_socket_t handle, int level, int optname, const
                         ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Multicast TTL option is supported only for UDP sockets\r\n");
                         return CY_RSLT_MODULE_SECURE_SOCKETS_OPTION_NOT_SUPPORTED;
                     }
-                    udp_set_multicast_ttl(ctx->conn_handler->pcb.udp, *(u8_t *)optval);
+                    udp_set_multicast_ttl(ctx->conn_handler->pcb.udp, *(uint8_t *)optval);
+                    break;
+                }
+
+                case CY_SOCKET_SO_IP_TOS:
+                {
+                    if( (ctx->conn_handler == NULL) || (ctx->conn_handler->pcb.ip == NULL) )
+                    {
+                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Invalid connection handle or IP handle \r\n");
+                        return CY_RSLT_MODULE_SECURE_SOCKETS_BADARG;
+                    }
+
+                    ctx->conn_handler->pcb.ip->tos = (*(uint8_t *)optval);
                     break;
                 }
 
@@ -2144,6 +2156,19 @@ cy_rslt_t cy_socket_getsockopt(cy_socket_t handle,  int level, int optname, void
                     }
                     *(uint8_t *)optval = udp_get_multicast_ttl(ctx->conn_handler->pcb.udp);
                     *optlen = sizeof(uint8_t);
+
+                    break;
+                }
+
+                case CY_SOCKET_SO_IP_TOS:
+                {
+                    if( (ctx->conn_handler == NULL) || (ctx->conn_handler->pcb.ip == NULL) )
+                    {
+                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Invalid connection handle or IP handle \r\n");
+                        return CY_RSLT_MODULE_SECURE_SOCKETS_BADARG;
+                    }
+
+                    *(uint8_t *)optval = ctx->conn_handler->pcb.ip->tos;
 
                     break;
                 }

@@ -409,6 +409,16 @@ extern "C" {
  */
 #define CY_SOCKET_SO_BINDTODEVICE    ( 22 )
 
+/**
+ * Set the Type-Of-Service (TOS) field that is sent with every IP packet originating from this socket.
+ *
+ * Arguments related to this optname:
+ *   * Option value: Pointer holding the type of service value in uint8_t type.
+ *                   The value of this socket option should be in the range 0 <= value <= 255.
+ *   * Level: \ref CY_SOCKET_SOL_IP
+ */
+#define CY_SOCKET_SO_IP_TOS ( 23 )
+
 /*
  * \ref cy_socket_send() input flags. One or more flags can be combined.
  */
@@ -861,7 +871,8 @@ cy_rslt_t cy_socket_recvfrom(cy_socket_t handle, void *buffer, uint32_t length, 
  *                           \ref CY_SOCKET_SO_JOIN_MULTICAST_GROUP \n
  *                           \ref CY_SOCKET_SO_LEAVE_MULTICAST_GROUP \n
  *                           \ref CY_SOCKET_SO_IP_MULTICAST_TTL \n
- *                           \ref CY_SOCKET_SO_BROADCAST
+ *                           \ref CY_SOCKET_SO_BROADCAST \n
+ *                           \ref CY_SOCKET_SO_IP_TOS
  * @param[in] optval         A buffer containing the value of the option to set.
  * @param[in] optlen         The length of the buffer pointed to by optval.
  *
@@ -893,7 +904,8 @@ cy_rslt_t cy_socket_setsockopt(cy_socket_t handle, int level, int optname, const
  *                           \ref CY_SOCKET_SO_NWRITE \n
  *                           \ref CY_SOCKET_SO_TCP_USER_TIMEOUT \n
  *                           \ref CY_SOCKET_SO_SERVER_NAME_INDICATION \n
- **                          \ref CY_SOCKET_SO_TLS_AUTH_MODE
+ **                          \ref CY_SOCKET_SO_TLS_AUTH_MODE \n
+ **                          \ref CY_SOCKET_SO_IP_TOS
  * @param[out] optval        Buffer containing the value of the option to get.
  * @param[in, out] optlen    Length of the option value. It is a value-result argument;
  *                           the caller provides the size of the buffer pointed to by optval,

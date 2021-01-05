@@ -78,6 +78,7 @@ var searchData=
   ['cy_5fsocket_5fso_5fconnect_5frequest_5fcallback',['CY_SOCKET_SO_CONNECT_REQUEST_CALLBACK',['../group__group__secure__sockets__macros.html#ga7fd0bff2f890ddab81f7847a1862c325',1,'cy_secure_sockets.h']]],
   ['cy_5fsocket_5fso_5fdisconnect_5fcallback',['CY_SOCKET_SO_DISCONNECT_CALLBACK',['../group__group__secure__sockets__macros.html#ga4a3e35fbb5f577a38a6eafb7d693134a',1,'cy_secure_sockets.h']]],
   ['cy_5fsocket_5fso_5fip_5fmulticast_5fttl',['CY_SOCKET_SO_IP_MULTICAST_TTL',['../group__group__secure__sockets__macros.html#gac562af7498a20fba804f7d14ce8a059c',1,'cy_secure_sockets.h']]],
+  ['cy_5fsocket_5fso_5fip_5ftos',['CY_SOCKET_SO_IP_TOS',['../group__group__secure__sockets__macros.html#gacaf74e4db4c47e33cf258b1e83c4f3eb',1,'cy_secure_sockets.h']]],
   ['cy_5fsocket_5fso_5fjoin_5fmulticast_5fgroup',['CY_SOCKET_SO_JOIN_MULTICAST_GROUP',['../group__group__secure__sockets__macros.html#ga6eb3fccf457611f775c37e58442449b3',1,'cy_secure_sockets.h']]],
   ['cy_5fsocket_5fso_5fleave_5fmulticast_5fgroup',['CY_SOCKET_SO_LEAVE_MULTICAST_GROUP',['../group__group__secure__sockets__macros.html#gaa3b9e9b88b1affecbb653fb1375771e3',1,'cy_secure_sockets.h']]],
   ['cy_5fsocket_5fso_5fnonblock',['CY_SOCKET_SO_NONBLOCK',['../group__group__secure__sockets__macros.html#ga87ddcdfd412485a722122a56495e46c6',1,'cy_secure_sockets.h']]],

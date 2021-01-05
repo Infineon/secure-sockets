@@ -9,6 +9,9 @@ Refer to the [README.md](./README.md) for a complete description of the Secure S
 | Datagram Transport Layer Security (DTLS) is not supported in the Secure Sockets Library | Currently, no workaround is available. Support will be added in a future release. |
 
 ## Changelog
+### v2.1.0
+* Added socket option for type-of-service(TOS).
+
 ### v2.0.0
 * Added IPv4 and IPv6 multicast support.
 * Added socket options for network interface bind, multicast join, and multicast leave.
