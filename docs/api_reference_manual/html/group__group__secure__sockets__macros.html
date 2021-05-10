@@ -218,6 +218,12 @@ Macros</h2></td></tr>
 <tr class="memitem:gacaf74e4db4c47e33cf258b1e83c4f3eb"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__secure__sockets__macros.html#gacaf74e4db4c47e33cf258b1e83c4f3eb">CY_SOCKET_SO_IP_TOS</a>&#160;&#160;&#160;( 23 )</td></tr>
 <tr class="memdesc:gacaf74e4db4c47e33cf258b1e83c4f3eb"><td class="mdescLeft">&#160;</td><td class="mdescRight">Set the Type-Of-Service (TOS) field that is sent with every IP packet originating from this socket.  <a href="#gacaf74e4db4c47e33cf258b1e83c4f3eb">More...</a><br /></td></tr>
 <tr class="separator:gacaf74e4db4c47e33cf258b1e83c4f3eb"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga249a390f7ea3ad7f8db90bac96cd0357"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__secure__sockets__macros.html#ga249a390f7ea3ad7f8db90bac96cd0357">CY_SOCKET_SO_BYTES_AVAILABLE</a>&#160;&#160;&#160;( 24 )</td></tr>
+<tr class="memdesc:ga249a390f7ea3ad7f8db90bac96cd0357"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the number of bytes immediately available for reading.  <a href="#ga249a390f7ea3ad7f8db90bac96cd0357">More...</a><br /></td></tr>
+<tr class="separator:ga249a390f7ea3ad7f8db90bac96cd0357"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:gace8deb2d476b5a1bf57d1fffbdbc36d0"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__secure__sockets__macros.html#gace8deb2d476b5a1bf57d1fffbdbc36d0">CY_SOCKET_SO_TCP_NODELAY</a>&#160;&#160;&#160;( 25 )</td></tr>
+<tr class="memdesc:gace8deb2d476b5a1bf57d1fffbdbc36d0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Enable/disable TCP no delay socket option.  <a href="#gace8deb2d476b5a1bf57d1fffbdbc36d0">More...</a><br /></td></tr>
+<tr class="separator:gace8deb2d476b5a1bf57d1fffbdbc36d0"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ga91444208828cd6b96895d64b879513d4"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__secure__sockets__macros.html#ga91444208828cd6b96895d64b879513d4">CY_SOCKET_FLAGS_NONE</a>&#160;&#160;&#160;( 0x0 )</td></tr>
 <tr class="memdesc:ga91444208828cd6b96895d64b879513d4"><td class="mdescLeft">&#160;</td><td class="mdescRight"><a class="el" href="group__group__secure__sockets__functions.html#gaf6ba24a0e4e6eb3c24087938aa3ae021">cy_socket_send()</a> input flags - No flag.  <a href="#ga91444208828cd6b96895d64b879513d4">More...</a><br /></td></tr>
 <tr class="separator:ga91444208828cd6b96895d64b879513d4"><td class="memSeparator" colspan="2">&#160;</td></tr>
@@ -929,6 +935,47 @@ Macros</h2></td></tr>
 <p>Arguments related to this optname:</p><ul>
 <li>Option value: Pointer holding the type of service value in uint8_t type. The value of this socket option should be in the range 0 &lt;= value &lt;= 255.</li>
 <li>Level: <a class="el" href="group__group__secure__sockets__macros.html#ga6158e1e598a55be5e42d5db5f921d13e">CY_SOCKET_SOL_IP</a> </li>
+</ul>
+
+</div>
+</div>
+<a id="ga249a390f7ea3ad7f8db90bac96cd0357"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ga249a390f7ea3ad7f8db90bac96cd0357">&#9670;&nbsp;</a></span>CY_SOCKET_SO_BYTES_AVAILABLE</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define CY_SOCKET_SO_BYTES_AVAILABLE&#160;&#160;&#160;( 24 )</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Get the number of bytes immediately available for reading. </p>
+<p>Arguments related to this optname:</p><ul>
+<li>Option value: Pointer to the uint32_t type into which the API function fills the number of bytes available for reading.</li>
+<li>Level: <a class="el" href="group__group__secure__sockets__macros.html#gaf36b6f0f1bc53927d148746fedad7149">CY_SOCKET_SOL_SOCKET</a> </li>
+</ul>
+
+</div>
+</div>
+<a id="gace8deb2d476b5a1bf57d1fffbdbc36d0"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#gace8deb2d476b5a1bf57d1fffbdbc36d0">&#9670;&nbsp;</a></span>CY_SOCKET_SO_TCP_NODELAY</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define CY_SOCKET_SO_TCP_NODELAY&#160;&#160;&#160;( 25 )</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Enable/disable TCP no delay socket option. </p>
+<p>If this option is enabled, Nagle's algorithm is disabled. If Nagle's algorithm is disabled data packets are sent as soon as possible, even if there is only a small amount of data. If Nagle's algorithm is enabled data is buffered until there is a sufficient amount to send out.</p>
+<p>Arguments related to this optname:</p><ul>
+<li>Option value: Pointer holding the uint8_t value. Value "0" enables Nagle's algorithm. Value "1" disables Nagle's algorithm.</li>
+<li>Level: <a class="el" href="group__group__secure__sockets__macros.html#gab245bb6040c3f680cc38e39e9e3a97d7">CY_SOCKET_SOL_TCP</a> </li>
 </ul>
 
 </div>

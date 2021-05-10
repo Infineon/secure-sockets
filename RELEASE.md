@@ -9,6 +9,13 @@ Refer to the [README.md](./README.md) for a complete description of the Secure S
 | Datagram Transport Layer Security (DTLS) is not supported in the Secure Sockets Library | Currently, no workaround is available. Support will be added in a future release. |
 
 ## Changelog
+### v2.2.0
+* Introduced a new socket option to get the number of bytes currently available in the socket to read.
+* Added socket option to enable or disable TCP no delay feature (TCP_NODELAY socket option).
+* Socket disconnect function doesn't delete the socket handle implicitly. Caller should invoke socket delete function to delete the socket handle.
+* Socket delete function doesn't delete the client sockets associated with the server socket when it's called for server sockets.
+* Integrated Low Power Assistant(LPA) calls with the secure sockets library to wake up network stack on socket operations.
+
 ### v2.1.0
 * Added socket option for type-of-service(TOS).
 
@@ -44,9 +51,10 @@ This version of the library was validated for compatibility with the following s
 
 | Software and Tools                                      | Version |
 | :---                                                    | :----:  |
-| ModusToolbox Software Environment                       | 2.2     |
-| - ModusToolbox Device Configurator                      | 2.20    |
-| - ModusToolbox CapSense Configurator / Tuner tools      | 3.10    |
-| PSoC 6 Peripheral Driver Library (PDL)                  | 2.0.0   |
+| ModusToolbox Software Environment                       | 2.3     |
+| - ModusToolbox Device Configurator                      | 3.0     |
+| - ModusToolbox CapSense Configurator / Tuner tools      | 3.15    |
+| PSoC 6 Peripheral Driver Library (PDL)                  | 2.2.0   |
 | GCC Compiler                                            | 9.3.1   |
 | IAR Compiler                                            | 8.32    |
+| Arm Compiler 6                                          | 6.14    |

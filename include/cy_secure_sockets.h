@@ -1,18 +1,34 @@
 /*
- * Copyright 2020 Cypress Semiconductor Corporation
- * SPDX-License-Identifier: Apache-2.0
- * 
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- * 
- *     http://www.apache.org/licenses/LICENSE-2.0
- * 
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Copyright 2021, Cypress Semiconductor Corporation (an Infineon company) or
+ * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
+ *
+ * This software, including source code, documentation and related
+ * materials ("Software") is owned by Cypress Semiconductor Corporation
+ * or one of its affiliates ("Cypress") and is protected by and subject to
+ * worldwide patent protection (United States and foreign),
+ * United States copyright laws and international treaty provisions.
+ * Therefore, you may use this Software only as provided in the license
+ * agreement accompanying the software package from which you
+ * obtained this Software ("EULA").
+ * If no EULA applies, Cypress hereby grants you a personal, non-exclusive,
+ * non-transferable license to copy, modify, and compile the Software
+ * source code solely for use in connection with Cypress's
+ * integrated circuit products.  Any reproduction, modification, translation,
+ * compilation, or representation of this Software except as specified
+ * above is prohibited without the express written permission of Cypress.
+ *
+ * Disclaimer: THIS SOFTWARE IS PROVIDED AS-IS, WITH NO WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, NONINFRINGEMENT, IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. Cypress
+ * reserves the right to make changes to the Software without notice. Cypress
+ * does not assume any liability arising out of the application or use of the
+ * Software or any product or circuit described in the Software. Cypress does
+ * not authorize its products for use in any products where a malfunction or
+ * failure of the Cypress product may reasonably be expected to result in
+ * significant property damage, injury or death ("High Risk Product"). By
+ * including Cypress's product in a High Risk Product, the manufacturer
+ * of such system or application assumes all risk of such use and in doing
+ * so agrees to indemnify Cypress against all liability.
  */
 
 /** @file
@@ -419,6 +435,28 @@ extern "C" {
  */
 #define CY_SOCKET_SO_IP_TOS ( 23 )
 
+/**
+ * Get the number of bytes immediately available for reading.
+ *
+ * Arguments related to this optname:
+ *   * Option value: Pointer to the uint32_t type into which the API function fills the number of bytes available for reading.
+ *   * Level: \ref CY_SOCKET_SOL_SOCKET
+ */
+#define CY_SOCKET_SO_BYTES_AVAILABLE    ( 24 )
+
+/**
+ * Enable/disable TCP no delay socket option.
+ * If this option is enabled, Nagle's algorithm is disabled. If Nagle's algorithm is disabled data packets are sent as soon as possible, even if there is only a small amount of data. If Nagle's algorithm is enabled data is buffered until there is a sufficient amount to send out.
+ *
+ *
+ * Arguments related to this optname:
+ *   * Option value: Pointer holding the uint8_t value.
+ *                   Value "0" enables Nagle's algorithm.
+ *                   Value "1" disables Nagle's algorithm.
+ *   * Level: \ref CY_SOCKET_SOL_TCP
+ */
+#define CY_SOCKET_SO_TCP_NODELAY        ( 25 )
+
 /*
  * \ref cy_socket_send() input flags. One or more flags can be combined.
  */
@@ -637,9 +675,11 @@ cy_rslt_t cy_socket_create(int domain, int type, int protocol, cy_socket_t *hand
  *    use \ref cy_socket_setsockopt with the \ref CY_SOCKET_SO_TLS_AUTH_MODE socket option.
  * 4. The default mbed TLS configuration provided by the *Wi-Fi Middleware Core Library* disables the validity period verification of the certificates.
  *    To perform this verification, enable MBEDTLS_HAVE_TIME_DATE in the [mbedtls_user_config.h] (https://github.com/cypresssemiconductorco/wifi-mw-core/blob/master/configs/mbedtls_user_config.h) file. Ensure that the system time is set prior to the \ref cy_socket_connect() function call.
- *    To set the system time, get the time from the NTP server and set the system's RTC time using the Cy_RTC_SetDateAndTime() function provided by the *PSoC 6 Peripheral Driver Library* module.
- *    See [https://cypresssemiconductorco.github.io/psoc6pdl/pdl_api_reference_manual/html/group__group__rtc.html] for reference. See the code snippet to get the time from NTP
- *    server in the Secure Sockets Library documentation.
+ *    To set the system time, get the time from the NTP server and set the system's RTC time using cyhal_rtc_init(), cyhal_rtc_write() and cy_set_rtc_instance() functions. See the [Time Support Details](https://github.com/cypresssemiconductorco/clib-support/blob/master/README.md#time-support-details)
+ *    for reference. See the \ref snip12 to get the time from NTP server.
+ *
+ * \note This is applicable if Secure Sockets Library is built for lwIP network stack. If this function returns \ref CY_RSLT_MODULE_SECURE_SOCKETS_CLOSED error, the socket handle cannot be reused to establish the connection. The caller should invoke \ref cy_socket_delete API function to delete the current socket handle,
+ * and create a new socket handle using \ref cy_socket_create API function to re-establish the connection. This is required, due to the limitation of lwIP stack.
  *
  * @param[in] handle         Socket handle returned by the \ref cy_socket_create API function.
  * @param[in] address        Pointer to the \ref cy_socket_sockaddr_t structure that contains the address to connect the socket to. Refer \ref cy_socket_ip_address_t for IP address endienness.
@@ -749,6 +789,8 @@ cy_rslt_t cy_socket_accept(cy_socket_t handle, cy_socket_sockaddr_t *address, ui
  * Sends data over a connected TCP/TLS socket.
  *
  * \note Ensure that the \ref cy_socket_disconnect API function is called when this API function fails with the CY_RSLT_MODULE_SECURE_SOCKETS_CLOSED error.
+ * lwIP doesn't allow the socket to be reused after disconnection. Therefore, the caller should call \ref cy_socket_disconnect and \ref cy_socket_delete API functions
+ * to delete the closed socket. This is applicable if Secure Sockets Library is built for lwIP network stack.
  *
  * @param[in]  handle        Socket handle returned by either the \ref cy_socket_create API function for client sockets,
  *                           or by the \ref cy_socket_accept API function for accepted sockets.
@@ -798,6 +840,8 @@ cy_rslt_t cy_socket_sendto(cy_socket_t handle, const void *buffer, uint32_t leng
  * Receives the data from a connected TCP/TLS socket.
  *
  * \note Ensure that the \ref cy_socket_disconnect API function is called when this API function fails with the CY_RSLT_MODULE_SECURE_SOCKETS_CLOSED error.
+ * lwIP doesn't allow the socket to be reused after disconnection. Therefore, the caller should call \ref cy_socket_disconnect and \ref cy_socket_delete API functions
+ * to delete the closed socket. This is applicable if Secure Sockets Library is built for lwIP network stack.
  *
  * @param[in]  handle         Socket handle returned by either the \ref cy_socket_create API function for client sockets,
  *                            or by \ref cy_socket_accept API function for accepted sockets.
@@ -973,8 +1017,6 @@ cy_rslt_t cy_socket_shutdown(cy_socket_t handle, int how);
 
 /**
  * Releases the resources allocated for the socket by the \ref cy_socket_create function.
- *
- * \note This API function should be called only if the socket handle is created using the \ref cy_socket_create API fuction; otherwise the behavior is undefined.
  *
  * @param[in] handle        Socket handle returned by the \ref cy_socket_create API function.
  * @return    CY_RSLT_SUCCESS on success; an error code on failure.
