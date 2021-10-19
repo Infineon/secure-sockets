@@ -57,6 +57,7 @@ extern "C" {
 
 #include "cy_result.h"
 #include "cy_result_mw.h"
+#include <stdbool.h>
 
 /******************************************************
  *                      Constants
@@ -146,16 +147,20 @@ typedef cy_rslt_t ( * cy_network_recv_t )( void *context, unsigned char *buffer,
  */
 typedef struct cy_tls_params
 {
-    const char *      rootca_certificate;        /**< RootCA certificate in PEM format. It should be a 'null'-terminated string.*/
-    uint32_t          rootca_certificate_length; /**< RootCA certificate length, excluding the 'null' terminator. */
-    const void *      tls_identity;              /**< Pointer to memory containing the certificate and private key in the underlying TLS stack format. */
-    int               auth_mode;                 /**< TLS authentication mode. */
-    unsigned char     mfl_code;                  /**< TLS max fragment length code. */
-    const char**      alpn_list;                 /**< Application-Layer Protocol Negotiation (ALPN) protocol list to be passed in TLS ALPN extension. */
-    char*             hostname;                  /**< Server hostname used with the Server Name Indication (SNI) extension. */
-    cy_network_recv_t network_recv;              /**< Pointer to a caller-defined network receive function. */
-    cy_network_send_t network_send;              /**< Pointer to a caller-defined network send function. */
-    void *            context;                   /**< User context. */
+    const char *      rootca_certificate;            /**< RootCA certificate in PEM format. It should be a 'null'-terminated string.*/
+    uint32_t          rootca_certificate_length;     /**< RootCA certificate length, excluding the 'null' terminator. */
+    const void *      tls_identity;                  /**< Pointer to memory containing the certificate and private key in the underlying TLS stack format. */
+    int               auth_mode;                     /**< TLS authentication mode. */
+    unsigned char     mfl_code;                      /**< TLS max fragment length code. */
+    const char**      alpn_list;                     /**< Application-Layer Protocol Negotiation (ALPN) protocol list to be passed in TLS ALPN extension. */
+    char*             hostname;                      /**< Server hostname used with the Server Name Indication (SNI) extension. */
+    cy_network_recv_t network_recv;                  /**< Pointer to a caller-defined network receive function. */
+    cy_network_send_t network_send;                  /**< Pointer to a caller-defined network send function. */
+    void *            context;                       /**< User context. */
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+    bool              load_rootca_from_ram;          /**< Flag for setting the RootCA certificate location. */
+    bool              load_device_cert_key_from_ram; /**< Flag for setting the device cert & key location. */
+#endif
 } cy_tls_params_t;
 
 /** \} group_cy_tls_structures */
@@ -199,6 +204,15 @@ cy_rslt_t cy_tls_deinit( void );
  *  This function parses the RootCA certificate chain and converts it to the underlying TLS stack format.
  *  It also stores the converted RootCA in its internal memory. This function overrides previously loaded RootCA certificates.
  *
+ *  1. If CY_SECURE_SOCKETS_PKCS_SUPPORT flag is disabled:
+ *     a. RootCA attached to the context will take first preference.
+ *     b. RootCA set as global will take the last preference.
+ *  2. If CY_SECURE_SOCKETS_PKCS_SUPPORT flag is enabled:
+ *     a. By default, RootCA certificates which is provisioned to secure element will be used.
+ *     b. If socket option CY_SOCKET_SO_ROOTCA_CERTIFICATE_LOCATION is set with value CY_SOCKET_ROOTCA_RAM then
+ *        - RootCA attached to the context will take first preference.
+ *        - RootCA set as global will take the last preference.
+ *
  *  \note \ref cy_tls_load_global_root_ca_certificates and \ref cy_tls_release_global_root_ca_certificates API functions are not thread-safe.
  *        The caller must ensure that these two API functions are not invoked simultaneously from different threads.
  *
@@ -221,12 +235,22 @@ cy_rslt_t cy_tls_load_global_root_ca_certificates( const char* trusted_ca_certif
  *  \note \ref cy_tls_load_global_root_ca_certificates and \ref cy_tls_release_global_root_ca_certificates API functions are not thread-safe.
  *        The caller must ensure that these two API functions are not invoked simultaneously from different threads.
  *
+ *
  * @return cy_rslt_t    CY_RESULT_SUCCESS on success; an error code on failure.
  */
 cy_rslt_t cy_tls_release_global_root_ca_certificates( void );
 
 /**
  * Creates an identity structure from the supplied certificate and private key.
+ *
+ * 1. If CY_SECURE_SOCKETS_PKCS_SUPPORT flag is disabled:
+ *    a. TLS identity created using \ref cy_tls_create_identity and set to context using socket option
+ *       \ref CY_SOCKET_SO_TLS_IDENTITY will be used for device certificate & key
+ * 2. If CY_SECURE_SOCKETS_PKCS_SUPPORT flag is enabled:
+ *    a. By default, device certificates & private keys which are provisioned to secure element will be used.
+ *    b. If socket option CY_SOCKET_SO_DEVICE_CERT_KEY_LOCATION is set with value CY_SOCKET_DEVICE_CERT_KEY_RAM then TLS
+ *       identity created with \ref cy_tls_create_identity API and set to context using socket option \ref CY_SOCKET_SO_TLS_IDENTITY
+ *       will be used.
  *
  * @param[in] certificate_data       x509 certificate in PEM format. It should be a null-terminated string.
  * @param[in] certificate_len        Length of the certificate excluding the 'null' terminator.
@@ -274,6 +298,26 @@ cy_rslt_t cy_tls_create_context( cy_tls_context_t *context, cy_tls_params_t *par
 
 /**
  * Performs a TLS handshake and connects to the server.
+ *
+ * RootCA certificate will be used for peer certificate verification as below:
+ * 1. If CY_SECURE_SOCKETS_PKCS_SUPPORT flag is disabled:
+ *    a. By default, global RootCA certificate loaded will be used for verification.
+ *    b. If context specific RootCA is set using CY_SOCKET_SO_TRUSTED_ROOTCA_CERTIFICATE socket option then
+ *       context specific RootCA certificate will be used for verification.
+ * 2. If CY_SECURE_SOCKETS_PKCS_SUPPORT flag is enabled:
+ *    a. By default, RootCA certificates which is provisioned to secure element will be used.
+ *    b. If socket option CY_SOCKET_SO_ROOTCA_CERTIFICATE_LOCATION is set with value CY_SOCKET_ROOTCA_RAM then
+ *       - RootCA attached to the context will take first preference.
+ *       - RootCA set as global will take the last preference.
+ *
+ * Device certificate & keys will be loaded as below:
+ * 1. If CY_SECURE_SOCKETS_PKCS_SUPPORT flag is disabled:
+ *    a. If device certificate and keys are loaded by application/library using \ref cy_tls_create_identity API and
+ *       TLS identity set using socket option CY_SOCKET_SO_TLS_IDENTITY will be used for device certificate and keys.
+ * 2.If CY_SECURE_SOCKETS_PKCS_SUPPORT flag is enabled:
+ *    a. By default, device certificates and keys which are provisioned to secure element will be used.
+ *    b. If socket option CY_SOCKET_SO_DEVICE_CERT_KEY_LOCATION is set with value CY_SOCKET_DEVICE_CERT_KEY_RAM then
+ *       identity set to the TLS context will be used.
  *
  * @param[in]  context Context handle for the TLS Layer created using \ref cy_tls_create_context.
  * @param[in] endpoint Endpoint type for the TLS handshake.

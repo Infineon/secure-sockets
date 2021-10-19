@@ -1,5 +1,4 @@
 var searchData=
 [
-  ['rootca_5fcertificate',['rootca_certificate',['../structcy__tls__params__t.html#a4ae05e94ea7a28a935cd4eeb0fe1533a',1,'cy_tls_params_t']]],
-  ['rootca_5fcertificate_5flength',['rootca_certificate_length',['../structcy__tls__params__t.html#a35aad84ed2472dd02d19b4af83ea4545',1,'cy_tls_params_t']]]
+  ['port',['port',['../structcy__socket__sockaddr__t.html#a78df7a67a185b4114913f8e983a3a5d0',1,'cy_socket_sockaddr_t']]]
 ];

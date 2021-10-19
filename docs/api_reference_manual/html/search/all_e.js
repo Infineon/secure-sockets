@@ -1,6 +1,7 @@
 var searchData=
 [
-  ['v4',['v4',['../structcy__socket__ip__address__t.html#a1b68b61521bd0b095ed35bea52f6fd82',1,'cy_socket_ip_address_t']]],
-  ['v6',['v6',['../structcy__socket__ip__address__t.html#af849e54b89b4412aaca8eb46275f2b4b',1,'cy_socket_ip_address_t']]],
-  ['version',['version',['../structcy__socket__ip__address__t.html#adff8c23c18f451bc833136c9b39762ca',1,'cy_socket_ip_address_t']]]
+  ['tls_20api',['TLS API',['../group__group__cy__tls.html',1,'']]],
+  ['typedefs',['Typedefs',['../group__group__cy__tls__typedefs.html',1,'']]],
+  ['typedefs',['Typedefs',['../group__group__secure__sockets__typedefs.html',1,'']]],
+  ['tls_5fidentity',['tls_identity',['../structcy__tls__params__t.html#a573b570a103f6ebc9c9bf4d5a6e1d323',1,'cy_tls_params_t']]]
 ];

@@ -1,5 +1,7 @@
 var searchData=
 [
-  ['network_5frecv',['network_recv',['../structcy__tls__params__t.html#ab16d06b1abafbf35079bd7f878a2f690',1,'cy_tls_params_t']]],
-  ['network_5fsend',['network_send',['../structcy__tls__params__t.html#a6dcd4ebeb549d85ae5f6db175ec3ca9f',1,'cy_tls_params_t']]]
+  ['macros',['Macros',['../group__group__secure__sockets__macros.html',1,'']]],
+  ['message_20sequence_20charts',['Message Sequence Charts',['../group__group__secure__sockets__mscs.html',1,'']]],
+  ['mfl_5fcode',['mfl_code',['../structcy__tls__params__t.html#a4149ff366e964d2cd1796b8738ecb018',1,'cy_tls_params_t']]],
+  ['multi_5faddr',['multi_addr',['../structcy__socket__ip__mreq__t.html#afbd0341c76b9026737ee7db33237fb8e',1,'cy_socket_ip_mreq_t']]]
 ];

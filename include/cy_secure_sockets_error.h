@@ -139,6 +139,8 @@ extern "C" {
 #define CY_RSLT_MODULE_SECURE_SOCKETS_MULTICAST_ADDRESS_NOT_REGISTERED       ( CY_RSLT_SECURE_SOCKETS_ERR_BASE + 23 )
 /** Routing problem. */
 #define CY_RSLT_MODULE_SECURE_SOCKETS_ERROR_ROUTING                          ( CY_RSLT_SECURE_SOCKETS_ERR_BASE + 24 )
+/** PKCS generic error */
+#define CY_RSLT_MODULE_SECURE_SOCKETS_PKCS_ERROR                             ( CY_RSLT_SECURE_SOCKETS_ERR_BASE + 25 )
 /** \} group_secure_sockets_macros */
 #ifdef __cplusplus
 } /*extern "C" */

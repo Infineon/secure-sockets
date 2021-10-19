@@ -40,12 +40,12 @@
  */
 
 #include "cy_tls.h"
-#include "cy_rtc.h"
 #include "cyhal.h"
 #include "cyabs_rtos.h"
 #include "cy_log.h"
 #include "cy_result_mw.h"
 #include <mbedtls/ssl.h>
+#include <mbedtls/debug.h>
 #include <mbedtls/entropy.h>
 #include <mbedtls/ctr_drbg.h>
 #include <mbedtls/error.h>
@@ -57,10 +57,53 @@
 #include <time.h>
 #include <mbedtls/platform_time.h>
 
+#ifdef CY_TFM_PSA_SUPPORTED
+#include <psa/crypto.h>
+#endif
+
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+#include "tfm_mbedtls_version.h"
+#include <mbedtls/version.h>
+#include <mbedtls/pk.h>
+#include <mbedtls/pk_internal.h>
+#include <core_pkcs11_config.h>
+#include <core_pkcs11.h>
+#include <core_pki_utils.h>
+#endif
+
 #ifdef ENABLE_SECURE_SOCKETS_LOGS
 #define tls_cy_log_msg cy_log_msg
 #else
 #define tls_cy_log_msg(a,b,c,...)
+#endif
+
+#ifndef MBEDTLS_VERBOSE
+#define MBEDTLS_VERBOSE 0
+#endif
+
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+#if MBEDTLS_VERSION_NUMBER != TFM_MBEDTLS_VERSION_NUMBER
+#error "MBEDTLS version mismatch between secure core and non-secure core implementation. Please refer tfm_mbedtls_version.h present inside trusted-firmware-m library and version.h in mbedtls library"
+#endif
+#endif
+
+#define CY_TLS_LOAD_CERT_FROM_RAM                1
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+#define CY_TLS_LOAD_CERT_FROM_SECURE_STORAGE     0
+#endif
+
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+typedef struct cy_tls_pkcs_context
+{
+    CK_FUNCTION_LIST_PTR        functionlist;
+    CK_SESSION_HANDLE           session;
+    CK_OBJECT_HANDLE            privatekey_obj;
+    CK_KEY_TYPE                 key_type;
+    mbedtls_pk_context          ssl_pk_ctx;
+    mbedtls_pk_info_t           ssl_pk_info;
+    bool                        load_rootca_from_ram;
+    bool                        load_device_cert_key_from_ram;
+} cy_tls_pkcs_context_t;
 #endif
 
 typedef struct cy_tls_context_mbedtls
@@ -86,10 +129,16 @@ typedef struct cy_tls_context_mbedtls
     /* mbedTLS specific members */
     mbedtls_ssl_context         ssl_ctx;
     mbedtls_ssl_config          ssl_config;
-    mbedtls_x509_crt            cert_509ca;
-    mbedtls_x509_crt            cert_client;
     mbedtls_entropy_context     entropy;
     mbedtls_ctr_drbg_context    ctr_drbg;
+
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+    mbedtls_x509_crt            *cert_x509ca;
+    mbedtls_x509_crt            *cert_client;
+    bool                        load_rootca_from_ram;
+    bool                        load_device_cert_key_from_ram;
+    cy_tls_pkcs_context_t       pkcs_context;
+#endif
 } cy_tls_context_mbedtls_t;
 
 typedef struct
@@ -103,6 +152,12 @@ static mbedtls_x509_crt* root_ca_certificates = NULL;
 
 /* TLS library usage count */
 static int init_ref_count = 0;
+
+static mbedtls_x509_crt_profile *custom_cert_profile = NULL;
+
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+static CK_RV cy_tls_initialize_client_credentials(cy_tls_context_mbedtls_t* context);
+#endif
 
 /*
  * Default custom cert profile
@@ -123,7 +178,23 @@ static mbedtls_x509_crt_profile default_crt_profile =
     2048,
 };
 
-static mbedtls_x509_crt_profile *custom_cert_profile = NULL;
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+static cy_rslt_t convert_pkcs_error_to_tls(CK_RV result)
+{
+    switch( result )
+    {
+        case CKR_OK:
+            return CY_RSLT_SUCCESS;
+        case CKR_HOST_MEMORY:
+            return CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE;
+        case CKR_ARGUMENTS_BAD:
+            return CY_RSLT_MODULE_TLS_BADARG;
+        case CKR_GENERAL_ERROR:
+        default:
+            return CY_RSLT_MODULE_TLS_PKCS_ERROR;
+    }
+}
+#endif
 
 /* Get the current time. */
 mbedtls_time_t get_current_time(mbedtls_time_t *t)
@@ -165,7 +236,7 @@ static int cy_tls_internal_send(void *context, const unsigned char *buffer, size
     }
 
     result =  tls_ctx->cy_tls_network_send(tls_ctx->caller_context, buffer, length, &bytes_sent);
-    if( result == CY_RSLT_SUCCESS)
+    if(result == CY_RSLT_SUCCESS)
     {
         return bytes_sent;
     }
@@ -297,6 +368,8 @@ cy_rslt_t cy_tls_load_global_root_ca_certificates(const char *trusted_ca_certifi
 {
     return cy_tls_internal_load_root_ca_certificates(&root_ca_certificates, trusted_ca_certificates, cert_length);
 }
+
+#ifndef CY_TFM_PSA_SUPPORTED
 /*-----------------------------------------------------------*/
 /* This function generates true random number using TRNG HW engine.
  *
@@ -336,6 +409,8 @@ static int trng_get_bytes(cyhal_trng_t *obj, uint8_t *output, size_t length, siz
     *output_length = offset;
     return 0;
 }
+#endif
+
 /*-----------------------------------------------------------*/
 /*
  * This function is the entropy source function. It generates true random number
@@ -352,6 +427,21 @@ static int trng_get_bytes(cyhal_trng_t *obj, uint8_t *output, size_t length, siz
  */
 int mbedtls_hardware_poll(void *data, unsigned char *output, size_t len, size_t *olen)
 {
+#ifdef CY_TFM_PSA_SUPPORTED
+    psa_status_t status = psa_crypto_init();
+    if(status != PSA_SUCCESS)
+    {
+        return -1;
+    }
+
+    status = psa_generate_random(output, len);
+    if (status != PSA_SUCCESS)
+    {
+        return -1;
+    }
+
+    *olen = len;
+#else
     cyhal_trng_t obj;
     int ret;
     cy_rslt_t result;
@@ -365,10 +455,13 @@ int mbedtls_hardware_poll(void *data, unsigned char *output, size_t len, size_t 
     ret = trng_get_bytes(&obj, output, len, olen);
     if(ret != 0)
     {
+        cyhal_trng_free(&obj);
         return -1;
     }
 
     cyhal_trng_free(&obj);
+#endif
+
     return 0;
 }
 /*-----------------------------------------------------------*/
@@ -397,28 +490,31 @@ cy_rslt_t cy_tls_create_identity(const char *certificate_data, const uint32_t ce
         return CY_RSLT_MODULE_TLS_BADARG;
     }
 
+    if(((certificate_data == NULL) || (certificate_len == 0)) || ((private_key == NULL) || (private_key_len == 0)))
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "certificate or private keys are empty \r\n");
+        return CY_RSLT_MODULE_TLS_BAD_INPUT_DATA;
+    }
+
     identity = malloc(sizeof(cy_tls_identity_t));
-    if( identity == NULL )
+    if(identity == NULL)
     {
         return CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE;
     }
 
     memset( identity, 0, sizeof(cy_tls_identity_t));
 
-    if ((certificate_data != NULL) && (certificate_len != 0))
-    {
-        /* load x509 certificate */
-        mbedtls_x509_crt_init( &identity->certificate );
+    /* load x509 certificate */
+    mbedtls_x509_crt_init( &identity->certificate );
 
-        ret = mbedtls_x509_crt_parse( &identity->certificate, (const unsigned char *) certificate_data, certificate_len + 1 );
-        if (ret != 0)
-        {
-            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_x509_crt_parse failed with error %d\r\n", ret);
-            result = CY_RSLT_MODULE_TLS_PARSE_CERTIFICATE;
-        }
+    ret = mbedtls_x509_crt_parse( &identity->certificate, (const unsigned char *) certificate_data, certificate_len + 1 );
+    if (ret != 0)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_x509_crt_parse failed with error %d\r\n", ret);
+        result = CY_RSLT_MODULE_TLS_PARSE_CERTIFICATE;
     }
 
-    if ((private_key != NULL) && (private_key_len != 0))
+    if(result == CY_RSLT_SUCCESS)
     {
         /* load key */
         mbedtls_pk_init( &identity->private_key );
@@ -431,7 +527,7 @@ cy_rslt_t cy_tls_create_identity(const char *certificate_data, const uint32_t ce
         }
     }
 
-    if( result != CY_RSLT_SUCCESS)
+    if(result != CY_RSLT_SUCCESS)
     {
         free(identity);
     }
@@ -446,7 +542,7 @@ cy_rslt_t cy_tls_create_identity(const char *certificate_data, const uint32_t ce
 cy_rslt_t cy_tls_delete_identity(void *tls_identity )
 {
     cy_tls_identity_t *identity = (cy_tls_identity_t *)tls_identity;
-    if( identity == NULL )
+    if(identity == NULL)
     {
         return CY_RSLT_MODULE_TLS_BADARG;
     }
@@ -454,13 +550,16 @@ cy_rslt_t cy_tls_delete_identity(void *tls_identity )
     mbedtls_pk_free(&identity->private_key);
 
     free(identity);
-
     return CY_RSLT_SUCCESS;
 }
 /*-----------------------------------------------------------*/
 cy_rslt_t cy_tls_create_context(void **context, cy_tls_params_t *params)
 {
     cy_tls_context_mbedtls_t *ctx = NULL;
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+    CK_C_GetFunctionList function_list = NULL;
+    CK_RV pkcs_result = CKR_OK;
+#endif
 
     if(context == NULL || params == NULL)
     {
@@ -468,7 +567,7 @@ cy_rslt_t cy_tls_create_context(void **context, cy_tls_params_t *params)
     }
 
     ctx =  malloc(sizeof(cy_tls_context_mbedtls_t));
-    if( ctx == NULL )
+    if(ctx == NULL)
     {
         return CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE;
     }
@@ -486,8 +585,308 @@ cy_rslt_t cy_tls_create_context(void **context, cy_tls_params_t *params)
     ctx->mfl_code  = params->mfl_code;
     ctx->hostname  = params->hostname;
 
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+
+    ctx->load_rootca_from_ram  = params->load_rootca_from_ram;
+    ctx->load_device_cert_key_from_ram = params->load_device_cert_key_from_ram;
+
+    /* Get the function pointer list for the PKCS#11 module. */
+    function_list = C_GetFunctionList;
+    pkcs_result = function_list(&ctx->pkcs_context.functionlist);
+
+    if(pkcs_result != CKR_OK)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : C_GetFunctionList failed with error : 0x%x \r\n", pkcs_result);
+        free(ctx);
+        *context = NULL;
+        return convert_pkcs_error_to_tls(pkcs_result);
+    }
+
+    /* Ensure that the PKCS #11 module is initialized and create a session. */
+    pkcs_result = xInitializePkcs11Session(&ctx->pkcs_context.session);
+
+    if(pkcs_result == CKR_CRYPTOKI_ALREADY_INITIALIZED)
+    {
+        /* Module was previously initialized */
+    }
+    else
+    {
+        if(pkcs_result != CKR_OK)
+        {
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : xInitializePkcs11Session failed with error : 0x%x \r\n", pkcs_result);
+            free(ctx);
+            *context = NULL;
+            return convert_pkcs_error_to_tls(pkcs_result);
+        }
+    }
+#endif
+
     return CY_RSLT_SUCCESS;
 }
+
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+static int cy_tls_sign_with_private_key(void* context, mbedtls_md_type_t xMdAlg, const unsigned char* hash,
+                                        size_t hash_len, unsigned char* pucSig, size_t* pxSigLen,
+                                        int (*piRng)(void*, unsigned char *, size_t), void* pvRng )
+{
+    CK_RV result = CKR_OK;
+    cy_tls_context_mbedtls_t* tls_context = (cy_tls_context_mbedtls_t*) context;
+    CK_MECHANISM xMech = {0};
+    CK_BYTE xToBeSigned[256];
+    CK_ULONG xToBeSignedLen = sizeof(xToBeSigned);
+
+    if(context == NULL)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : TLS context is NULL \r\n");
+        return -1;
+    }
+
+    /* Sanity check buffer length. */
+    if(hash_len > sizeof(xToBeSigned))
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : buffer not sufficient \r\n");
+        return -1;
+    }
+
+    /* Format the hash data to be signed. */
+    if(tls_context->pkcs_context.key_type == CKK_RSA)
+    {
+        xMech.mechanism = CKM_RSA_PKCS;
+
+        /* mbedTLS expects hashed data without padding, but PKCS #11 C_Sign function performs a hash
+         * & sign if hash algorithm is specified.  This helper function applies padding
+         * indicating data was hashed with SHA-256 while still allowing pre-hashed data to
+         * be provided. */
+        result = vAppendSHA256AlgorithmIdentifierSequence((uint8_t*)hash, xToBeSigned );
+        if(result != CKR_OK)
+        {
+            return -1;
+        }
+        xToBeSignedLen = pkcs11RSA_SIGNATURE_INPUT_LENGTH;
+    }
+    else if(tls_context->pkcs_context.key_type == CKK_EC)
+    {
+        xMech.mechanism = CKM_ECDSA;
+        memcpy(xToBeSigned, hash, hash_len);
+        xToBeSignedLen = hash_len;
+    }
+    else
+    {
+        return -1;
+    }
+
+    /* Use the PKCS#11 module to sign. */
+    result = tls_context->pkcs_context.functionlist->C_SignInit(tls_context->pkcs_context.session, &xMech, tls_context->pkcs_context.privatekey_obj);
+    if(result != CKR_OK)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : C_SignInit failed with error : %d \r\n", result);
+        return -1;
+    }
+
+    *pxSigLen = sizeof( xToBeSigned );
+    result = tls_context->pkcs_context.functionlist->C_Sign((CK_SESSION_HANDLE)tls_context->pkcs_context.session, xToBeSigned,
+                                                      xToBeSignedLen, pucSig, (CK_ULONG_PTR) pxSigLen);
+    if(result != CKR_OK)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : C_Sign failed with error : %d \r\n", result);
+        return -1;
+    }
+
+    if(tls_context->pkcs_context.key_type == CKK_EC)
+    {
+        /* PKCS #11 for P256 returns a 64-byte signature with 32 bytes for R and 32 bytes for S.
+         * This must be converted to an ASN.1 encoded array. */
+        if(pkcs11ECDSA_P256_SIGNATURE_LENGTH != *pxSigLen)
+        {
+            return -1;
+        }
+
+        if(result == CKR_OK)
+        {
+            PKI_pkcs11SignatureTombedTLSSignature( pucSig, pxSigLen );
+        }
+    }
+
+    return 0;
+}
+
+/* Read RootCA certificate/ device certificate from secure element through PKCS interface
+ * and load into the MBEDTLS context */
+static CK_RV cy_tls_read_certificate(cy_tls_context_mbedtls_t* context, char *label_name, CK_OBJECT_CLASS obj_class, mbedtls_x509_crt* cert_context)
+{
+    CK_RV result = CKR_OK;
+    CK_ATTRIBUTE xTemplate = {0};
+    CK_OBJECT_HANDLE obj_cert = 0;
+    int mbedtls_result = 0;
+
+    /* Get the handle of the certificate. */
+    result = xFindObjectWithLabelAndClass(context->pkcs_context.session, label_name, strlen(label_name), obj_class, &obj_cert);
+    if(result != CKR_OK)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : xFindObjectWithLabelAndClass failed with error : %d \r\n", result);
+        return result;
+    }
+
+    if(obj_cert == CK_INVALID_HANDLE)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : Failed to get the handle of the certificate \r\n");
+        return CKR_OBJECT_HANDLE_INVALID;
+    }
+
+    /* Query the certificate size. */
+    xTemplate.type = CKA_VALUE;
+    xTemplate.ulValueLen = 0;
+    xTemplate.pValue = NULL;
+    result = context->pkcs_context.functionlist->C_GetAttributeValue(context->pkcs_context.session, obj_cert, &xTemplate, 1);
+    if(result != CKR_OK)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : C_GetAttributeValue failed with error : %d \r\n", result);
+        return result;
+    }
+
+    /* Create a buffer for the certificate. */
+    xTemplate.pValue = malloc(xTemplate.ulValueLen);
+    if(xTemplate.pValue == NULL)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : Failed to create buffer for the certificate \r\n");
+        return CKR_HOST_MEMORY;
+    }
+
+    /* Export the certificate. */
+    result = context->pkcs_context.functionlist->C_GetAttributeValue(context->pkcs_context.session, obj_cert, &xTemplate, 1);
+    if(result != CKR_OK)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : C_GetAttributeValue failed with error : %d \r\n", result);
+        goto cleanup;
+    }
+
+    /* Decode the certificate. */
+    mbedtls_result = mbedtls_x509_crt_parse(cert_context, (const unsigned char*) xTemplate.pValue, xTemplate.ulValueLen);
+    if(mbedtls_result != 0)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_x509_crt_parse failed to parse certificate : 0x%x \r\n", mbedtls_result);
+        result = CKR_GENERAL_ERROR;
+        goto cleanup;
+    }
+
+cleanup:
+    /* Free memory. */
+    if(xTemplate.pValue != NULL)
+    {
+        free(xTemplate.pValue);
+    }
+
+    return result;
+}
+
+/* Setup the hardware cryptographic context  */
+static CK_RV cy_tls_initialize_client_credentials(cy_tls_context_mbedtls_t* context)
+{
+    CK_RV result = CKR_OK;
+    CK_ATTRIBUTE xTemplate[ 2 ];
+    mbedtls_pk_type_t mbedtls_key_algo = ( mbedtls_pk_type_t ) ~0;
+    int mbedtls_result = 0;
+
+    if(context->pkcs_context.session == CK_INVALID_HANDLE)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : session is not initialized \r\n");
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+
+    result = context->pkcs_context.functionlist->C_Login(context->pkcs_context.session, CKU_USER, (CK_UTF8CHAR_PTR)configPKCS11_DEFAULT_USER_PIN,
+                                                         sizeof(configPKCS11_DEFAULT_USER_PIN) - 1);
+    if(result != CKR_OK)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : C_Login failed with error : %d \r\n", result);
+        return result;
+    }
+
+    /* Get the handle of the device private key. */
+    result = xFindObjectWithLabelAndClass(context->pkcs_context.session, pkcs11configLABEL_DEVICE_PRIVATE_KEY_FOR_TLS,
+                                          sizeof( pkcs11configLABEL_DEVICE_PRIVATE_KEY_FOR_TLS ) - 1,
+                                          CKO_PRIVATE_KEY,
+                                          &context->pkcs_context.privatekey_obj);
+    if(result != CKR_OK)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : xFindObjectWithLabelAndClass failed with error : %d \r\n", result);
+        return result;
+    }
+
+    if(context->pkcs_context.privatekey_obj == CK_INVALID_HANDLE)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : Private key not found \r\n", result);
+        return CKR_GENERAL_ERROR;
+    }
+
+    /* Query the device private key type. */
+    xTemplate[0].type = CKA_KEY_TYPE;
+    xTemplate[0].pValue = &context->pkcs_context.key_type;
+    xTemplate[0].ulValueLen = sizeof(CK_KEY_TYPE);
+
+    result = context->pkcs_context.functionlist->C_GetAttributeValue(context->pkcs_context.session, context->pkcs_context.privatekey_obj, xTemplate, 1);
+    if(result != CKR_OK)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : C_GetAttributeValue failed with error : %d \r\n", result);
+        return result;
+    }
+
+    /* Map the PKCS #11 key type to an mbedTLS algorithm. */
+    switch(context->pkcs_context.key_type)
+    {
+        case CKK_RSA:
+        {
+            mbedtls_key_algo = MBEDTLS_PK_RSA;
+            break;
+        }
+
+        case CKK_EC:
+        {
+            mbedtls_key_algo = MBEDTLS_PK_ECKEY;
+            break;
+        }
+
+        default:
+        {
+            result = CKR_ATTRIBUTE_VALUE_INVALID;
+            return result;
+        }
+    }
+
+    /* Map the mbedTLS algorithm to its internal metadata. */
+    memcpy(&context->pkcs_context.ssl_pk_info, mbedtls_pk_info_from_type(mbedtls_key_algo), sizeof(mbedtls_pk_info_t));
+
+    context->pkcs_context.ssl_pk_info.sign_func = cy_tls_sign_with_private_key;
+    context->pkcs_context.ssl_pk_ctx.pk_info = &context->pkcs_context.ssl_pk_info;
+    context->pkcs_context.ssl_pk_ctx.pk_ctx = context;
+
+    result = cy_tls_read_certificate(context, pkcs11configLABEL_DEVICE_CERTIFICATE_FOR_TLS, CKO_CERTIFICATE, context->cert_client );
+    if(result != CKR_OK)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : failed to read device certificate : %d \r\n", result);
+        return result;
+    }
+
+    mbedtls_result = mbedtls_ssl_conf_own_cert(&context->ssl_config, context->cert_client, &context->pkcs_context.ssl_pk_ctx );
+    if(mbedtls_result != 0)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_ssl_conf_own_cert failed to load certificate & key : %d \r\n", mbedtls_result);
+        return CKR_GENERAL_ERROR;
+    }
+
+    return result;
+}
+#endif
+
+#ifdef MBEDTLS_DEBUG_C
+static void mbedtls_debug_logs( void *ctx, int level,
+                      const char *file, int line,
+                      const char *str )
+{
+    ((void) level);
+
+    printf("%s:%04d: %s \n", file, line, str);
+}
+#endif
 
 /*-----------------------------------------------------------*/
 cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint)
@@ -496,6 +895,12 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint)
     const char *pers = "tls_drbg_seed";
     int ret;
     cy_tls_identity_t *tls_identity;
+    cy_rslt_t result = CY_RSLT_SUCCESS;
+    bool load_cert_key_from_ram = CY_TLS_LOAD_CERT_FROM_RAM;
+
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+    CK_RV pkcs_result = CKR_OK;
+#endif
 
     if(ctx == NULL)
     {
@@ -517,7 +922,7 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint)
         return CY_RSLT_MODULE_TLS_ERROR;
     }
 
-    if( (ret = mbedtls_ssl_config_defaults(&ctx->ssl_config, (int)endpoint, MBEDTLS_SSL_TRANSPORT_STREAM, MBEDTLS_SSL_PRESET_DEFAULT)) != 0)
+    if((ret = mbedtls_ssl_config_defaults(&ctx->ssl_config, (int)endpoint, MBEDTLS_SSL_TRANSPORT_STREAM, MBEDTLS_SSL_PRESET_DEFAULT)) != 0)
     {
         tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_ssl_config_defaults failed 0x%x\r\n", -ret);
         return CY_RSLT_MODULE_TLS_ERROR;
@@ -549,36 +954,116 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint)
         }
     }
 
-    if(ctx->rootca_certificate)
+#ifdef MBEDTLS_DEBUG_C
+    mbedtls_debug_set_threshold(MBEDTLS_VERBOSE);
+    mbedtls_ssl_conf_dbg(&ctx->ssl_config, mbedtls_debug_logs, NULL);
+#endif
+
+
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+    /* If CY_SECURE_SOCKETS_PKCS_SUPPORT flag is enabled and ctx->load_rootca_from_ram flag is not set through
+     * cy_socket_setsockopt then use the rootCA certificate which was provisioned to secure element else read from the
+     * RAM
+     */
+    if(ctx->load_rootca_from_ram == CY_TLS_LOAD_CERT_FROM_SECURE_STORAGE)
     {
-        cy_tls_internal_load_root_ca_certificates(&ctx->mbedtls_ca_cert, ctx->rootca_certificate,  ctx->rootca_certificate_length);
-        mbedtls_ssl_conf_ca_chain(&ctx->ssl_config, ctx->mbedtls_ca_cert, NULL);
+        load_cert_key_from_ram = CY_TLS_LOAD_CERT_FROM_SECURE_STORAGE;
+
+        ctx->cert_x509ca = malloc(sizeof(mbedtls_x509_crt));
+        if(ctx->cert_x509ca == NULL)
+        {
+            return CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE;
+        }
+
+        mbedtls_x509_crt_init(ctx->cert_x509ca);
+
+        /* Read rootCA certificate */
+        result = cy_tls_read_certificate(ctx, pkcs11configLABEL_ROOT_CERTIFICATE, CKO_CERTIFICATE, ctx->cert_x509ca);
+
+        /* If reading RootCA certificate fails then continue with TLS handshake as TLS handshake may
+         * go through if server certificate doesnt need to be verified */
+        if(result == CKR_OK)
+        {
+            mbedtls_ssl_conf_ca_chain(&ctx->ssl_config, ctx->cert_x509ca, NULL);
+        }
+        else
+        {
+            cy_tls_internal_release_root_ca_certificates(ctx->cert_x509ca);
+            ctx->cert_x509ca = NULL;
+        }
     }
-    else if(root_ca_certificates)
+#endif
+
+    if(load_cert_key_from_ram == CY_TLS_LOAD_CERT_FROM_RAM)
     {
-        mbedtls_ssl_conf_ca_chain(&ctx->ssl_config, root_ca_certificates, NULL);
+        if(ctx->rootca_certificate)
+        {
+            cy_tls_internal_load_root_ca_certificates(&ctx->mbedtls_ca_cert, ctx->rootca_certificate,  ctx->rootca_certificate_length);
+            mbedtls_ssl_conf_ca_chain(&ctx->ssl_config, ctx->mbedtls_ca_cert, NULL);
+        }
+        else if(root_ca_certificates)
+        {
+            mbedtls_ssl_conf_ca_chain(&ctx->ssl_config, root_ca_certificates, NULL);
+        }
     }
 
-    if(tls_identity)
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+    if(ctx->load_device_cert_key_from_ram == CY_TLS_LOAD_CERT_FROM_SECURE_STORAGE)
     {
-        ret = mbedtls_ssl_conf_own_cert(&ctx->ssl_config, &tls_identity->certificate, &tls_identity->private_key);
-        if ( ret != 0)
+        load_cert_key_from_ram = CY_TLS_LOAD_CERT_FROM_SECURE_STORAGE;
+
+        ctx->cert_client = malloc(sizeof(mbedtls_x509_crt));
+        if(ctx->cert_client == NULL)
         {
-            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_ssl_conf_own_cert failed with error %d \r\n", ret);
-            return CY_RSLT_MODULE_TLS_ERROR;
+            result = CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE;
+            goto cleanup;
+        }
+
+        mbedtls_x509_crt_init(ctx->cert_client);
+
+        /* If reading provisioned device certificate and keys failed from secure element. still continue the TLS
+         * handshake. as for server which doesnt require mutual authentication may successully complete the TLS handshake
+         */
+        pkcs_result = cy_tls_initialize_client_credentials(ctx);
+        if(pkcs_result != CKR_OK)
+        {
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Reading device credentials from secure element failed with error %d \r\n", pkcs_result);
+            mbedtls_x509_crt_free(ctx->cert_client);
+            free(ctx->cert_client);
+            ctx->cert_client = NULL;
+        }
+    }
+    else
+    {
+        load_cert_key_from_ram = CY_TLS_LOAD_CERT_FROM_RAM;
+    }
+#endif
+
+    if(load_cert_key_from_ram == CY_TLS_LOAD_CERT_FROM_RAM)
+    {
+        if(tls_identity)
+        {
+            ret = mbedtls_ssl_conf_own_cert(&ctx->ssl_config, &tls_identity->certificate, &tls_identity->private_key);
+            if ( ret != 0)
+            {
+                tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_ssl_conf_own_cert failed with error %d \r\n", ret);
+                return CY_RSLT_MODULE_TLS_ERROR;
+            }
         }
     }
 
     if((ret = mbedtls_ssl_setup(&ctx->ssl_ctx, &ctx->ssl_config)) != 0)
     {
         tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_ssl_config_defaults failed 0x%x\r\n", ret);
-        return CY_RSLT_MODULE_TLS_ERROR;
+        result = CY_RSLT_MODULE_TLS_ERROR;
+        goto cleanup;
     }
 
     if((ret = mbedtls_ssl_set_hostname(&ctx->ssl_ctx, ctx->hostname)) != 0)
     {
         tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_ssl_set_hostname failed 0x%x\r\n", ret);
-        return CY_RSLT_MODULE_TLS_ERROR;
+        result = CY_RSLT_MODULE_TLS_ERROR;
+        goto cleanup;
     }
 
     mbedtls_ssl_set_bio(&ctx->ssl_ctx, context, cy_tls_internal_send, cy_tls_internal_recv, NULL);
@@ -589,13 +1074,22 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint)
     {
         if(ret != MBEDTLS_ERR_SSL_WANT_READ && ret != MBEDTLS_ERR_SSL_WANT_WRITE)
         {
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+            if(pkcs_result != CKR_OK)
+            {
+                tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_INFO, "TLS handshake failed and it is likely that device certificate & keys are not provisioned or they are incorrect" \
+                                                             "Please check the provisioned device certificate and keys \r\n");
+            }
+#endif
+
             mbedtls_ssl_free(&ctx->ssl_ctx);
             mbedtls_ssl_config_free(&ctx->ssl_config);
             mbedtls_ctr_drbg_free(&ctx->ctr_drbg);
             mbedtls_entropy_free(&ctx->entropy);
 
             tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_ssl_handshake failed 0x%x\r\n", -ret);
-            return CY_RSLT_MODULE_TLS_ERROR;
+            result = CY_RSLT_MODULE_TLS_ERROR;
+            goto cleanup;
         }
     }
 
@@ -603,6 +1097,25 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint)
     tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "TLS handshake successful \r\n");
 
     return CY_RSLT_SUCCESS;
+
+cleanup:
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+    if(ctx->cert_x509ca != NULL)
+    {
+        mbedtls_x509_crt_free(ctx->cert_x509ca);
+        free(ctx->cert_x509ca);
+        ctx->cert_x509ca = NULL;
+    }
+
+    if(ctx->cert_client != NULL)
+    {
+        mbedtls_x509_crt_free(ctx->cert_client);
+        free(ctx->cert_client);
+        ctx->cert_client = NULL;
+    }
+#endif
+
+    return result;
 }
 /*-----------------------------------------------------------*/
 cy_rslt_t cy_tls_send(void *context, const unsigned char *data, uint32_t length, uint32_t *bytes_sent)
@@ -659,7 +1172,7 @@ cy_rslt_t cy_tls_send(void *context, const unsigned char *data, uint32_t length,
             result = -ret;
             break;
         }
-        else if( (MBEDTLS_ERR_SSL_WANT_WRITE != ret) && (MBEDTLS_ERR_SSL_WANT_READ != ret) )
+        else if((MBEDTLS_ERR_SSL_WANT_WRITE != ret) && (MBEDTLS_ERR_SSL_WANT_READ != ret))
         {
             tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_ssl_write failed with error %d \r\n", -ret);
             result = CY_RSLT_MODULE_TLS_ERROR;
@@ -785,6 +1298,28 @@ cy_rslt_t cy_tls_delete_context(cy_tls_context_t context)
         mbedtls_ctr_drbg_free(&ctx->ctr_drbg);
         mbedtls_entropy_free(&ctx->entropy);
     }
+
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+    if((ctx->pkcs_context.functionlist != NULL) && (ctx->pkcs_context.functionlist->C_CloseSession != NULL) && (ctx->pkcs_context.session != CK_INVALID_HANDLE))
+    {
+        ctx->pkcs_context.functionlist->C_CloseSession(ctx->pkcs_context.session);
+    }
+
+    if(ctx->cert_x509ca != NULL)
+    {
+        mbedtls_x509_crt_free(ctx->cert_x509ca);
+        free(ctx->cert_x509ca);
+        ctx->cert_x509ca = NULL;
+    }
+
+    if(ctx->cert_client != NULL)
+    {
+        mbedtls_x509_crt_free(ctx->cert_client);
+        free(ctx->cert_client);
+        ctx->cert_client = NULL;
+    }
+#endif
+
     free(context);
     return CY_RSLT_SUCCESS;
 }
@@ -835,5 +1370,15 @@ cy_rslt_t cy_tls_deinit(void)
     init_ref_count--;
 
     return result;
+}
+/*-----------------------------------------------------------*/
+uint32_t cy_tls_get_bytes_avail(void *context)
+{
+    cy_tls_context_mbedtls_t *ctx = (cy_tls_context_mbedtls_t *) context;
+    if(ctx == NULL)
+    {
+        return 0;
+    }
+    return mbedtls_ssl_get_bytes_avail(&ctx->ssl_ctx);
 }
 /*-----------------------------------------------------------*/

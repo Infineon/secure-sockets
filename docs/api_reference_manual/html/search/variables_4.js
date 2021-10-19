@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['mfl_5fcode',['mfl_code',['../structcy__tls__params__t.html#a4149ff366e964d2cd1796b8738ecb018',1,'cy_tls_params_t']]],
-  ['multi_5faddr',['multi_addr',['../structcy__socket__ip__mreq__t.html#afbd0341c76b9026737ee7db33237fb8e',1,'cy_socket_ip_mreq_t']]]
+  ['load_5fdevice_5fcert_5fkey_5ffrom_5fram',['load_device_cert_key_from_ram',['../structcy__tls__params__t.html#a759f4bf95e9e1c89ca547a9d1a68b353',1,'cy_tls_params_t']]],
+  ['load_5frootca_5ffrom_5fram',['load_rootca_from_ram',['../structcy__tls__params__t.html#ade53309452d299835a58e2cf902070da',1,'cy_tls_params_t']]]
 ];

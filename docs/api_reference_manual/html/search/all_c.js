@@ -1,7 +1,5 @@
 var searchData=
 [
-  ['structures',['Structures',['../group__group__cy__tls__structures.html',1,'']]],
-  ['secure_20sockets_20api',['Secure Sockets API',['../group__group__secure__sockets.html',1,'']]],
-  ['secure_20sockets_20results_2ferror_20codes',['Secure Sockets results/error codes',['../group__group__secure__sockets__results.html',1,'']]],
-  ['structures',['Structures',['../group__group__secure__sockets__structures.html',1,'']]]
+  ['rootca_5fcertificate',['rootca_certificate',['../structcy__tls__params__t.html#a4ae05e94ea7a28a935cd4eeb0fe1533a',1,'cy_tls_params_t']]],
+  ['rootca_5fcertificate_5flength',['rootca_certificate_length',['../structcy__tls__params__t.html#a35aad84ed2472dd02d19b4af83ea4545',1,'cy_tls_params_t']]]
 ];

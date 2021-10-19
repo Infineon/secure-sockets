@@ -1,4 +1,5 @@
 var searchData=
 [
-  ['port',['port',['../structcy__socket__sockaddr__t.html#a78df7a67a185b4114913f8e983a3a5d0',1,'cy_socket_sockaddr_t']]]
+  ['network_5frecv',['network_recv',['../structcy__tls__params__t.html#ab16d06b1abafbf35079bd7f878a2f690',1,'cy_tls_params_t']]],
+  ['network_5fsend',['network_send',['../structcy__tls__params__t.html#a6dcd4ebeb549d85ae5f6db175ec3ca9f',1,'cy_tls_params_t']]]
 ];

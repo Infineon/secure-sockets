@@ -207,6 +207,14 @@ Functions</h2></td></tr>
 
 <p>Initializes the global trusted RootCA certificates used for verifying certificates received during TLS handshake. </p>
 <p>This function parses the RootCA certificate chain and converts it to the underlying TLS stack format. It also stores the converted RootCA in its internal memory. This function overrides previously loaded RootCA certificates.</p>
+<ol type="1">
+<li>If CY_SECURE_SOCKETS_PKCS_SUPPORT flag is disabled: a. RootCA attached to the context will take first preference. b. RootCA set as global will take the last preference.</li>
+<li>If CY_SECURE_SOCKETS_PKCS_SUPPORT flag is enabled: a. By default, RootCA certificates which is provisioned to secure element will be used. b. If socket option CY_SOCKET_SO_ROOTCA_CERTIFICATE_LOCATION is set with value CY_SOCKET_ROOTCA_RAM then<ul>
+<li>RootCA attached to the context will take first preference.</li>
+<li>RootCA set as global will take the last preference.</li>
+</ul>
+</li>
+</ol>
 <dl class="section note"><dt>Note</dt><dd><a class="el" href="group__group__cy__tls__functions.html#ga186918ab7a9c658fb7e3cc6f00e0d6d9">cy_tls_load_global_root_ca_certificates</a> and <a class="el" href="group__group__cy__tls__functions.html#ga5e76c0d24388071a0ba60b38a9367bd0">cy_tls_release_global_root_ca_certificates</a> API functions are not thread-safe. The caller must ensure that these two API functions are not invoked simultaneously from different threads.</dd></dl>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
@@ -289,6 +297,10 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Creates an identity structure from the supplied certificate and private key. </p>
+<ol type="1">
+<li>If CY_SECURE_SOCKETS_PKCS_SUPPORT flag is disabled: a. TLS identity created using <a class="el" href="group__group__cy__tls__functions.html#ga3d2408681bbcea3b869cb5ae21cd0d5e">cy_tls_create_identity</a> and set to context using socket option <a class="el" href="group__group__secure__sockets__macros.html#gafa0ac839774a33feeb037dbb0c449cc3">CY_SOCKET_SO_TLS_IDENTITY</a> will be used for device certificate &amp; key</li>
+<li>If CY_SECURE_SOCKETS_PKCS_SUPPORT flag is enabled: a. By default, device certificates &amp; private keys which are provisioned to secure element will be used. b. If socket option CY_SOCKET_SO_DEVICE_CERT_KEY_LOCATION is set with value CY_SOCKET_DEVICE_CERT_KEY_RAM then TLS identity created with <a class="el" href="group__group__cy__tls__functions.html#ga3d2408681bbcea3b869cb5ae21cd0d5e">cy_tls_create_identity</a> API and set to context using socket option <a class="el" href="group__group__secure__sockets__macros.html#gafa0ac839774a33feeb037dbb0c449cc3">CY_SOCKET_SO_TLS_IDENTITY</a> will be used.</li>
+</ol>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramdir">[in]</td><td class="paramname">certificate_data</td><td>x509 certificate in PEM format. It should be a null-terminated string. </td></tr>
@@ -403,6 +415,17 @@ Functions</h2></td></tr>
 </div><div class="memdoc">
 
 <p>Performs a TLS handshake and connects to the server. </p>
+<p>RootCA certificate will be used for peer certificate verification as below:</p><ol type="1">
+<li>If CY_SECURE_SOCKETS_PKCS_SUPPORT flag is disabled: a. By default, global RootCA certificate loaded will be used for verification. b. If context specific RootCA is set using CY_SOCKET_SO_TRUSTED_ROOTCA_CERTIFICATE socket option then context specific RootCA certificate will be used for verification.</li>
+<li>If CY_SECURE_SOCKETS_PKCS_SUPPORT flag is enabled: a. By default, RootCA certificates which is provisioned to secure element will be used. b. If socket option CY_SOCKET_SO_ROOTCA_CERTIFICATE_LOCATION is set with value CY_SOCKET_ROOTCA_RAM then<ul>
+<li>RootCA attached to the context will take first preference.</li>
+<li>RootCA set as global will take the last preference.</li>
+</ul>
+</li>
+</ol>
+<p>Device certificate &amp; keys will be loaded as below:</p><ol type="1">
+<li>If CY_SECURE_SOCKETS_PKCS_SUPPORT flag is disabled: a. If device certificate and keys are loaded by application/library using <a class="el" href="group__group__cy__tls__functions.html#ga3d2408681bbcea3b869cb5ae21cd0d5e">cy_tls_create_identity</a> API and TLS identity set using socket option CY_SOCKET_SO_TLS_IDENTITY will be used for device certificate and keys. 2.If CY_SECURE_SOCKETS_PKCS_SUPPORT flag is enabled: a. By default, device certificates and keys which are provisioned to secure element will be used. b. If socket option CY_SOCKET_SO_DEVICE_CERT_KEY_LOCATION is set with value CY_SOCKET_DEVICE_CERT_KEY_RAM then identity set to the TLS context will be used.</li>
+</ol>
 <dl class="params"><dt>Parameters</dt><dd>
   <table class="params">
     <tr><td class="paramdir">[in]</td><td class="paramname">context</td><td>Context handle for the TLS Layer created using <a class="el" href="group__group__cy__tls__functions.html#gac85f731f94c63243c2cdff8a679bb10e">cy_tls_create_context</a>. </td></tr>
