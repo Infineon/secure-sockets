@@ -2,7 +2,7 @@
 
 The secure sockets library provides APIs to create software that can send and/or receive data over the network using sockets. This library supports both secure and non-secure sockets, and abstracts the complexity involved in directly using network stack and security stack APIs. This library supports both IPv4 and IPv6 addressing modes for UDP and TCP sockets.
 
-To ease the integration of Wi-Fi connectivity components, this secure socket library has been bundled into the [Wi-Fi middleware core library](https://github.com/cypresssemiconductorco/wifi-mw-core).
+To ease the integration of Wi-Fi connectivity components, this secure sockets library has been bundled into the [Wi-Fi middleware core library](https://github.com/Infineon/wifi-mw-core).
 
 ## Features and functionality
 
@@ -29,7 +29,7 @@ To ease the integration of Wi-Fi connectivity components, this secure socket lib
 
 ## Supported platforms
 
-This library and its features are supported on the following PSoC&trade; 6 MCU platforms:
+This library and its features are supported on the following Infineon MCUs:
 
 - [PSoC&trade; 6 Wi-Fi Bluetooth&reg; prototyping kit (CY8CPROTO-062-4343W)](https://www.cypress.com/documentation/development-kitsboards/psoc-6-wi-fi-bt-prototyping-kit-cy8cproto-062-4343w)
 
@@ -40,6 +40,10 @@ This library and its features are supported on the following PSoC&trade; 6 MCU p
 - [PSoC&trade; 64S0S2 Wi-Fi Bluetooth&reg; pioneer kit (CY8CKIT-064S0S2-4343W)](https://www.cypress.com/documentation/development-kitsboards/psoc-64-standard-secure-aws-wi-fi-bt-pioneer-kit-cy8ckit)
 
 - [PSoC&trade; 62S2 evaluation kit (CY8CEVAL-062S2-LAI-4373M2)](https://www.cypress.com/documentation/development-kitsboards/psoc-62s2-evaluation-kit-cy8ceval-062s2)
+
+- [CYW954907AEVAL1F Evaluation Kit(CYW954907AEVAL1F)](https://www.cypress.com/documentation/development-kitsboards/cyw954907aeval1f-evaluation-kit)
+
+- [CYW943907AEVAL1F Evaluation Kit(CYW943907AEVAL1F)](https://www.cypress.com/documentation/development-kitsboards/cyw943907aeval1f-evaluation-kit)
 
 ## Send and receive timeout values
 
@@ -77,21 +81,21 @@ The secure sockets library disables all the debug log messages by default. Do th
    DEFINES+=ENABLE_SECURE_SOCKETS_LOGS
    ```
 
-2. Call the `cy_log_init()` function provided by the *cy-log* module. cy-log is part of the *connectivity-utilities* library. See [connectivity-utilities library API documentation](https://cypresssemiconductorco.github.io/connectivity-utilities/api_reference_manual/html/group__logging__utils.html) for cy-log details.
+2. Call the `cy_log_init()` function provided by the *cy-log* module. cy-log is part of the *connectivity-utilities* library. See [connectivity-utilities library API documentation](https://Infineon.github.io/connectivity-utilities/api_reference_manual/html/group__logging__utils.html) for cy-log details.
 
 
 ## Validity period verification
 
-The default mbed TLS configuration provided by the *Wi-Fi middleware core library* disables the validity period verification of the certificates. To perform this verification, enable `MBEDTLS_HAVE_TIME_DATE` in the [mbedtls_user_config.h](https://github.com/cypresssemiconductorco/wifi-mw-core/blob/master/configs/mbedtls_user_config.h) file.
+The default mbed TLS configuration provided by the *Wi-Fi middleware core library* disables the validity period verification of the certificates. To perform this verification, enable `MBEDTLS_HAVE_TIME_DATE` in the [mbedtls_user_config.h](https://github.com/Infineon/wifi-mw-core/blob/master/configs/mbedtls_user_config.h) file.
 
-Ensure that the system time is set prior to the `cy_socket_connect()` function call. To set the system time, get the time from the NTP server and set the system's RTC time using `cyhal_rtc_init()`, `cyhal_rtc_write()` and `cy_set_rtc_instance()` functions. See the [time support details](https://github.com/cypresssemiconductorco/clib-support/blob/master/README.md#time-support-details) for reference.
+Ensure that the system time is set prior to the `cy_socket_connect()` function call. To set the system time, get the time from the NTP server and set the system's RTC time using `cyhal_rtc_init()`, `cyhal_rtc_write()` and `cy_set_rtc_instance()` functions. See the [time support details](https://github.com/Infineon/clib-support/blob/master/README.md#time-support-details) for reference.
 
-See the code snippet given in [secure sockets API documentation](https://cypresssemiconductorco.github.io/secure-sockets/api_reference_manual/html/index.html) to get the time from the NTP server.
+See the code snippet given in [secure sockets API documentation](https://Infineon.github.io/secure-sockets/api_reference_manual/html/index.html) to get the time from the NTP server.
 
 
 ## PKCS/Non-PKCS mode
 
-Secure sockets library can be built using PKCS and Non-PKCS mode on secure platform such as CY8CKIT-064S0S2-4343W. When Secure socket library is built with PKCS flow, the certificates and keys can be provisioned in the secure element of the platform, and the provisioned certificates and keys will be read/used by secure sockets library while establishing the TLS connection with the peer. On the other hand, in non-PKCS mode, the certificates/keys will be passed from the application stored in flash/RAM.
+Secure sockets library can be built using PKCS and Non-PKCS mode on secure platform such as CY8CKIT-064S0S2-4343W. When Secure sockets library is built with PKCS flow, the certificates and keys can be provisioned in the secure element of the platform, and the provisioned certificates and keys will be read/used by secure sockets library while establishing the TLS connection with the peer. On the other hand, in non-PKCS mode, the certificates/keys will be passed from the application stored in flash/RAM.
 
 ### Non-PKCS mode
 
@@ -118,7 +122,7 @@ Secure sockets library can be built using PKCS and Non-PKCS mode on secure platf
 
 #### **Dependencies**
 
-The secure socket library depends on the other libraries for PKCS support. Ensure that the following  libraries are pulled in.
+The secure sockets library depends on the other libraries for PKCS support. Ensure that the following  libraries are pulled in.
 
 ##### ***Using *.lib* files***
 
@@ -158,7 +162,7 @@ To compile the FreeRTOS PKCS PSA integration library, add the trusted firmware l
 
 ##### ***Configuration for PKCS11***
 
-A pre-defined configuration file *core_pkcs11_config.h* is bundled with the secure socket library. To change the default configuration for PKCS11, copy the *core_pkcs11_config.h* file from the secure socket library to the top-level application directory, and then modify it.
+A pre-defined configuration file *core_pkcs11_config.h* is bundled with the secure sockets library. To change the default configuration for PKCS11, copy the *core_pkcs11_config.h* file from the secure sockets library to the top-level application directory, and then modify it.
 
 [FreeRTOS PSA PKCS11](https://github.com/Linaro/freertos-pkcs11-psa/) implementation supports only SHA-256 hashing algorithm. So the application should chose the cipher suite list compatible for SHA-256. To chose the cipher suite list(compatible for SHA-256), application need to copy *mbedtls_user_config.h* file from *libs/wifi-mw-core/configs* to root folder and add required cipher suites to the `MBEDTLS_SSL_CIPHERSUITES` macro.
 
@@ -166,9 +170,9 @@ A pre-defined configuration file *core_pkcs11_config.h* is bundled with the secu
 
 - [Secure sockets RELEASE.md](./RELEASE.md)
 
-- [Secure sockets API documentation](https://cypresssemiconductorco.github.io/secure-sockets/api_reference_manual/html/index.html)
+- [Secure sockets API documentation](https://Infineon.github.io/secure-sockets/api_reference_manual/html/index.html)
 
-- [Connectivity utilities API documentation - for cy-log details](https://cypresssemiconductorco.github.io/connectivity-utilities/api_reference_manual/html/group__logging__utils.html)
+- [Connectivity utilities API documentation - for cy-log details](https://Infineon.github.io/connectivity-utilities/api_reference_manual/html/group__logging__utils.html)
 
 - [ModusToolbox&trade; software environment, quick start guide, documentation, and videos](https://www.cypress.com/products/modustoolbox-software-environment)
 

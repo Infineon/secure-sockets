@@ -57,6 +57,10 @@
 #include <time.h>
 #include <mbedtls/platform_time.h>
 
+#ifdef COMPONENT_43907
+extern cy_rslt_t cy_prng_get_random( void* buffer, uint32_t buffer_length );
+#endif
+
 #ifdef CY_TFM_PSA_SUPPORTED
 #include <psa/crypto.h>
 #endif
@@ -381,6 +385,7 @@ cy_rslt_t cy_tls_load_global_root_ca_certificates(const char *trusted_ca_certifi
  * Return:
  *  int    zero on success, negative value on failure
  */
+#ifndef COMPONENT_43907
 static int trng_get_bytes(cyhal_trng_t *obj, uint8_t *output, size_t length, size_t *output_length)
 {
     uint32_t offset = 0;
@@ -409,6 +414,7 @@ static int trng_get_bytes(cyhal_trng_t *obj, uint8_t *output, size_t length, siz
     *output_length = offset;
     return 0;
 }
+#endif
 #endif
 
 /*-----------------------------------------------------------*/
@@ -441,6 +447,16 @@ int mbedtls_hardware_poll(void *data, unsigned char *output, size_t len, size_t 
     }
 
     *olen = len;
+#elif defined(COMPONENT_43907)
+    /* 43907 kits does not have TRNG module. Get the random
+     * number from wifi-mw-core internal PRNG API. */
+    cy_rslt_t result;
+    result = cy_prng_get_random(output, len);
+    if(result != CY_RSLT_SUCCESS)
+    {
+        return -1;
+    }
+    *olen = len;
 #else
     cyhal_trng_t obj;
     int ret;
@@ -461,9 +477,9 @@ int mbedtls_hardware_poll(void *data, unsigned char *output, size_t len, size_t 
 
     cyhal_trng_free(&obj);
 #endif
-
     return 0;
 }
+
 /*-----------------------------------------------------------*/
 cy_rslt_t cy_tls_init(void)
 {

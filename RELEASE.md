@@ -11,6 +11,9 @@ Refer to the [README.md](./README.md) for a complete description of the Secure S
 
 ## Changelog
 
+### v2.4.0
+* Added support for CYW943907AEVAL1F and CYW954907AEVAL1F kits.
+
 ### v2.3.0
 * Added support for secured kit CY8CKIT-064S0S2-4343W.
 * Added PKCS11 support for client mode in secure sockets library.

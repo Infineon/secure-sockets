@@ -85,7 +85,7 @@ $(document).ready(function(){initNavTree('index.html','');});
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><p>Secure Sockets Library provides APIs to create software that can send and/or receive data over the network using sockets. This library supports both secure and non-secure sockets, and abstracts the complexity involved in directly using network stack and security stack APIs. This library supports both IPv4 and IPv6 addressing modes for UDP and TCP sockets.</p>
-<p>To ease the integration of Wi-Fi connectivity components, this secure socket library has been bundled into the <a href="https://github.com/cypresssemiconductorco/wifi-mw-core">Wi-Fi middleware core library</a>.</p>
+<p>To ease the integration of Wi-Fi connectivity components, this secure sockets library has been bundled into the <a href="https://github.com/Infineon/wifi-mw-core">Wi-Fi middleware core library</a>.</p>
 <h1><a class="anchor" id="section_features"></a>
 Features and Functionality</h1>
 <p>Features supported:</p><ul>
@@ -102,12 +102,14 @@ Features and Functionality</h1>
 </ul>
 <h1><a class="anchor" id="section_platforms"></a>
 Supported Platforms</h1>
-<p>This library and its features are supported on the following PSoC&trade; 6 MCU platforms:</p><ul>
+<p>This library and its features are supported on the following Infineon MCUs:</p><ul>
 <li><a href="https://www.cypress.com/documentation/development-kitsboards/psoc-6-wi-fi-bt-prototyping-kit-cy8cproto-062-4343w">PSoC&trade; 6 Wi-Fi Bluetooth&reg; prototyping kit (CY8CPROTO-062-4343W)</a></li>
 <li><a href="https://www.cypress.com/documentation/development-kitsboards/psoc-62s2-wi-fi-bt-pioneer-kit-cy8ckit-062s2-43012">PSoC&trade; 62S2 Wi-Fi Bluetooth&reg; pioneer kit (CY8CKIT-062S2-43012)</a></li>
 <li><a href="https://www.cypress.com/documentation/development-kitsboards/psoc-6-wifi-bt-pioneer-kit-cy8ckit-062-wifi-bt">PSoC&trade; 6 Wi-Fi Bluetooth&reg; pioneer kit (CY8CKIT-062-WiFi-BT)</a></li>
 <li><a href="https://www.cypress.com/documentation/development-kitsboards/psoc-64-standard-secure-aws-wi-fi-bt-pioneer-kit-cy8ckit">PSoC&trade; 64S0S2 Wi-Fi Bluetooth&reg; pioneer kit (CY8CKIT-064S0S2-4343W)</a>*</li>
 <li><a href="https://www.cypress.com/documentation/development-kitsboards/psoc-62s2-evaluation-kit-cy8ceval-062s2">PSoC&trade; 62S2 evaluation kit (CY8CEVAL-062S2-LAI-4373M2)</a></li>
+<li><a href="https://www.cypress.com/documentation/development-kitsboards/cyw954907aeval1f-evaluation-kit">CYW954907AEVAL1F Evaluation Kit(CYW954907AEVAL1F)</a></li>
+<li><a href="https://www.cypress.com/documentation/development-kitsboards/cyw943907aeval1f-evaluation-kit">CYW943907AEVAL1F Evaluation Kit(CYW943907AEVAL1F)</a></li>
 </ul>
 <h1><a class="anchor" id="section_Send"></a>
 Send and receive timeout values</h1>
@@ -131,19 +133,19 @@ Log messages</h1>
 <ul>
 <li>The Secure Sockets Library disables all the debug log messages by default. Do the following to enable log messages:<ol type="1">
 <li>Add <code>ENABLE_SECURE_SOCKETS_LOGS</code> macro to the <code>DEFINES</code> in the code example's Makefile. The Makefile entry would look like as follows: <div class="fragment"><div class="line">DEFINES+=ENABLE_SECURE_SOCKETS_LOGS</div></div><!-- fragment --></li>
-<li>Call the <code>cy_log_init()</code> function provided by the <em>cy-log</em> module. cy-log is part of the <em>connectivity-utilities</em> library. See <a href="https://cypresssemiconductorco.github.io/connectivity-utilities/api_reference_manual/html/group__logging__utils.html">connectivity-utilities library API documentation</a> for cy-log details.</li>
+<li>Call the <code>cy_log_init()</code> function provided by the <em>cy-log</em> module. cy-log is part of the <em>connectivity-utilities</em> library. See <a href="https://Infineon.github.io/connectivity-utilities/api_reference_manual/html/group__logging__utils.html">connectivity-utilities library API documentation</a> for cy-log details.</li>
 </ol>
 </li>
 </ul>
 <h1><a class="anchor" id="section_Validity"></a>
 Validity period verification</h1>
 <ul>
-<li>The default mbed TLS configuration provided by the <em>Wi-Fi Middleware Core Library</em> disables the validity period verification of the certificates. To perform this verification, enable MBEDTLS_HAVE_TIME_DATE in the <a href="https://github.com/cypresssemiconductorco/wifi-mw-core/blob/master/configs/mbedtls_user_config.h">mbedtls_user_config.h</a> file. Ensure that the system time is set prior to the <a class="el" href="group__group__secure__sockets__functions.html#ga2e07189d60c7e6a130302d2e2db19653">cy_socket_connect()</a> function call. To set the system time, get the time from the NTP server and set the system's RTC time using cyhal_rtc_init(), cyhal_rtc_write() and cy_set_rtc_instance() functions. See the <a href="https://github.com/cypresssemiconductorco/clib-support/blob/master/README.md#time-support-details">Time Support Details</a> for reference. See the <a class="el" href="index.html#snip12">Code Snippet 12: Get the current time from the NTP server - Send an NTP request packet to the NTP server, and receive an NTP reply packet.</a> to get the time from NTP server.</li>
+<li>The default mbed TLS configuration provided by the <em>Wi-Fi Middleware Core Library</em> disables the validity period verification of the certificates. To perform this verification, enable MBEDTLS_HAVE_TIME_DATE in the <a href="https://github.com/Infineon/wifi-mw-core/blob/master/configs/mbedtls_user_config.h">mbedtls_user_config.h</a> file. Ensure that the system time is set prior to the <a class="el" href="group__group__secure__sockets__functions.html#ga2e07189d60c7e6a130302d2e2db19653">cy_socket_connect()</a> function call. To set the system time, get the time from the NTP server and set the system's RTC time using cyhal_rtc_init(), cyhal_rtc_write() and cy_set_rtc_instance() functions. See the <a href="https://github.com/Infineon/clib-support/blob/master/README.md#time-support-details">Time Support Details</a> for reference. See the <a class="el" href="index.html#snip12">Code Snippet 12: Get the current time from the NTP server - Send an NTP request packet to the NTP server, and receive an NTP reply packet.</a> to get the time from NTP server.</li>
 </ul>
 <h1><a class="anchor" id="section_PKCS"></a>
 PKCS/Non-PKCS mode</h1>
 <ul>
-<li>Secure sockets library can be built using PKCS and Non-PKCS mode on secure platform such as CY8CKIT-064S0S2-4343W. When Secure socket library is built with PKCS flow, the certificates and keys can be provisioned in the secure element of the platform, and the provisioned certificates and keys will be read/used by secure sockets library while establishing the TLS connection with the peer. On the other hand, in non-PKCS mode, the certificates/keys will be passed from the application stored in flash/RAM.</li>
+<li>Secure sockets library can be built using PKCS and Non-PKCS mode on secure platform such as CY8CKIT-064S0S2-4343W. When Secure sockets library is built with PKCS flow, the certificates and keys can be provisioned in the secure element of the platform, and the provisioned certificates and keys will be read/used by secure sockets library while establishing the TLS connection with the peer. On the other hand, in non-PKCS mode, the certificates/keys will be passed from the application stored in flash/RAM.</li>
 </ul>
 <h2><a class="anchor" id="subsection_non_PKCS"></a>
 Non-PKCS mode</h2>
@@ -160,7 +162,7 @@ PKCS mode</h2>
 <h3><a class="anchor" id="subsubsection_Dependencies"></a>
 Dependencies</h3>
 <ul>
-<li>The secure socket library depends on the other libraries for PKCS support. Ensure that the following libraries are pulled in.<ol type="1">
+<li>The secure sockets library depends on the other libraries for PKCS support. Ensure that the following libraries are pulled in.<ol type="1">
 <li>Using *.lib* files<ul>
 <li>aws-iot-device-sdk-embedded-C.lib : <a href="https://github.com/aws/aws-iot-device-sdk-embedded-C/#202103.00">https://github.com/aws/aws-iot-device-sdk-embedded-C/#202103.00</a></li>
 <li>freertos-pkcs11-psa.lib : <a href="https://github.com/Linaro/freertos-pkcs11-psa/#80292d24f4978891b0fd35feeb5f1d6f6f0fff06">https://github.com/Linaro/freertos-pkcs11-psa/#80292d24f4978891b0fd35feeb5f1d6f6f0fff06</a></li>
@@ -188,7 +190,7 @@ Trusted firmware library include path</h3>
 <h3><a class="anchor" id="subsubsection_Configuration"></a>
 Configuration for PKCS11</h3>
 <ul>
-<li>Pre-defined configuration file core_pkcs11_config.h is bundled with secure socket library. If you need to change default configuration for PKCS11, copy core_pkcs11_config.h file from secure socket library to top-level code example directory and then modify it.</li>
+<li>Pre-defined configuration file core_pkcs11_config.h is bundled with secure sockets library. If you need to change default configuration for PKCS11, copy core_pkcs11_config.h file from secure sockets library to top-level code example directory and then modify it.</li>
 <li><a href="https://github.com/Linaro/freertos-pkcs11-psa/">FreeRTOS PSA PKCS11</a> library supports only SHA-256 hashing algorithm. So the application should chose the cipher suite list compatible for SHA-256. To chose the cipher suite list(compatible for SHA-256), application need to copy mbedtls_user_config.h file from libs/wifi-mw-core/configs to root folder and add required cipher suites to the <code>MBEDTLS_SSL_CIPHERSUITES</code> macro.</li>
 </ul>
 <h1><a class="anchor" id="section_code_snippet"></a>
