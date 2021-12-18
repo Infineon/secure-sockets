@@ -45,6 +45,8 @@ This library and its features are supported on the following Infineon MCUs:
 
 - [CYW943907AEVAL1F Evaluation Kit(CYW943907AEVAL1F)](https://www.cypress.com/documentation/development-kitsboards/cyw943907aeval1f-evaluation-kit)
 
+- [PSoC&trade; 62S2 evaluation kit (CY8CEVAL-062S2-MUR-43439M2)](https://www.cypress.com/documentation/development-kitsboards/psoc-62s2-evaluation-kit-cy8ceval-062s2)
+
 ## Send and receive timeout values
 
 The secure sockets library configures the default send and receive timeout values to 10 seconds for a newly created socket. These can be changed using the `cy_socket_setsockopt` API function. To change the send timeout, use the `CY_SOCKET_SO_SNDTIMEO` socket option; similarly, for receive timeout, use the `CY_SOCKET_SO_RCVTIMEO` socket option. Adjust the default timeout values based on the network speed or use case.
