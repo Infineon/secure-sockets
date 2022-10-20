@@ -1,5 +1,5 @@
 /*
- * Copyright 2021, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2022, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -141,6 +141,8 @@ extern "C" {
 #define CY_RSLT_MODULE_SECURE_SOCKETS_ERROR_ROUTING                          ( CY_RSLT_SECURE_SOCKETS_ERR_BASE + 24 )
 /** PKCS generic error */
 #define CY_RSLT_MODULE_SECURE_SOCKETS_PKCS_ERROR                             ( CY_RSLT_SECURE_SOCKETS_ERR_BASE + 25 )
+/** Send buffer is full while sending / Receive buffer is empty while reading */
+#define CY_RSLT_MODULE_SECURE_SOCKETS_WOULDBLOCK                             ( CY_RSLT_SECURE_SOCKETS_ERR_BASE + 26 )
 /** \} group_secure_sockets_macros */
 #ifdef __cplusplus
 } /*extern "C" */

@@ -1,5 +1,5 @@
 /*
- * Copyright 2021, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2022, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -130,8 +130,10 @@ typedef enum
  */
 typedef enum
 {
-    CY_SOCKET_STA_INTERFACE = 0,   /**< STA or Client Interface  */
-    CY_SOCKET_AP_INTERFACE  = 1    /**< softAP Interface         */
+    CY_SOCKET_STA_INTERFACE  = 0,   /**< STA or Client Interface    */
+    CY_SOCKET_AP_INTERFACE   = 1,   /**< softAP Interface           */
+    CY_SOCKET_ETH0_INTERFACE = 2,   /**< Ethernet Interface index 0 */
+    CY_SOCKET_ETH1_INTERFACE = 3    /**< Ethernet Interface index 1 */
 } cy_socket_interface_t;
 
 /** \} group_secure_sockets_enums */
@@ -270,7 +272,8 @@ cy_rslt_t cy_socket_deinit( void );
  * @return     CY_RSLT_SUCCESS on success; an error code on failure. On success, it also returns the socket handle.
  *             Important error codes related to this API function are: \n
  *             \ref CY_RSLT_MODULE_SECURE_SOCKETS_BADARG \n
- *             \ref CY_RSLT_MODULE_SECURE_SOCKETS_NOMEM
+ *             \ref CY_RSLT_MODULE_SECURE_SOCKETS_NOMEM \n
+ *             \ref CY_RSLT_MODULE_SECURE_SOCKETS_NETIF_DOES_NOT_EXIST
  */
 cy_rslt_t cy_socket_create(int domain, int type, int protocol, cy_socket_t *handle);
 
@@ -416,7 +419,8 @@ cy_rslt_t cy_socket_accept(cy_socket_t handle, cy_socket_sockaddr_t *address, ui
  *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_TCPIP_ERROR \n
  *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_TIMEOUT \n
  *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_NOT_CONNECTED \n
- *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_CLOSED
+ *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_CLOSED \n
+ *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_WOULDBLOCK
  */
 cy_rslt_t cy_socket_send(cy_socket_t handle, const void *buffer, uint32_t length, int flags, uint32_t *bytes_sent);
 
@@ -465,7 +469,8 @@ cy_rslt_t cy_socket_sendto(cy_socket_t handle, const void *buffer, uint32_t leng
  *             \ref CY_RSLT_MODULE_SECURE_SOCKETS_TLS_ERROR \n
  *             \ref CY_RSLT_MODULE_SECURE_SOCKETS_TCPIP_ERROR \n
  *             \ref CY_RSLT_MODULE_SECURE_SOCKETS_TIMEOUT \n
- *             \ref CY_RSLT_MODULE_SECURE_SOCKETS_CLOSED
+ *             \ref CY_RSLT_MODULE_SECURE_SOCKETS_CLOSED \n
+ *             \ref CY_RSLT_MODULE_SECURE_SOCKETS_WOULDBLOCK
  */
 cy_rslt_t cy_socket_recv(cy_socket_t handle, void *buffer, uint32_t length, int flags, uint32_t *bytes_received);
 

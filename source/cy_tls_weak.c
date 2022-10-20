@@ -1,5 +1,5 @@
 /*
- * Copyright 2021, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2022, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -97,29 +97,32 @@ TLS_WEAK_FUNCTION cy_rslt_t cy_tls_create_context(void **context, cy_tls_params_
     return CY_RSLT_SUCCESS;
 }
 
-TLS_WEAK_FUNCTION cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint)
+TLS_WEAK_FUNCTION cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint, uint32_t timeout)
 {
     UNUSED_ARG(context);
     UNUSED_ARG(endpoint);
+    UNUSED_ARG(timeout);
 
     return CY_RSLT_SUCCESS;
 }
 
-TLS_WEAK_FUNCTION cy_rslt_t cy_tls_send(void *context, const unsigned char *data, uint32_t length, uint32_t *bytes_sent)
+TLS_WEAK_FUNCTION cy_rslt_t cy_tls_send(void *context, const unsigned char *data, uint32_t length, uint32_t timeout, uint32_t *bytes_sent)
 {
     UNUSED_ARG(context);
     UNUSED_ARG(data);
     UNUSED_ARG(length);
+    UNUSED_ARG(timeout);
     UNUSED_ARG(bytes_sent);
 
     return CY_RSLT_SUCCESS;
 }
 
-TLS_WEAK_FUNCTION cy_rslt_t cy_tls_recv(void *context, unsigned char *buffer, uint32_t length, uint32_t *bytes_received)
+TLS_WEAK_FUNCTION cy_rslt_t cy_tls_recv(void *context, unsigned char *buffer, uint32_t length, uint32_t timeout, uint32_t *bytes_received)
 {
     UNUSED_ARG(context);
     UNUSED_ARG(buffer);
     UNUSED_ARG(length);
+    UNUSED_ARG(timeout);
     UNUSED_ARG(bytes_received);
 
     return CY_RSLT_SUCCESS;
@@ -143,4 +146,13 @@ TLS_WEAK_FUNCTION cy_rslt_t cy_tls_config_cert_profile_param(cy_tls_md_type_t md
 TLS_WEAK_FUNCTION cy_rslt_t cy_tls_deinit(void)
 {
     return CY_RSLT_SUCCESS;
+}
+
+TLS_WEAK_FUNCTION cy_rslt_t cy_tls_is_certificate_valid_x509(const char *certificate_data,
+                                                             const uint32_t certificate_len)
+{
+    UNUSED_ARG(certificate_data);
+    UNUSED_ARG(certificate_len);
+
+    return CY_RSLT_MODULE_TLS_PARSE_CERTIFICATE;
 }

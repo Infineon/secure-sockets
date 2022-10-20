@@ -1,5 +1,5 @@
 /*
- * Copyright 2021, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2022, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -905,7 +905,7 @@ static void mbedtls_debug_logs( void *ctx, int level,
 #endif
 
 /*-----------------------------------------------------------*/
-cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint)
+cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint, uint32_t timeout)
 {
     cy_tls_context_mbedtls_t *ctx = (cy_tls_context_mbedtls_t *) context;
     const char *pers = "tls_drbg_seed";
@@ -913,6 +913,8 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint)
     cy_tls_identity_t *tls_identity;
     cy_rslt_t result = CY_RSLT_SUCCESS;
     bool load_cert_key_from_ram = CY_TLS_LOAD_CERT_FROM_RAM;
+
+    (void)(timeout);
 
 #ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
     CK_RV pkcs_result = CKR_OK;
@@ -1134,12 +1136,14 @@ cleanup:
     return result;
 }
 /*-----------------------------------------------------------*/
-cy_rslt_t cy_tls_send(void *context, const unsigned char *data, uint32_t length, uint32_t *bytes_sent)
+cy_rslt_t cy_tls_send(void *context, const unsigned char *data, uint32_t length, uint32_t timeout, uint32_t *bytes_sent)
 {
     cy_tls_context_mbedtls_t *ctx = (cy_tls_context_mbedtls_t *) context;
     size_t sent = 0;
     int ret;
     cy_rslt_t result = CY_RSLT_SUCCESS;
+
+    (void)(timeout);
 
     if(context == NULL || data == NULL || length == 0 || bytes_sent == NULL)
     {
@@ -1207,12 +1211,14 @@ cy_rslt_t cy_tls_send(void *context, const unsigned char *data, uint32_t length,
     return result;
 }
 /*-----------------------------------------------------------*/
-cy_rslt_t cy_tls_recv(void *context, unsigned char *buffer, uint32_t length, uint32_t *bytes_received)
+cy_rslt_t cy_tls_recv(void *context, unsigned char *buffer, uint32_t length, uint32_t timeout, uint32_t *bytes_received)
 {
     cy_tls_context_mbedtls_t *ctx = (cy_tls_context_mbedtls_t *) context;
     size_t read;
     int ret;
     cy_rslt_t result = CY_RSLT_SUCCESS;
+
+    (void)(timeout);
 
     if(context == NULL || buffer == NULL || length == 0 || bytes_received == NULL)
     {
@@ -1396,5 +1402,29 @@ uint32_t cy_tls_get_bytes_avail(void *context)
         return 0;
     }
     return mbedtls_ssl_get_bytes_avail(&ctx->ssl_ctx);
+}
+/*-----------------------------------------------------------*/
+cy_rslt_t cy_tls_is_certificate_valid_x509(const char *certificate_data, const uint32_t certificate_len)
+{
+    int result;
+    mbedtls_x509_crt certificate;
+    cy_rslt_t res = CY_RSLT_SUCCESS;
+
+    if((certificate_data == NULL) || (certificate_len == 0))
+    {
+        return CY_RSLT_MODULE_TLS_BADARG;
+    }
+
+    mbedtls_x509_crt_init(&certificate);
+
+    /* Parse Certificate */
+    result = mbedtls_x509_crt_parse(&certificate, (const unsigned char *)certificate_data, certificate_len + 1);
+    if(result != 0)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_x509_crt_parse failed 0x%x\r\n", -result);
+        res = CY_RSLT_MODULE_TLS_PARSE_CERTIFICATE;
+    }
+    mbedtls_x509_crt_free(&certificate);
+    return (res);
 }
 /*-----------------------------------------------------------*/

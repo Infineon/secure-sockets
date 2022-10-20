@@ -1,5 +1,5 @@
 /*
- * Copyright 2021, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2022, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -41,7 +41,7 @@
 #include "cyabs_rtos.h"
 #include "cy_worker_thread.h"
 #include "cyabs_rtos_impl.h"
-#include "cy_lwip.h"
+#include "cy_network_mw_core.h"
 #include "cy_log.h"
 #include <lwip/api.h>
 #include <lwip/tcp.h>
@@ -62,51 +62,52 @@ typedef struct cy_socket_ctx cy_socket_ctx_t;
 
 struct cy_socket_ctx
 {
-    uint32_t              socket_magic_header;    /**< Socket context magic header to verify the context pointer */
-    struct netconn*       conn_handler;           /**< netconn handler returned with netconn_new */
-    cy_mutex_t            netconn_mutex;          /**<* Serializes netconn API calls for a socket */
-    cy_mutex_t            socket_mutex;           /**<* Protects accessing the socket context */
+    uint32_t                   socket_magic_header;            /**< Socket context magic header to verify the context pointer */
+    struct netconn*            conn_handler;                   /**< netconn handler returned with netconn_new */
+    cy_mutex_t                 netconn_mutex;                  /**<* Serializes netconn API calls for a socket */
+    cy_mutex_t                 socket_mutex;                   /**<* Protects accessing the socket context */
     struct
     {
         cy_socket_opt_callback_t connect_request;
         cy_socket_opt_callback_t receive;
         cy_socket_opt_callback_t disconnect;
-    } callbacks;                                          /**<* Socket callback functions */
-    void*                 tls_ctx;                        /**< tls context of underlying security stack */
-    const void*           tls_identity;                   /**< contains certificate/key pair */
-    char*                 rootca_certificate;             /**< RootCA certificate specific to the socket */
-    int                   rootca_certificate_len;         /**< Length of ca_cert */
-    bool                  enforce_tls;                    /**< Enforce TLS connection */
-    int                   auth_mode;                      /**< TLS authentication mode */
-    unsigned char         mfl_code;                       /**< TLS maximum fragment length */
-    char*                 alpn;                           /**< ALPN string */
-    char**                alpn_list;                      /**< ALPN array of strings to be passed to mbedtls */
-    uint32_t              alpn_count;                     /**< Number of protocols in ALPN list */
-    char*                 hostname;                       /**< Server hostname used with SNI extension */
-    uint32_t              status;                         /**< socket status */
-    struct pbuf*          buf;                            /**< Receive data \c pbuf structure */
-    u16_t                 offset;                         /**< Receive data \c pbuf  offset */
-    int                   id;                             /**< Socket id used in mapping from netconn to cy socket */
-    int                   send_events;                    /**< Send events received from LwIP */
-    int                   recv_events_cache;              /**< Holds the number receive events occurred prior to receive callback is registered. */
-    bool                  disconnect_event_cache;         /**< Used to check if disconnect event occurred prior to disconnect callback is registered. */
-    int                   role;                           /**< Used for identifying if the socket is server or client */
-    int                   transport_protocol;             /**< Used for identifying transport protocol TCP, TLS or UDP */
+    } callbacks;                                               /**<* Socket callback functions */
+    void*                      tls_ctx;                        /**< tls context of underlying security stack */
+    const void*                tls_identity;                   /**< contains certificate/key pair */
+    char*                      rootca_certificate;             /**< RootCA certificate specific to the socket */
+    int                        rootca_certificate_len;         /**< Length of ca_cert */
+    bool                       enforce_tls;                    /**< Enforce TLS connection */
+    int                        auth_mode;                      /**< TLS authentication mode */
+    unsigned char              mfl_code;                       /**< TLS maximum fragment length */
+    char*                      alpn;                           /**< ALPN string */
+    char**                     alpn_list;                      /**< ALPN array of strings to be passed to mbedtls */
+    uint32_t                   alpn_count;                     /**< Number of protocols in ALPN list */
+    char*                      hostname;                       /**< Server hostname used with SNI extension */
+    uint32_t                   status;                         /**< socket status */
+    struct pbuf*               buf;                            /**< Receive data \c pbuf structure */
+    u16_t                      offset;                         /**< Receive data \c pbuf  offset */
+    int                        id;                             /**< Socket id used in mapping from netconn to cy socket */
+    int                        send_events;                    /**< Send events received from LwIP */
+    int                        recv_events_cache;              /**< Holds the number receive events occurred prior to receive callback is registered. */
+    bool                       disconnect_event_cache;         /**< Used to check if disconnect event occurred prior to disconnect callback is registered. */
+    int                        role;                           /**< Used for identifying if the socket is server or client */
+    int                        transport_protocol;             /**< Used for identifying transport protocol TCP, TLS or UDP */
 #if LWIP_SO_RCVTIMEO
-    bool                  is_recvtimeout_set;             /**< Used to check whether receive timeout is set by the application */
+    bool                       is_recvtimeout_set;             /**< Used to check whether receive timeout is set by the application */
 #endif
 
 #if LWIP_SO_SNDTIMEO
-    bool                  is_sendtimeout_set;             /**< Used to check whether send timeout is set by the application */
+    bool                       is_sendtimeout_set;             /**< Used to check whether send timeout is set by the application */
 #endif
-    bool                  is_authmode_set;                /**< Used to check whether TLS authentication mode is set by the application */
-    cy_socket_interface_t iface_type;                     /**< Network interface to be used with the socket */
+    bool                       is_authmode_set;                /**< Used to check whether TLS authentication mode is set by the application */
+    cy_socket_interface_t      iface_type;                     /**< Network interface type to be used with the socket */
+    uint8_t                    iface_idx;                      /**< Index of the network interface. Possible values are 0 and 1 */
 #ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
-    bool                  load_rootca_from_ram;           /**< Flag for setting the RootCA certificate location.  */
-    bool                  load_device_cert_key_from_ram;  /**< Flag for setting the device cert & key location. */
+    bool                       load_rootca_from_ram;           /**< Flag for setting the RootCA certificate location.  */
+    bool                       load_device_cert_key_from_ram;  /**< Flag for setting the device cert & key location. */
 #endif
-    uint32_t              data_received;                  /**< Used to keep track of data read by underlying security stack */
-    uint32_t              socket_magic_footer;            /**< Socket context magic footer to verify the context pointer */
+    uint32_t                   data_received;                  /**< Used to keep track of data read by underlying security stack */
+    uint32_t                   socket_magic_footer;            /**< Socket context magic footer to verify the context pointer */
 };
 
 /*
@@ -440,7 +441,14 @@ static cy_socket_ctx_t* alloc_socket()
 
             socket_list[i].used = 1;
             socket_list[i].ctx->id = i;
+#if defined(CYBSP_ETHERNET_CAPABLE)
+            socket_list[i].ctx->iface_type = CY_SOCKET_ETH1_INTERFACE;
+            socket_list[i].ctx->iface_idx = 1;
+#else
+            /* Default interface for Wi-Fi will be STA interface */
             socket_list[i].ctx->iface_type = CY_SOCKET_STA_INTERFACE;
+            socket_list[i].ctx->iface_idx = 0;
+#endif
             socket_list[i].ctx->socket_magic_header = SECURE_SOCKETS_MAGIC_HEADER;
             socket_list[i].ctx->socket_magic_footer = SECURE_SOCKETS_MAGIC_FOOTER;
 
@@ -601,8 +609,10 @@ static cy_rslt_t lwip_to_secure_socket_error(err_t error)
         case ERR_RTE:
             return CY_RSLT_MODULE_SECURE_SOCKETS_ERROR_ROUTING;
 
-        case ERR_BUF:
         case ERR_WOULDBLOCK:
+            return CY_RSLT_MODULE_SECURE_SOCKETS_WOULDBLOCK;
+
+        case ERR_BUF:
         case ERR_IF:
         default:
             return CY_RSLT_MODULE_SECURE_SOCKETS_TCPIP_ERROR;
@@ -685,12 +695,11 @@ static cy_rslt_t eth_arp_resolve(ip4_addr_t *dest_addr, cy_socket_interface_t if
     struct eth_addr *eth_ret = NULL;
     const ip4_addr_t *ip_ret = NULL;
     int32_t arp_waittime = ARP_WAIT_TIME_IN_MSEC;
-    cy_lwip_nw_interface_role_t role;
     err_t err;
 
     ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "eth_arp_resolve Start\r\n");
 
-    if(iface_type != CY_SOCKET_STA_INTERFACE  && iface_type != CY_SOCKET_AP_INTERFACE)
+    if(iface_type != CY_SOCKET_STA_INTERFACE  && iface_type != CY_SOCKET_AP_INTERFACE && iface_type != CY_SOCKET_ETH0_INTERFACE && iface_type != CY_SOCKET_ETH1_INTERFACE)
     {
         ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Invalid interface type \r\n");
         return CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET;
@@ -698,18 +707,25 @@ static cy_rslt_t eth_arp_resolve(ip4_addr_t *dest_addr, cy_socket_interface_t if
 
     if(iface_type == CY_SOCKET_STA_INTERFACE)
     {
-        role = CY_LWIP_STA_NW_INTERFACE;
+        netif = cy_network_get_nw_interface(CY_NETWORK_WIFI_STA_INTERFACE, 0);
+    }
+    else if(iface_type == CY_SOCKET_AP_INTERFACE)
+    {
+        netif = cy_network_get_nw_interface(CY_NETWORK_WIFI_AP_INTERFACE, 0);
+    }
+    else if(iface_type == CY_SOCKET_ETH0_INTERFACE)
+    {
+        netif = cy_network_get_nw_interface(CY_NETWORK_ETH_INTERFACE, 0);
     }
     else
     {
-        role = CY_LWIP_AP_NW_INTERFACE;
+        netif = cy_network_get_nw_interface(CY_NETWORK_ETH_INTERFACE, 1);
     }
 
     ipv4addr = dest_addr;
-    netif = cy_lwip_get_interface(role);
     if(netif == NULL)
     {
-        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "cy_lwip_get_interface returned NULL \r\n");
+        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "cy_network_get_nw_interface returned NULL \r\n");
         return CY_RSLT_MODULE_SECURE_SOCKETS_NETIF_DOES_NOT_EXIST;
     }
 
@@ -1484,7 +1500,7 @@ cy_rslt_t cy_socket_init(void)
     return result;
 }
 /*-----------------------------------------------------------*/
-cy_rslt_t cy_socket_create(int domain, int type, int protocol, cy_socket_t * handle)
+cy_rslt_t cy_socket_create(int domain, int type, int protocol, cy_socket_t *handle)
 {
     cy_socket_ctx_t *ctx = NULL;
     struct netconn  *conn = NULL;
@@ -2080,11 +2096,19 @@ cy_rslt_t cy_socket_setsockopt(cy_socket_t handle, int level, int optname, const
 
                     if(iface_type == CY_SOCKET_STA_INTERFACE)
                     {
-                        netif = cy_lwip_get_interface(CY_LWIP_STA_NW_INTERFACE);
+                        netif = cy_network_get_nw_interface(CY_NETWORK_WIFI_STA_INTERFACE, 0);
                     }
                     else if (iface_type == CY_SOCKET_AP_INTERFACE)
                     {
-                        netif = cy_lwip_get_interface(CY_LWIP_AP_NW_INTERFACE);
+                        netif = cy_network_get_nw_interface(CY_NETWORK_WIFI_AP_INTERFACE, 0);
+                    }
+                    else if(iface_type == CY_SOCKET_ETH0_INTERFACE)
+                    {
+                        netif = cy_network_get_nw_interface(CY_NETWORK_ETH_INTERFACE, 0);
+                    }
+                    else if(iface_type == CY_SOCKET_ETH1_INTERFACE)
+                    {
+                        netif = cy_network_get_nw_interface(CY_NETWORK_ETH_INTERFACE, 1);
                     }
                     else
                     {
@@ -2097,7 +2121,7 @@ cy_rslt_t cy_socket_setsockopt(cy_socket_t handle, int level, int optname, const
                     }
                     if(netif == NULL)
                     {
-                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "cy_lwip_get_interface returned NULL \r\n");
+                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "cy_network_get_nw_interface returned NULL \r\n");
 
                         cy_rtos_set_mutex(&ctx->socket_mutex);
                         ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex unlocked %s %d\n", __FILE__, __LINE__);
@@ -2124,6 +2148,7 @@ cy_rslt_t cy_socket_setsockopt(cy_socket_t handle, int level, int optname, const
                     }
 
                     ctx->iface_type = iface_type;
+                    ctx->iface_idx = 0;
 
                     break;
                 }
@@ -2688,6 +2713,24 @@ cy_rslt_t cy_socket_getsockopt(cy_socket_t handle,  int level, int optname, void
                     return CY_RSLT_MODULE_SECURE_SOCKETS_OPTION_NOT_SUPPORTED;
                 }
 #endif
+                case CY_SOCKET_SO_BINDTODEVICE:
+                {
+                    if (*optlen < sizeof(cy_socket_interface_t))
+                    {
+                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "insufficient option value buffer\n");
+
+                        cy_rtos_set_mutex(&ctx->socket_mutex);
+                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex unlocked %s %d\n", __FILE__, __LINE__);
+
+                        return CY_RSLT_MODULE_SECURE_SOCKETS_BADARG;
+                    }
+
+                    *((cy_socket_interface_t *)optval) = (cy_socket_interface_t)ctx->iface_type;
+                    *optlen = sizeof(cy_socket_interface_t);
+
+                    break;
+                }
+
                 default:
                 {
                     ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Invalid Socket option\r\n");
@@ -3012,7 +3055,7 @@ cy_rslt_t cy_socket_connect(cy_socket_t handle, cy_socket_sockaddr_t * address, 
             result = TLS_TO_CY_SECURE_SOCKETS_ERR(result);
             goto exit;
         }
-        result = cy_tls_connect(ctx->tls_ctx, CY_TLS_ENDPOINT_CLIENT);
+        result = cy_tls_connect(ctx->tls_ctx, CY_TLS_ENDPOINT_CLIENT, 0);
         if(result != CY_RSLT_SUCCESS)
         {
             netconn_close(ctx->conn_handler);
@@ -3249,7 +3292,7 @@ cy_rslt_t cy_socket_send(cy_socket_t handle, const void *data, uint32_t size, in
     if(ctx->enforce_tls)
     {
         /* Send through TLS pipe. */
-        ret = cy_tls_send(ctx->tls_ctx, data, size,  bytes_sent);
+        ret = cy_tls_send(ctx->tls_ctx, data, size, 0, bytes_sent);
         if(ret != CY_RSLT_SUCCESS)
         {
             ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_tls_send failed with error code %lu\n", ret);
@@ -3474,7 +3517,7 @@ cy_rslt_t cy_socket_recv(cy_socket_t handle, void * data, uint32_t size, int fla
     if(ctx->enforce_tls)
     {
         /* Send through TLS pipe, if negotiated. */
-        ret = cy_tls_recv(ctx->tls_ctx, data, size, bytes_received);
+        ret = cy_tls_recv(ctx->tls_ctx, data, size, 0, bytes_received);
         if(ret != CY_RSLT_SUCCESS)
         {
             ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_tls_recv failed with error %ld\n", ret);
@@ -4461,7 +4504,7 @@ cy_rslt_t cy_socket_accept(cy_socket_t handle, cy_socket_sockaddr_t *address, ui
             return TLS_TO_CY_SECURE_SOCKETS_ERR(ret);
         }
         
-        ret = cy_tls_connect(accept_ctx->tls_ctx, CY_TLS_ENDPOINT_SERVER);
+        ret = cy_tls_connect(accept_ctx->tls_ctx, CY_TLS_ENDPOINT_SERVER, 0);
         if(ret != CY_RSLT_SUCCESS)
         {
             ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "cy_tls_connect failed with error %lu\n", ret);

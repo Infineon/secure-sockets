@@ -11,6 +11,8 @@ var group__group__secure__sockets__enums =
     ] ],
     [ "cy_socket_interface_t", "group__group__secure__sockets__enums.html#ga6a02f37745fb60c714f996c4b6b9d4f7", [
       [ "CY_SOCKET_STA_INTERFACE", "group__group__secure__sockets__enums.html#gga6a02f37745fb60c714f996c4b6b9d4f7a4c29893d5c30a68987a78f2d5db9cff1", null ],
-      [ "CY_SOCKET_AP_INTERFACE", "group__group__secure__sockets__enums.html#gga6a02f37745fb60c714f996c4b6b9d4f7a48dee990dfe5215a3e280708445fbe84", null ]
+      [ "CY_SOCKET_AP_INTERFACE", "group__group__secure__sockets__enums.html#gga6a02f37745fb60c714f996c4b6b9d4f7a48dee990dfe5215a3e280708445fbe84", null ],
+      [ "CY_SOCKET_ETH0_INTERFACE", "group__group__secure__sockets__enums.html#gga6a02f37745fb60c714f996c4b6b9d4f7a8c02e2e0f9f58a58b345be964eae7ad8", null ],
+      [ "CY_SOCKET_ETH1_INTERFACE", "group__group__secure__sockets__enums.html#gga6a02f37745fb60c714f996c4b6b9d4f7ac07b7b09b28325e6bbee819f126fad4d", null ]
     ] ]
 ];

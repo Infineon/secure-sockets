@@ -2,13 +2,15 @@
 
 The secure sockets library provides APIs to create software that can send and/or receive data over the network using sockets. This library supports both secure and non-secure sockets, and abstracts the complexity involved in directly using network stack and security stack APIs. This library supports both IPv4 and IPv6 addressing modes for UDP and TCP sockets.
 
-To ease the integration of Wi-Fi connectivity components, this secure sockets library has been bundled into the [Wi-Fi middleware core library](https://github.com/Infineon/wifi-mw-core).
+To ease the integration of Wi-Fi connectivity components, this secure sockets library has been bundled into the [Wi-Fi core freertos lwip mbedtls library](https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls).
+
+
 
 ## Features and functionality
 
 - Supports non-secure TCP and UDP sockets
 
-- Secure TCP (TLS) socket communication using mbed TLS library
+- Secure TCP (TLS) socket communication using Mbed TLS library
 
 - Supports both IPv4 and IPv6 addressing. Only link-local IPv6 addressing is supported
 
@@ -25,6 +27,25 @@ To ease the integration of Wi-Fi connectivity components, this secure sockets li
 - Provides a socket-option API to configure send/receive timeout, callback for asynchronous mode, TCP keepalive parameters, certificate/key, and TLS extensions
 
 - Integrated with PSA Lib through the PKCS interface to support secure client TCP (TLS) connection using the device certificate and device keys provisioned in the secured element
+
+## Quick Start
+* To use secure-sockets library for FreeRTOS, lwIP, and Mbed TLS, the application should pull [wifi-core-freertos-lwip-mbedtls](https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls) library which will internally pull secure-sockets, wifi-connection-manager, FreeRTOS, lwIP, Mbed TLS and other dependent modules.
+To pull wifi-core-freertos-lwip-mbedtls create the following *.mtb* file in deps folder.
+   - *wifi-core-freertos-lwip-mbedtls.mtb:* https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls#latest-v1.X#$$ASSET_REPO$$/wifi-core-freertos-lwip-mbedtls/latest-v1.X
+* A set of pre-defined configuration files have been bundled with the wifi-core-freertos-lwip-mbedtls library for FreeRTOS, lwIP, and Mbed TLS. The developer is expected to review the configuration and make adjustments. See the "Quick Start" section in [README.md](https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls/blob/master/README.md).
+
+* A set of COMPONENTS must be defined in the code example project's Makefile for this library. See the "Quick Start" section in [README.md](https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls/blob/master/README.md).
+
+* The secure-sockets library disables all the debug log messages by default. To enable log messages, the application must perform the following:
+
+ - Add the `ENABLE_SECURE_SOCKETS_LOGS` macro to the *DEFINES* in the code example's Makefile. The Makefile entry would look like as follows:
+   ```
+   DEFINES+=ENABLE_SECURE_SOCKETS_LOGS
+   ```
+ 
+ - Call the `cy_log_init()` function provided by the *cy-log* module. cy-log is part of the *connectivity-utilities* library. 
+ 
+ - See [connectivity-utilities library API documentation](https://Infineon.github.io/connectivity-utilities/api_reference_manual/html/group__logging__utils.html).
 
 
 ## Supported platforms
@@ -54,7 +75,7 @@ The secure sockets library configures the default send and receive timeout value
 
 ## TCP/IP and security stacks
 
-The secure sockets library has been designed to support different flavors of the TCP/IP stack or security stack. Currently, lwIP and mbed TLS are the default network and security stacks respectively. Therefore, any application that uses the secure sockets library must ensure that the following COMPONENTS are defined in the code example project's Makefile.
+The secure sockets library has been designed to support different flavors of the TCP/IP stack or security stack. Currently, lwIP and Mbed TLS are the default network and security stacks respectively. Therefore, any application that uses the secure sockets library must ensure that the following COMPONENTS are defined in the code example project's Makefile.
 
 To do so, add `LWIP` and `MBEDTLS` components to the Makefile. The Makefile entry would look like as follows:
 
@@ -73,22 +94,9 @@ The default stack size of the secure sockets library is 6 KB (6*1024). To custom
   DEFINES+=SECURE_SOCKETS_THREAD_STACKSIZE=8*1024
   ```
 
-## Log messages
-
-The secure sockets library disables all the debug log messages by default. Do the following to enable log messages:
-
-1. Add the `ENABLE_SECURE_SOCKETS_LOGS` macro to the `DEFINES` in the code example's Makefile. The Makefile entry would look like as follows:
-
-   ```
-   DEFINES+=ENABLE_SECURE_SOCKETS_LOGS
-   ```
-
-2. Call the `cy_log_init()` function provided by the *cy-log* module. cy-log is part of the *connectivity-utilities* library. See [connectivity-utilities library API documentation](https://Infineon.github.io/connectivity-utilities/api_reference_manual/html/group__logging__utils.html) for cy-log details.
-
-
 ## Validity period verification
 
-The default mbed TLS configuration provided by the *Wi-Fi middleware core library* disables the validity period verification of the certificates. To perform this verification, enable `MBEDTLS_HAVE_TIME_DATE` in the [mbedtls_user_config.h](https://github.com/Infineon/wifi-mw-core/blob/master/configs/mbedtls_user_config.h) file.
+The default Mbed TLS configuration provided by the *Wi-Fi middleware core library* disables the validity period verification of the certificates. To perform this verification, enable `MBEDTLS_HAVE_TIME_DATE` in the [mbedtls_user_config.h](https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls/blob/master/configs/mbedtls_user_config.h) file.
 
 Ensure that the system time is set prior to the `cy_socket_connect()` function call. To set the system time, get the time from the NTP server and set the system's RTC time using `cyhal_rtc_init()`, `cyhal_rtc_write()` and `cy_set_rtc_instance()` functions. See the [time support details](https://github.com/Infineon/clib-support/blob/master/README.md#time-support-details) for reference.
 
@@ -124,20 +132,7 @@ Secure sockets library can be built using PKCS and Non-PKCS mode on secure platf
 
 #### **Dependencies**
 
-The secure sockets library depends on the other libraries for PKCS support. Ensure that the following  libraries are pulled in.
-
-##### ***Using *.lib* files***
-
-If using .lib files, create the following:
-
-- *aws-iot-device-sdk-embedded-C.lib*: https://github.com/aws/aws-iot-device-sdk-embedded-C/#202103.00
-
-- *freertos-pkcs11-psa.lib:* https://github.com/Linaro/freertos-pkcs11-psa/#80292d24f4978891b0fd35feeb5f1d6f6f0fff06
-
-
-##### ***Using .mtb files***
-
-If using *.mtb* files, create the following:
+The secure sockets library depends on the other libraries for PKCS support. Ensure that the following  libraries are pulled in by creating the following *.mtb* files:
 
    - *aws-iot-device-sdk-embedded-C.mtb:* https://github.com/aws/aws-iot-device-sdk-embedded-C/#202103.00#$$ASSET_REPO$$/aws-iot-device-sdk-embedded-C/202103.00
 
@@ -145,7 +140,7 @@ If using *.mtb* files, create the following:
 
 
 ##### ***Pull required libraries and enable PKCS mode***
-1. Execute the `make getlibs` command to pull the required libraries created as .lib or .mtb.
+1. Execute the `make getlibs` command to pull the required libraries created as .mtb.
 
 2. Add the `CY_TFM_PSA_SUPPORTED`, `TFM_MULTI_CORE_NS_OS` and `CY_SECURE_SOCKETS_PKCS_SUPPORT` macros to the `DEFINES` in the code example's Makefile. The Makefile entry would look like as follows:
 
@@ -158,15 +153,19 @@ If using *.mtb* files, create the following:
 To compile the FreeRTOS PKCS PSA integration library, add the trusted firmware library include path before the MBEDTLS library include path. Add the following lines to the Makefile.
 
    ```
-    INCLUDES=$(call CY_MACRO_FINDLIB,trusted-firmware-m)/COMPONENT_TFM_NS_INTERFACE/include
-    INCLUDES+=libs/trusted-firmware-m/COMPONENT_TFM_NS_INTERFACE/include
+    INCLUDES=$(SEARCH_trusted-firmware-m)/COMPONENT_TFM_NS_INTERFACE/include
+    INCLUDES+=./libs/trusted-firmware-m/COMPONENT_TFM_NS_INTERFACE/include
    ```
 
 ##### ***Configuration for PKCS11***
 
 A pre-defined configuration file *core_pkcs11_config.h* is bundled with the secure sockets library. To change the default configuration for PKCS11, copy the *core_pkcs11_config.h* file from the secure sockets library to the top-level application directory, and then modify it.
 
-[FreeRTOS PSA PKCS11](https://github.com/Linaro/freertos-pkcs11-psa/) implementation supports only SHA-256 hashing algorithm. So the application should chose the cipher suite list compatible for SHA-256. To chose the cipher suite list(compatible for SHA-256), application need to copy *mbedtls_user_config.h* file from *libs/wifi-mw-core/configs* to root folder and add required cipher suites to the `MBEDTLS_SSL_CIPHERSUITES` macro.
+[FreeRTOS PSA PKCS11](https://github.com/Linaro/freertos-pkcs11-psa/) implementation supports only SHA-256 hashing algorithm. So the application should chose the cipher suite list compatible for SHA-256. To chose the cipher suite list(compatible for SHA-256), application need to copy *mbedtls_user_config.h* file from *libs/wifi-core-freertos-lwip-mbedtls/configs* to root folder and add required cipher suites to the `MBEDTLS_SSL_CIPHERSUITES` macro.
+
+
+To use secure-sockets library for FreeRTOS, lwIP, and Mbed TLS, pull [wifi-core-freertos-lwip-mbedtls](https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls) library which will internally pull secure-sockets, wifi-connection-manager, FreeRTOS, lwIP, mbed TLS and other dependent moduleswifi-core-freertos-lwip-mbedtls will internally pull secure-sockets and other dependent modules.
+
 
 ## Additional information
 

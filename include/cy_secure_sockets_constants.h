@@ -1,5 +1,5 @@
 /*
- * Copyright 2021, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2022, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -363,8 +363,6 @@ extern "C" {
 /**
  * Set the network interface to be used for sending and receiving data on the socket.
  * This socket option can be called more than once for a socket to change the interface it's bound to.
- *
- * This option is not supported in \ref cy_socket_getsockopt.
  *
  * Arguments related to this optname:
  *   * Option value: Pointer holding the interface type value in \ref cy_socket_interface_t type.

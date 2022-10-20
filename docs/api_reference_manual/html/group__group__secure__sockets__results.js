@@ -25,5 +25,6 @@ var group__group__secure__sockets__results =
     [ "CY_RSLT_MODULE_SECURE_SOCKETS_MAX_MEMBERSHIP_ERROR", "group__group__secure__sockets__results.html#gaaea93bdacfc849de370d75e3816de6cf", null ],
     [ "CY_RSLT_MODULE_SECURE_SOCKETS_MULTICAST_ADDRESS_NOT_REGISTERED", "group__group__secure__sockets__results.html#gaa73d6c7fb948ef5025102cb326826086", null ],
     [ "CY_RSLT_MODULE_SECURE_SOCKETS_ERROR_ROUTING", "group__group__secure__sockets__results.html#ga4c4dd80221b242250b7223b5697c2234", null ],
-    [ "CY_RSLT_MODULE_SECURE_SOCKETS_PKCS_ERROR", "group__group__secure__sockets__results.html#ga1e0140aa06e566fbb8852bf3d1837c8d", null ]
+    [ "CY_RSLT_MODULE_SECURE_SOCKETS_PKCS_ERROR", "group__group__secure__sockets__results.html#ga1e0140aa06e566fbb8852bf3d1837c8d", null ],
+    [ "CY_RSLT_MODULE_SECURE_SOCKETS_WOULDBLOCK", "group__group__secure__sockets__results.html#ga40143a1ca502f18baf2fc6ea9e48d1a6", null ]
 ];

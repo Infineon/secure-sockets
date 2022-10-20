@@ -1,5 +1,5 @@
 /*
- * Copyright 2021, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2022, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -319,13 +319,14 @@ cy_rslt_t cy_tls_create_context( cy_tls_context_t *context, cy_tls_params_t *par
  *    b. If socket option CY_SOCKET_SO_DEVICE_CERT_KEY_LOCATION is set with value CY_SOCKET_DEVICE_CERT_KEY_RAM then
  *       identity set to the TLS context will be used.
  *
- * @param[in]  context Context handle for the TLS Layer created using \ref cy_tls_create_context.
- * @param[in] endpoint Endpoint type for the TLS handshake.
+ * @param[in]  context  Context handle for the TLS Layer created using \ref cy_tls_create_context.
+ * @param[in]  endpoint Endpoint type for the TLS handshake.
+ * @param[in]  timeout  Maximum amount of time to wait in milliseconds to complete TLS connection.
  * @return CY_RSLT_SUCCESS on success; an error code on failure.
  *         Important error code related to this API function is: \n
  *         CY_RSLT_MODULE_TLS_ERROR
  */
-cy_rslt_t cy_tls_connect( cy_tls_context_t context, cy_tls_endpoint_type_t endpoint );
+cy_rslt_t cy_tls_connect( cy_tls_context_t context, cy_tls_endpoint_type_t endpoint, uint32_t timeout );
 
 /**
  * Encrypts the given data and sends it over a secure connection.
@@ -333,6 +334,7 @@ cy_rslt_t cy_tls_connect( cy_tls_context_t context, cy_tls_endpoint_type_t endpo
  * @param[in]  context     Context handle for TLS Layer created using \ref cy_tls_create_context.
  * @param[in]  data        Byte array of data to be encrypted and then sent to the network.
  * @param[in]  length      Length in bytes of the write buffer.
+ * @param[in]  timeout     Maximum amount of time to wait in milliseconds to complete send operation.
  * @param[out] bytes_sent  Number of bytes sent.
  *
  * @return CY_RSLT_SUCCESS on success; an error code on failure. On success, it also returns the number of bytes sent.
@@ -340,7 +342,7 @@ cy_rslt_t cy_tls_connect( cy_tls_context_t context, cy_tls_endpoint_type_t endpo
  *         CY_RSLT_MODULE_TLS_BADARG \n
  *         CY_RSLT_MODULE_TLS_ERROR
  */
-cy_rslt_t cy_tls_send( cy_tls_context_t context, const unsigned char *data, uint32_t length, uint32_t *bytes_sent );
+cy_rslt_t cy_tls_send( cy_tls_context_t context, const unsigned char *data, uint32_t length, uint32_t timeout, uint32_t *bytes_sent );
 
 /**
  * Reads the encrypted data from the network, decrypts the data, and then stores it in the given buffer.
@@ -348,6 +350,7 @@ cy_rslt_t cy_tls_send( cy_tls_context_t context, const unsigned char *data, uint
  * @param[in]  context         Context handle for the TLS Layer created using \ref cy_tls_create_context.
  * @param[out] buffer          Byte array to store the decrypted data received from the network.
  * @param[in]  length          Length in bytes of the read buffer.
+ * @param[in]  timeout         Maximum amount of time to wait in milliseconds to complete receive operation.
  * @param[out] bytes_received  Number of bytes received.
  *
  * @return CY_RSLT_SUCCESS on success; an error code on failure. On Success, it also returns the number of bytes received.
@@ -355,7 +358,7 @@ cy_rslt_t cy_tls_send( cy_tls_context_t context, const unsigned char *data, uint
  *         CY_RSLT_MODULE_TLS_BADARG \n
  *         CY_RSLT_MODULE_TLS_ERROR
  */
-cy_rslt_t cy_tls_recv( cy_tls_context_t context, unsigned char *buffer, uint32_t length, uint32_t *bytes_received );
+cy_rslt_t cy_tls_recv( cy_tls_context_t context, unsigned char *buffer, uint32_t length, uint32_t timeout, uint32_t *bytes_received );
 
 /**
  * Releases the resources allocated for the TLS connection.
@@ -379,6 +382,17 @@ cy_rslt_t cy_tls_delete_context( cy_tls_context_t context );
  *         CY_RSLT_MODULE_TLS_BADARG
  */
 cy_rslt_t cy_tls_config_cert_profile_param(cy_tls_md_type_t mds_type, cy_tls_rsa_min_key_len_t rsa_bit_len);
+
+/**
+ * Checks if given buffer is in valid certificate format.
+ *
+ * @param[in] certificate_data       x509 certificate in PEM format. It should be a null-terminated string.
+ * @param[in] certificate_len        Length of the certificate excluding the 'null' terminator.
+ *
+ * @return CY_RSLT_SUCCESS on success; an error code on failure.
+ */
+cy_rslt_t cy_tls_is_certificate_valid_x509(const char *certificate_data,
+                                           const uint32_t certificate_len);
 
 /** \} group_cy_tls_functions */
 

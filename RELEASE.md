@@ -8,8 +8,16 @@ Refer to the [README.md](./README.md) for a complete description of the Secure S
 | ------- | ---------- |
 | Datagram Transport Layer Security (DTLS) is not supported in the Secure Sockets Library | Currently, no workaround is available. Support will be added in a future release. |
 | TLS client connection takes around 25 seconds in PKCS mode for RSA keys due to the limitation of hardware crypto for RSA. | It is recommended to use ECDHE keys for the client connection. Connection time improvement for RSA keys will be addressed in a future release. |
+| IAR 9.30 toolchain throws build errors on Debug mode, if application explicitly includes iar_dlmalloc.h file | Add '--advance-heap' to LDFLAGS in application Makefile. |
 
 ## Changelog
+
+### v3.0.0
+* Updated to use [lwIP network interface integration library](https://Infineon.github.io/lwip-network-interface-integration) APIs.
+* BINDTODEVICE socket option is extended to support getsockopt.
+* Added new API to verify if input is a valid X.509 certificate.
+* Added support for CM0P core.
+* Documentaton Updates.
 
 ### v2.5.0
 * Added support for CY8CEVAL-062S2-MUR-43439M2 kit
@@ -65,10 +73,10 @@ This version of the library was validated for compatibility with the following s
 
 | Software and Tools                                        | Version |
 | :---                                                      | :----:  |
-| ModusToolbox&trade; Software Environment                  | 2.4     |
-| - ModusToolbox&trade; Device Configurator                 | 3.10    |
-| - ModusToolbox&trade; CapSense Configurator / Tuner tools | 4.0     |
-| PSoC 6 Peripheral Driver Library (PDL)                    | 2.3.0   |
+| ModusToolbox&trade; Software Environment                  | 3.0     |
+| - ModusToolbox&trade; Device Configurator                 | 4.0     |
+| - ModusToolbox&trade; CapSense Configurator / Tuner tools | 5.0     |
+| PSoC 6 Peripheral Driver Library (PDL)                    | 3.0.0   |
 | GCC Compiler                                              | 10.3.1  |
-| IAR Compiler                                              | 8.32    |
-| Arm Compiler 6                                            | 6.14    |
+| IAR Compiler                                              | 9.30    |
+| Arm Compiler 6                                            | 6.16    |

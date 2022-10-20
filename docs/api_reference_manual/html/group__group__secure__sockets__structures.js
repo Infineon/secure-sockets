@@ -4,7 +4,7 @@ var group__group__secure__sockets__structures =
       [ "version", "structcy__socket__ip__address__t.html#adff8c23c18f451bc833136c9b39762ca", null ],
       [ "v4", "structcy__socket__ip__address__t.html#a1b68b61521bd0b095ed35bea52f6fd82", null ],
       [ "v6", "structcy__socket__ip__address__t.html#af849e54b89b4412aaca8eb46275f2b4b", null ],
-      [ "ip", "structcy__socket__ip__address__t.html#a935806d84abf86ee6a8dcbfdeb6940a4", null ]
+      [ "ip", "structcy__socket__ip__address__t.html#a98f8abed868445e1a8348da559d4f574", null ]
     ] ],
     [ "cy_socket_sockaddr_t", "structcy__socket__sockaddr__t.html", [
       [ "port", "structcy__socket__sockaddr__t.html#a78df7a67a185b4114913f8e983a3a5d0", null ],
