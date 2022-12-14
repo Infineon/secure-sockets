@@ -87,10 +87,10 @@ $(document).ready(function(){initNavTree('index.html',''); initResizable(); });
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><p >Secure Sockets Library provides APIs to create software that can send and/or receive data over the network using sockets. This library supports both secure and non-secure sockets, and abstracts the complexity involved in directly using network stack and security stack APIs. This library supports both IPv4 and IPv6 addressing modes for UDP and TCP sockets.</p>
-<p >To ease the integration of Wi-Fi connectivity components, this secure sockets library has been bundled into the <a href="https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls">Wi-Fi core freertos lwip mbedtls library</a>.</p>
 <h1><a class="anchor" id="section_features"></a>
 Features and Functionality</h1>
 <p >Features supported:</p><ul>
+<li>Supports Wi-Fi and Ethernet connections</li>
 <li>Supports non-secure TCP and UDP sockets</li>
 <li>Secure TCP (TLS) socket communication using Mbed TLS library</li>
 <li>Supports both IPv4 and IPv6 addressing. Only link-local IPv6 addressing is supported</li>
@@ -105,11 +105,20 @@ Features and Functionality</h1>
 <h1><a class="anchor" id="section_integration"></a>
 Quick Start</h1>
 <ul>
-<li>To use secure-sockets library for FreeRTOS, lwIP, and Mbed TLS, the application should pull <a href="https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls">wifi-core-freertos-lwip-mbedtls</a> library which will internally pull secure-sockets, wifi-connection-manager, FreeRTOS, lwIP, Mbed TLS and other dependent modules. To pull wifi-core-freertos-lwip-mbedtls create the following .mtb file in deps folder.<ul>
+<li>To use secure-sockets library with Wi-Fi kits, on FreeRTOS, lwIP, and Mbed TLS combination, the application should pull <a href="https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls">wifi-core-freertos-lwip-mbedtls</a> library which will internally pull secure-sockets, wifi-connection-manager, FreeRTOS, lwIP, Mbed TLS and other dependent modules. To pull wifi-core-freertos-lwip-mbedtls create the following *.mtb* file in deps folder.<ul>
 <li>wifi-core-freertos-lwip-mbedtls.mtb: <a href="https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls#latest-v1.X#$$ASSET_REPO$$/wifi-core-freertos-lwip-mbedtls/latest-v1.X">https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls#latest-v1.X#$$ASSET_REPO$$/wifi-core-freertos-lwip-mbedtls/latest-v1.X</a></li>
 </ul>
 </li>
-<li>A set of pre-defined configuration files have been bundled with the wifi-core-freertos-lwip-mbedtls library for FreeRTOS, lwIP, and Mbed TLS. The developer is expected to review the configuration and make adjustments. See the Quick Start section in <a href="https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls/blob/master/README.md">README.md</a>. A set of COMPONENTS must be defined in the code example project's Makefile for this library. See the Quick Start section in <a href="https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls/blob/master/README.md">README.md</a>. The secure-sockets library disables all the debug log messages by default. To enable log messages, the application must perform the following:<ol type="1">
+<li>To use secure-sockets library with Ethernet kits, on FreeRTOS, lwIP, and Mbed TLS combination, the application should pull <a href="https://github.com/Infineon/ethernet-core-freertos-lwip-mbedtls">ethernet-core-freertos-lwip-mbedtls</a> library which will internally pull secure-sockets, ethernet-connection-manager, FreeRTOS, lwIP, Mbed TLS and other dependent modules. To pull ethernet-core-freertos-lwip-mbedtls create the following *.mtb* file in deps folder.<ul>
+<li>ethernet-core-freertos-lwip-mbedtls.mtb: <a href="https://github.com/Infineon/ethernet-core-freertos-lwip-mbedtls#latest-v1.X#$$ASSET_REPO$$/ethernet-core-freertos-lwip-mbedtls/latest-v1.X">https://github.com/Infineon/ethernet-core-freertos-lwip-mbedtls#latest-v1.X#$$ASSET_REPO$$/ethernet-core-freertos-lwip-mbedtls/latest-v1.X</a></li>
+</ul>
+</li>
+<li>A set of pre-defined configuration files for FreeRTOS, lwIP, and Mbed TLS combination is bundled in wifi-core-freertos-lwip-mbedtls library for Wi-Fi kits and in ethernet-core-freertos-lwip-mbedtls library for Ethernet kits. The developer is expected to review the configuration and make adjustments. Also, a set of COMPONENTS must be defined in the code example project's Makefile for this library.<ul>
+<li>See the "Quick Start" section in <a href="https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls/blob/master/README.md">README.md</a> for Wi-Fi kits.</li>
+<li>See the "Quick Start" section in <a href="https://github.com/Infineon/ethernet-core-freertos-lwip-mbedtls/blob/master/README.md">README.md</a> for Ethernet kits.</li>
+</ul>
+</li>
+<li>The secure-sockets library disables all the debug log messages by default. To enable log messages, the application must perform the following:<ol type="1">
 <li>Add the <code>ENABLE_SECURE_SOCKETS_LOGS</code> macro to the <em>DEFINES</em> in the code example's Makefile. The Makefile entry would look like as follows: <div class="fragment"><div class="line">DEFINES+=ENABLE_SECURE_SOCKETS_LOGS</div>
 </div><!-- fragment --></li>
 <li>Call the <code>cy_log_init()</code> function provided by the <em>cy-log</em> module. cy-log is part of the <em>connectivity-utilities</em> library. See *<a href="* https://Infineon.github.io/connectivity-utilities/api_reference_manual/html/group__logging__utils.html">connectivity-utilities library API documentation</a>. WPS is disabled by default. WPS uses Mbed TLS security stack. Enable the following components for WPS. <div class="fragment"><div class="line">COMPONENTS+=WPS MBEDTLS</div>
@@ -128,6 +137,7 @@ Supported Platforms</h1>
 <li><a href="https://www.cypress.com/documentation/development-kitsboards/cyw954907aeval1f-evaluation-kit">CYW954907AEVAL1F Evaluation Kit(CYW954907AEVAL1F)</a></li>
 <li><a href="https://www.cypress.com/documentation/development-kitsboards/cyw943907aeval1f-evaluation-kit">CYW943907AEVAL1F Evaluation Kit(CYW943907AEVAL1F)</a></li>
 <li><a href="https://www.cypress.com/documentation/development-kitsboards/psoc-62s2-evaluation-kit-cy8ceval-062s2">PSoC&trade; 62S2 evaluation kit (CY8CEVAL-062S2-MUR-43439M2)</a></li>
+<li><a href="https://www.infineon.com/KIT_XMC72_EVK">XMC7200D-E272K8384 kit (KIT-XMC72-EVK)</a></li>
 </ul>
 <h1><a class="anchor" id="section_Send"></a>
 Send and receive timeout values</h1>
@@ -161,7 +171,12 @@ Log messages</h1>
 <h1><a class="anchor" id="section_Validity"></a>
 Validity period verification</h1>
 <ul>
-<li>The default Mbed TLS configuration provided by the <em>Wi-Fi Middleware Core Library</em> disables the validity period verification of the certificates. To perform this verification, enable MBEDTLS_HAVE_TIME_DATE in the <a href="https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls/blob/master/configs/mbedtls_user_config.h">mbedtls_user_config.h</a> file. Ensure that the system time is set prior to the <a class="el" href="group__group__secure__sockets__functions.html#ga2e07189d60c7e6a130302d2e2db19653">cy_socket_connect()</a> function call. To set the system time, get the time from the NTP server and set the system's RTC time using cyhal_rtc_init(), cyhal_rtc_write() and cy_set_rtc_instance() functions. See the <a href="https://github.com/Infineon/clib-support/blob/master/README.md#time-support-details">Time Support Details</a> for reference. See the <a class="el" href="index.html#snip12">Code Snippet 12: Get the current time from the NTP server - Send an NTP request packet to the NTP server, and receive an NTP reply packet.</a> to get the time from NTP server.</li>
+<li>The default Mbed TLS configuration provided by the <b>Wi-Fi core FreeRTOS lwIP mbedtls</b> library or <b>Ethernet core FreeRTOS lwIP mbedtls</b> library disables the validity period verification of the certificates. To perform this verification, enable <code>MBEDTLS_HAVE_TIME_DATE</code> in the <em>mbedtls_user_config.h</em><ul>
+<li>See the <a href="https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls/blob/master/configs/mbedtls_user_config.h">mbedtls_user_config.h</a> file in Wi-Fi core FreeRTOS lwIP mbedtls library for Wi-Fi kits.</li>
+<li>See the <a href="https://github.com/Infineon/ethernet-core-freertos-lwip-mbedtls/blob/master/configs/mbedtls_user_config.h">mbedtls_user_config.h</a> file in Ethernet core FreeRTOS lwIP mbedtls library for Ethernet kits</li>
+</ul>
+</li>
+<li>Ensure that the system time is set prior to the <a class="el" href="group__group__secure__sockets__functions.html#ga2e07189d60c7e6a130302d2e2db19653">cy_socket_connect()</a> function call. To set the system time, get the time from the NTP server and set the system's RTC time using cyhal_rtc_init(), cyhal_rtc_write() and cy_set_rtc_instance() functions. See the <a href="https://github.com/Infineon/clib-support/blob/master/README.md#time-support-details">Time Support Details</a> for reference. See the <a class="el" href="index.html#snip12">Code Snippet 12: Get the current time from the NTP server - Send an NTP request packet to the NTP server, and receive an NTP reply packet.</a> to get the time from NTP server.</li>
 </ul>
 <h1><a class="anchor" id="section_PKCS"></a>
 PKCS/Non-PKCS mode</h1>

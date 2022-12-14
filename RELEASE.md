@@ -12,6 +12,10 @@ Refer to the [README.md](./README.md) for a complete description of the Secure S
 
 ## Changelog
 
+### v3.1.0
+* Added support for KIT-XMC72-EVK kit.
+* Minor Documentation updates.
+
 ### v3.0.0
 * Updated to use [lwIP network interface integration library](https://Infineon.github.io/lwip-network-interface-integration) APIs.
 * BINDTODEVICE socket option is extended to support getsockopt.

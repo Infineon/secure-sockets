@@ -286,8 +286,8 @@ cy_rslt_t cy_socket_create(int domain, int type, int protocol, cy_socket_t *hand
  * 3. For TLS client sockets, the default authentication mode set is \ref CY_SOCKET_TLS_VERIFY_REQUIRED. To override the default authentication mode,
  *    use \ref cy_socket_setsockopt with the \ref CY_SOCKET_SO_TLS_AUTH_MODE socket option.
  * 4. The default mbed TLS configuration provided by the *Wi-Fi Middleware Core Library* disables the validity period verification of the certificates.
- *    To perform this verification, enable MBEDTLS_HAVE_TIME_DATE in the [mbedtls_user_config.h] (https://github.com/cypresssemiconductorco/wifi-mw-core/blob/master/configs/mbedtls_user_config.h) file. Ensure that the system time is set prior to the \ref cy_socket_connect() function call.
- *    To set the system time, get the time from the NTP server and set the system's RTC time using cyhal_rtc_init(), cyhal_rtc_write() and cy_set_rtc_instance() functions. See the [Time Support Details](https://github.com/cypresssemiconductorco/clib-support/blob/master/README.md#time-support-details)
+ *    To perform this verification, enable MBEDTLS_HAVE_TIME_DATE in the [mbedtls_user_config.h] (https://github.com/infineon/wifi-mw-core/blob/master/configs/mbedtls_user_config.h) file. Ensure that the system time is set prior to the \ref cy_socket_connect() function call.
+ *    To set the system time, get the time from the NTP server and set the system's RTC time using cyhal_rtc_init(), cyhal_rtc_write() and cy_set_rtc_instance() functions. See the [Time Support Details](https://github.com/infineon/clib-support/blob/master/README.md#time-support-details)
  *    for reference. See the \ref snip12 to get the time from NTP server.
  *
  * \note This is applicable if Secure Sockets Library is built for lwIP network stack. If this function returns \ref CY_RSLT_MODULE_SECURE_SOCKETS_CLOSED error, the socket handle cannot be reused to establish the connection. The caller should invoke \ref cy_socket_delete API function to delete the current socket handle,
