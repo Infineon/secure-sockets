@@ -1,1 +1,14 @@
 docs
+
+$(SEARCH_optiga-trust-m)/externals/mbedtls
+$(SEARCH_optiga-trust-m)/examples/
+$(SEARCH_optiga-trust-m)/pal/NEW_PAL_TEMPLATE
+$(SEARCH_optiga-trust-m)/pal/esp32_freertos
+$(SEARCH_optiga-trust-m)/pal/libusb
+$(SEARCH_optiga-trust-m)/pal/linux
+$(SEARCH_optiga-trust-m)/pal/xmc4800
+$(SEARCH_optiga-trust-m)/pal/xmc4800_freertos
+
+# Not required Crypto midlayers
+$(SEARCH_optiga-trust-m)/pal/pal_crypt_openssl.c
+$(SEARCH_optiga-trust-m)/pal/pal_crypt_wolfssl.c

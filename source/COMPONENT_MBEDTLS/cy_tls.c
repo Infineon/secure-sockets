@@ -61,12 +61,14 @@
 extern cy_rslt_t cy_prng_get_random( void* buffer, uint32_t buffer_length );
 #endif
 
-#ifdef CY_TFM_PSA_SUPPORTED
-#include <psa/crypto.h>
+#if !defined CY_SECURE_SOCKETS_PKCS_SUPPORT && !defined COMPONENT_43907
+#include "cyhal_trng.h"
 #endif
 
 #ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+#ifdef CY_TFM_PSA_SUPPORTED
 #include "tfm_mbedtls_version.h"
+#endif
 #include <mbedtls/version.h>
 #include <mbedtls/pk.h>
 #include <mbedtls/pk_internal.h>
@@ -85,7 +87,7 @@ extern cy_rslt_t cy_prng_get_random( void* buffer, uint32_t buffer_length );
 #define MBEDTLS_VERBOSE 0
 #endif
 
-#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+#if defined CY_SECURE_SOCKETS_PKCS_SUPPORT && defined CY_TFM_PSA_SUPPORTED
 #if MBEDTLS_VERSION_NUMBER != TFM_MBEDTLS_VERSION_NUMBER
 #error "MBEDTLS version mismatch between secure core and non-secure core implementation. Please refer tfm_mbedtls_version.h present inside trusted-firmware-m library and version.h in mbedtls library"
 #endif
@@ -385,7 +387,7 @@ cy_rslt_t cy_tls_load_global_root_ca_certificates(const char *trusted_ca_certifi
  * Return:
  *  int    zero on success, negative value on failure
  */
-#ifndef COMPONENT_43907
+#if !defined COMPONENT_43907 && !defined COMPONENT_OPTIGA
 static int trng_get_bytes(cyhal_trng_t *obj, uint8_t *output, size_t length, size_t *output_length)
 {
     uint32_t offset = 0;
@@ -433,19 +435,25 @@ static int trng_get_bytes(cyhal_trng_t *obj, uint8_t *output, size_t length, siz
  */
 int mbedtls_hardware_poll(void *data, unsigned char *output, size_t len, size_t *olen)
 {
-#ifdef CY_TFM_PSA_SUPPORTED
-    psa_status_t status = psa_crypto_init();
-    if(status != PSA_SUCCESS)
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+    CK_C_GetFunctionList function_list = NULL;
+    CK_RV pkcs_result = CKR_OK;
+    CK_FUNCTION_LIST_PTR fn_ptr = NULL;
+
+    function_list = C_GetFunctionList;
+    pkcs_result = function_list(&fn_ptr);
+
+    if((pkcs_result == CKR_OK) && (fn_ptr != NULL) && (fn_ptr->C_GenerateRandom != NULL))
+    {
+        /* Mbedtls will pass the first argument as NULL. However the currently supported
+         * PKCS implementations doesnt validate the session for random generation.
+         */
+        pkcs_result = fn_ptr->C_GenerateRandom((CK_SESSION_HANDLE)data, output, len);
+    }
+    if(pkcs_result != CKR_OK)
     {
         return -1;
     }
-
-    status = psa_generate_random(output, len);
-    if (status != PSA_SUCCESS)
-    {
-        return -1;
-    }
-
     *olen = len;
 #elif defined(COMPONENT_43907)
     /* 43907 kits does not have TRNG module. Get the random
@@ -669,7 +677,8 @@ static int cy_tls_sign_with_private_key(void* context, mbedtls_md_type_t xMdAlg,
     {
         xMech.mechanism = CKM_RSA_PKCS;
 
-        /* mbedTLS expects hashed data without padding, but PKCS #11 C_Sign function performs a hash
+#ifdef CY_TFM_PSA_SUPPORTED
+        /* mbedTLS expects hashed data without padding, but PKCS #11 PSA C_Sign function performs a hash
          * & sign if hash algorithm is specified.  This helper function applies padding
          * indicating data was hashed with SHA-256 while still allowing pre-hashed data to
          * be provided. */
@@ -679,6 +688,11 @@ static int cy_tls_sign_with_private_key(void* context, mbedtls_md_type_t xMdAlg,
             return -1;
         }
         xToBeSignedLen = pkcs11RSA_SIGNATURE_INPUT_LENGTH;
+#else
+        memcpy(xToBeSigned, hash, hash_len);
+        xToBeSignedLen = hash_len;
+#endif
+
     }
     else if(tls_context->pkcs_context.key_type == CKK_EC)
     {

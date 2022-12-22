@@ -192,7 +192,9 @@ Non-PKCS mode</h2>
 </ul>
 <h2><a class="anchor" id="subsection_PKCS_mode"></a>
 PKCS mode</h2>
-<ul>
+<h3><a class="anchor" id="subsection_PKCS_secure_kit"></a>
+Secure Kits</h3>
+<p >Secure kits will have inbuilt secure element to store the keys and certificates which can be provisioned into the device.</p><ul>
 <li>Provision the kit. See <a href="https://community.cypress.com/t5/Resource-Library/Provisioning-Guide-for-the-Cypress-CY8CKIT-064S0S2-4343W-Kit/ta-p/252469">Device provisioning steps</a>.</li>
 <li>Provision device certificate/RootCA certificate. Add/modify the respective policy *.json* file with the device and RootCA certificate path to be provisioned to the secured element as follows, and then re-provision the kit: <div class="fragment"><div class="line"><span class="stringliteral">&quot;provisioning:&quot;</span></div>
 <div class="line">{</div>
@@ -200,27 +202,16 @@ PKCS mode</h2>
 <div class="line">},</div>
 </div><!-- fragment --></li>
 </ul>
-<h3><a class="anchor" id="subsubsection_Dependencies"></a>
-Dependencies</h3>
-<ul>
-<li>The secure sockets library depends on the other libraries for PKCS support. Ensure that the following libraries are pulled in.<ol type="1">
-<li>Using *.lib* files<ul>
-<li>aws-iot-device-sdk-embedded-C.lib : <a href="https://github.com/aws/aws-iot-device-sdk-embedded-C/#202103.00">https://github.com/aws/aws-iot-device-sdk-embedded-C/#202103.00</a></li>
-<li>freertos-pkcs11-psa.lib : <a href="https://github.com/Linaro/freertos-pkcs11-psa/#80292d24f4978891b0fd35feeb5f1d6f6f0fff06">https://github.com/Linaro/freertos-pkcs11-psa/#80292d24f4978891b0fd35feeb5f1d6f6f0fff06</a></li>
-</ul>
-</li>
-<li>Using .mtb files<ul>
+<h4><a class="anchor" id="subsubsection_Dependencies"></a>
+Dependencies</h4>
+<p >The secure sockets library depends on the other libraries for PKCS support. Ensure that the following libraries are pulled in by creating the following .mtb files:</p><ul>
 <li>aws-iot-device-sdk-embedded-C.mtb : <a href="https://github.com/aws/aws-iot-device-sdk-embedded-C/#202103.00#$$ASSET_REPO$$/aws-iot-device-sdk-embedded-C/202103.00">https://github.com/aws/aws-iot-device-sdk-embedded-C/#202103.00#$$ASSET_REPO$$/aws-iot-device-sdk-embedded-C/202103.00</a></li>
 <li>freertos-pkcs11-psa.mtb : <a href="https://github.com/Linaro/freertos-pkcs11-psa/#80292d24f4978891b0fd35feeb5f1d6f6f0fff06#$$ASSET_REPO$$/freertos-pkcs11-psa/master">https://github.com/Linaro/freertos-pkcs11-psa/#80292d24f4978891b0fd35feeb5f1d6f6f0fff06#$$ASSET_REPO$$/freertos-pkcs11-psa/master</a></li>
-</ul>
-</li>
-</ol>
-</li>
 </ul>
 <h3><a class="anchor" id="subsubsection_pull"></a>
 Pull required libraries and enable PKCS mode</h3>
 <ul>
-<li>Execute the <code>make getlibs</code> command to pull the required libraries created as .lib or .mtb.</li>
+<li>Execute the <code>make getlibs</code> command to pull the required libraries created as .mtb.</li>
 <li>Add the <code>CY_TFM_PSA_SUPPORTED</code>, <code>TFM_MULTI_CORE_NS_OS</code> and <code>CY_SECURE_SOCKETS_PKCS_SUPPORT</code> macros to the <code>DEFINES</code> in the code example's Makefile. The Makefile entry would look like as follows: <div class="fragment"><div class="line">DEFINES+=CY_TFM_PSA_SUPPORTED TFM_MULTI_CORE_NS_OS CY_SECURE_SOCKETS_PKCS_SUPPORT</div>
 </div><!-- fragment --></li>
 </ul>
@@ -231,14 +222,44 @@ Trusted firmware library include path</h3>
 <div class="line">INCLUDES+=./libs/trusted-firmware-m/COMPONENT_TFM_NS_INTERFACE/include</div>
 </div><!-- fragment --></li>
 </ul>
-<h3><a class="anchor" id="subsubsection_Configuration"></a>
-Configuration for PKCS11</h3>
+<h3><a class="anchor" id="subsection_PKCS_non_secure_kit"></a>
+Non-Secure Kits</h3>
+<p >The non-secure kits can also support the key and certificate storage in separate hardware like optiga. Optiga PKCS11 support is enabled in secure sockets.</p>
+<h4><a class="anchor" id="subsubsection_Dependencies_optiga"></a>
+Dependencies</h4>
+<p >The secure sockets library depends on the other libraries for PKCS support. Ensure that the following libraries are pulled in by creating the following .mtb files:</p><ul>
+<li>aws-iot-device-sdk-embedded-C.mtb : <a href="https://github.com/aws/aws-iot-device-sdk-embedded-C/#202103.00#$$ASSET_REPO$$/aws-iot-device-sdk-embedded-C/202103.00">https://github.com/aws/aws-iot-device-sdk-embedded-C/#202103.00#$$ASSET_REPO$$/aws-iot-device-sdk-embedded-C/202103.00</a></li>
+<li>optiga-trust-m.mtb : <a href="https://github.com/Infineon/optiga-trust-m#release-v4.0.3#$$ASSET_REPO$$/optiga-trust-m/release-v4.0.3">https://github.com/Infineon/optiga-trust-m#release-v4.0.3#$$ASSET_REPO$$/optiga-trust-m/release-v4.0.3</a></li>
+</ul>
+<h3><a class="anchor" id="subsubsection_pull_optiga"></a>
+Pull required libraries and enable PKCS mode</h3>
 <ul>
-<li>Pre-defined configuration file core_pkcs11_config.h is bundled with secure sockets library. If you need to change default configuration for PKCS11, copy core_pkcs11_config.h file from secure sockets library to top-level code example directory and then modify it.</li>
-<li><a href="https://github.com/Linaro/freertos-pkcs11-psa/">FreeRTOS PSA PKCS11</a> library supports only SHA-256 hashing algorithm. So the application should chose the cipher suite list compatible for SHA-256. To chose the cipher suite list(compatible for SHA-256), application need to copy mbedtls_user_config.h file from libs/wifi-core-freertos-lwip-mbedtls/configs to root folder and add required cipher suites to the <code>MBEDTLS_SSL_CIPHERSUITES</code> macro.</li>
-<li>NOTE:To run this library on CM0P core, add the <code>MULADDC_CANNOT_USE_R7</code> macro to the <em>DEFINES</em> in the code example’s Makefile.This is a workaround for the Mbed TLS compilation issues on the ARM Compiler. To read more about this issue, refer to <a href="https://github.com/ARMmbed/mbed-os/pull/14529/commits/86e7bc559b0d1a055bf84ea9249763d2349fb6e8">Mbed TLS compilation on Cortex-M0/0+/1/M23</a>. <div class="fragment"><div class="line">DEFINES+= MULADDC_CANNOT_USE_R7</div>
+<li>Execute the <code>make getlibs</code> command to pull the required libraries created as .mtb.</li>
+<li>Add <code>OPTIGA</code> in <code>COMPONENTS</code> <div class="fragment"><div class="line">COMPONENT+=OPTIGA</div>
+</div><!-- fragment --></li>
+<li>Add the Optiga PAL interface as per the platform. Use <code>PSOC6_FREERTOS</code> for PSOC6 with FREERTOS. The Makefile entry would look like as follows: <div class="fragment"><div class="line">COMPONENT+=PSOC6_FREERTOS</div>
+</div><!-- fragment --></li>
+<li>Add <code>OPTIGAFLAGS</code> with the configuration file for Optiga. A pre-defined configuration file optiga_lib_config_mtb.h is bundled with the secure sockets library. To change the default configuration for PKCS11, copy the optiga_config.h file from the secure sockets library to the top-level application directory, and then modify it. <div class="fragment"><div class="line">OPTIGAFLAGS=OPTIGA_LIB_EXTERNAL=<span class="stringliteral">&#39;&quot;optiga_config.h&quot;&#39;</span></div>
+</div><!-- fragment --></li>
+<li>Add the <code>CY_SECURE_SOCKETS_PKCS_SUPPORT</code> and <code>OPTIGAFLAGS</code> macros to the <code>DEFINES</code> in the code example's Makefile. The Makefile entry would look like as follows: <div class="fragment"><div class="line">DEFINES+= $(OPTIGAFLAGS) CY_SECURE_SOCKETS_PKCS_SUPPORT</div>
 </div><!-- fragment --></li>
 </ul>
+<h3><a class="anchor" id="subsubsection_Configuration"></a>
+Configuration for PKCS11</h3>
+<p >Pre-defined configuration file core_pkcs11_config.h is bundled with secure sockets library. If you need to change default configuration for PKCS11, copy core_pkcs11_config.h file from secure sockets library to top-level code example directory and then modify it.</p>
+<h4><a class="anchor" id="subsubsection_Configuration_Secure_kit"></a>
+Secure Kits</h4>
+<p ><a href="https://github.com/Linaro/freertos-pkcs11-psa/">FreeRTOS PSA PKCS11</a> library supports only SHA-256 hashing algorithm. So the application should chose the cipher suite list compatible for SHA-256. To chose the cipher suite list(compatible for SHA-256), application need to copy mbedtls_user_config.h file from libs/wifi-core-freertos-lwip-mbedtls/configs to root folder and add required cipher suites to the <code>MBEDTLS_SSL_CIPHERSUITES</code> macro.</p>
+<h4><a class="anchor" id="subsubsection_Configuration_Non_Secure_kit"></a>
+Non-Secure Kits</h4>
+<ul>
+<li>The secure sockets will use 3 OID information from the optiga chip for TLS connection. Secure sockets uses the below macros (default OID value in brackets) correspoding to those OIDs to fetch information. To change the default configuration, add these defines in the makefile with new values.</li>
+<li>Device private key : LABEL_DEVICE_PRIVATE_KEY_FOR_TLS (0xE0F0)</li>
+<li>Device certificate : LABEL_DEVICE_CERTIFICATE_FOR_TLS (0xE0E0)</li>
+<li>Root certificate : LABEL_ROOT_CERTIFICATE (0xE0E8)</li>
+</ul>
+<p >Note : Optiga-trust-m has a limitation on the maximum size of Public Key Certificate/Device Certificate. Using a certificate of a size greater than 1728 bytes may result in erroneous outputs.</p>
+<p >To use secure-sockets library for FreeRTOS, lwIP, and Mbed TLS, pull <a href="https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls">wifi-core-freertos-lwip-mbedtls</a> library which will internally pull secure-sockets, wifi-connection-manager, FreeRTOS, lwIP, mbed TLS and other dependent modules.</p>
 <h1><a class="anchor" id="section_code_snippet"></a>
 Code Snippets</h1>
 <h2><a class="anchor" id="snip1"></a>
@@ -322,7 +343,7 @@ Code Snippet 3: TCP Client Connect</h2>
 <div class="line"><span class="preprocessor">                                          (((uint32_t)  b) &lt;&lt; 8) |\</span></div>
 <div class="line"><span class="preprocessor">                                          ((uint32_t)   a))</span></div>
 <div class="line"> </div>
-<div class="line"><span class="comment">/* Change the server IP address and port number to match the TCP server address to which the </span></div>
+<div class="line"><span class="comment">/* Change the server IP address and port number to match the TCP server address to which the</span></div>
 <div class="line"><span class="comment"> * client wants to connect to.</span></div>
 <div class="line"><span class="comment"> */</span></div>
 <div class="line"><span class="preprocessor">#define TCP_SERVER_IP_ADDRESS                     MAKE_IPV4_ADDRESS(192, 168, 18, 9)</span></div>
@@ -385,7 +406,7 @@ Code Snippet 3: TCP Client Connect</h2>
 <div class="line">    result = <a class="code hl_function" href="group__group__secure__sockets__functions.html#ga49a49b4e3b4293aa3855f47ce831ebe2">cy_socket_init</a>();</div>
 <div class="line"> </div>
 <div class="line">    <span class="comment">/* Create a TCP socket. If you need a secure connection, create a secure socket</span></div>
-<div class="line"><span class="comment">     * as demonstrated by the snippet_create_secure_socket function. </span></div>
+<div class="line"><span class="comment">     * as demonstrated by the snippet_create_secure_socket function.</span></div>
 <div class="line"><span class="comment">     */</span></div>
 <div class="line">    result = <a class="code hl_function" href="group__group__secure__sockets__functions.html#ga30bbbf20a277e2a7e622df504b014a4b">cy_socket_create</a>(<a class="code hl_define" href="group__group__secure__sockets__macros.html#gacc301fb73845cb915cfacffc1b7d0c23">CY_SOCKET_DOMAIN_AF_INET</a>, <a class="code hl_define" href="group__group__secure__sockets__macros.html#gac0610ba6e8fe01ccbaacf89145f9285a">CY_SOCKET_TYPE_STREAM</a>, <a class="code hl_define" href="group__group__secure__sockets__macros.html#ga1c6d23edbc333c85d3e7a8702dcf22a1">CY_SOCKET_IPPROTO_TCP</a>, &amp;client_handle);</div>
 <div class="line"> </div>
@@ -437,7 +458,7 @@ Code Snippet 4: TCP Server - Listening for client connection</h2>
 <div class="line"><span class="preprocessor">                                          (((uint32_t)  b) &lt;&lt; 8) |\</span></div>
 <div class="line"><span class="preprocessor">                                          ((uint32_t)   a))</span></div>
 <div class="line"> </div>
-<div class="line"><span class="comment">/* Change the server IP address and port to match the TCP server address. </span></div>
+<div class="line"><span class="comment">/* Change the server IP address and port to match the TCP server address.</span></div>
 <div class="line"><span class="comment"> */</span></div>
 <div class="line"><span class="preprocessor">#define TCP_SERVER_IP_ADDRESS                     MAKE_IPV4_ADDRESS(192, 168, 18, 9)</span></div>
 <div class="line"><span class="preprocessor">#define TCP_SERVER_PORT                           (50007)</span></div>
@@ -1227,6 +1248,7 @@ Code Snippet 13: Connect to secure server in PKCS mode - TLS connection using PK
 <div class="line"><span class="preprocessor">#define PORT       443</span></div>
 <div class="line"><span class="preprocessor">#define HOSTNAME   &quot;www.httpbin.org&quot;</span></div>
 <div class="line"> </div>
+<div class="line"><span class="preprocessor">#ifdef CY_TFM_PSA_SUPPORTED</span></div>
 <div class="line"><span class="keyword">static</span> <span class="keyword">struct  </span>ns_mailbox_queue_t ns_mailbox_queue;</div>
 <div class="line"><span class="keyword">static</span> <span class="keywordtype">void</span> tfm_ns_multi_core_boot(<span class="keywordtype">void</span>)</div>
 <div class="line">{</div>
@@ -1251,6 +1273,7 @@ Code Snippet 13: Connect to secure server in PKCS mode - TLS connection using PK
 <div class="line">        }</div>
 <div class="line">    }</div>
 <div class="line">}</div>
+<div class="line"><span class="preprocessor">#endif</span></div>
 <div class="line"> </div>
 <div class="line"><span class="keywordtype">void</span> snippet_secure_sockets_tls_connect_pkcs()</div>
 <div class="line">{</div>
