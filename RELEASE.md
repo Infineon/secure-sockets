@@ -12,6 +12,9 @@ Refer to the [README.md](./README.md) for a complete description of the Secure S
 
 ## Changelog
 
+### v3.2.1
+* Changes to rename COMPONENT_43907 to COMPONENT_4390X
+
 ### v3.2.0
 * Added PKCS11 OPTIGA Support for Non-Secure Kits.
 * Minor Documentation Updates.

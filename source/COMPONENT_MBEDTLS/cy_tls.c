@@ -1,5 +1,5 @@
 /*
- * Copyright 2022, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2023, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -57,11 +57,11 @@
 #include <time.h>
 #include <mbedtls/platform_time.h>
 
-#ifdef COMPONENT_43907
+#ifdef COMPONENT_4390X
 extern cy_rslt_t cy_prng_get_random( void* buffer, uint32_t buffer_length );
 #endif
 
-#if !defined CY_SECURE_SOCKETS_PKCS_SUPPORT && !defined COMPONENT_43907
+#if !defined CY_SECURE_SOCKETS_PKCS_SUPPORT && !defined COMPONENT_4390X
 #include "cyhal_trng.h"
 #endif
 
@@ -387,7 +387,7 @@ cy_rslt_t cy_tls_load_global_root_ca_certificates(const char *trusted_ca_certifi
  * Return:
  *  int    zero on success, negative value on failure
  */
-#if !defined COMPONENT_43907 && !defined COMPONENT_OPTIGA
+#if !defined COMPONENT_4390X && !defined COMPONENT_OPTIGA
 static int trng_get_bytes(cyhal_trng_t *obj, uint8_t *output, size_t length, size_t *output_length)
 {
     uint32_t offset = 0;
@@ -455,7 +455,7 @@ int mbedtls_hardware_poll(void *data, unsigned char *output, size_t len, size_t 
         return -1;
     }
     *olen = len;
-#elif defined(COMPONENT_43907)
+#elif defined(COMPONENT_4390X)
     /* 43907 kits does not have TRNG module. Get the random
      * number from wifi-mw-core internal PRNG API. */
     cy_rslt_t result;
