@@ -30,12 +30,12 @@ The secure sockets library provides APIs to create software that can send and/or
 * To use secure-sockets library with Wi-Fi kits on FreeRTOS, lwIP, and Mbed TLS combination, the application should pull [wifi-core-freertos-lwip-mbedtls](https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls) library which will internally pull secure-sockets, wifi-connection-manager, FreeRTOS, lwIP, Mbed TLS and other dependent modules.
 To pull wifi-core-freertos-lwip-mbedtls create the following *.mtb* file in deps folder.
    - *wifi-core-freertos-lwip-mbedtls.mtb:*
-      https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls#latest-v1.X#$$ASSET_REPO$$/wifi-core-freertos-lwip-mbedtls/latest-v1.X
+      `https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls#latest-v1.X#$$ASSET_REPO$$/wifi-core-freertos-lwip-mbedtls/latest-v1.X`
 
 * To use secure-sockets library with Ethernet kits on FreeRTOS, lwIP, and Mbed TLS combination, the application should pull [ethernet-core-freertos-lwip-mbedtls](https://github.com/Infineon/ethernet-core-freertos-lwip-mbedtls) library which will internally pull secure-sockets, ethernet-connection-manager, FreeRTOS, lwIP, Mbed TLS and other dependent modules.
 To pull ethernet-core-freertos-lwip-mbedtls create the following *.mtb* file in deps folder.
    - *ethernet-core-freertos-lwip-mbedtls.mtb:*
-      https://github.com/Infineon/ethernet-core-freertos-lwip-mbedtls#latest-v1.X#$$ASSET_REPO$$/ethernet-core-freertos-lwip-mbedtls/latest-v1.X
+      `https://github.com/Infineon/ethernet-core-freertos-lwip-mbedtls#latest-v1.X#$$ASSET_REPO$$/ethernet-core-freertos-lwip-mbedtls/latest-v1.X`
 
 * A set of pre-defined configuration files for FreeRTOS, lwIP, and Mbed TLS combination is bundled in wifi-core-freertos-lwip-mbedtls library for Wi-Fi kits and in ethernet-core-freertos-lwip-mbedtls library for Ethernet kits. The developer is expected to review the configuration and make adjustments.
   Also, a set of COMPONENTS must be defined in the code example project's Makefile for this library.
@@ -150,9 +150,9 @@ Secure kits will have inbuilt secure element to store the keys and certificates 
 
 The secure sockets library depends on the other libraries for PKCS support. Ensure that the following  libraries are pulled in by creating the following *.mtb* files:
 
-   - *aws-iot-device-sdk-embedded-C.mtb:* https://github.com/aws/aws-iot-device-sdk-embedded-C/#202103.00#$$ASSET_REPO$$/aws-iot-device-sdk-embedded-C/202103.00
+   - *aws-iot-device-sdk-embedded-C.mtb:* `https://github.com/aws/aws-iot-device-sdk-embedded-C/#202103.00#$$ASSET_REPO$$/aws-iot-device-sdk-embedded-C/202103.00`
 
-   - *freertos-pkcs11-psa.mtb:* https://github.com/Linaro/freertos-pkcs11-psa/#80292d24f4978891b0fd35feeb5f1d6f6f0fff06#$$ASSET_REPO$$/freertos-pkcs11-psa/master
+   - *freertos-pkcs11-psa.mtb:* `https://github.com/Linaro/freertos-pkcs11-psa/#80292d24f4978891b0fd35feeb5f1d6f6f0fff06#$$ASSET_REPO$$/freertos-pkcs11-psa/master`
 
 
 ###### ***Pull required libraries and enable PKCS mode***
@@ -179,9 +179,9 @@ The non-secure kits can also support the key and certificate storage in separate
 
 Ensure that the following libraries are pulled in by creating the following *.mtb* files.
 
-  - *aws-iot-device-sdk-embedded-C.mtb: *https://github.com/aws/aws-iot-device-sdk-embedded-C/#202103.00#$$ASSET_REPO$$/aws-iot-device-sdk-embedded-C/202103.00*
+  - *aws-iot-device-sdk-embedded-C.mtb:* `https://github.com/aws/aws-iot-device-sdk-embedded-C/#202103.00#$$ASSET_REPO$$/aws-iot-device-sdk-embedded-C/202103.00`
 
-  - optiga-trust-m.mtb: *https://github.com/Infineon/optiga-trust-m#release-v4.0.3#$$ASSET_REPO$$/optiga-trust-m/release-v4.0.3*
+  - *optiga-trust-m.mtb:* `https://github.com/Infineon/optiga-trust-m#release-v4.0.3#$$ASSET_REPO$$/optiga-trust-m/release-v4.0.3`
 
 ###### ***Pull required libraries and enable PKCS mode***
 1. Execute the `make getlibs` command to pull the required libraries created as .mtb.

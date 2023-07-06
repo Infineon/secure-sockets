@@ -79,6 +79,7 @@ extern NX_CRYPTO_METHOD crypto_method_tls_prf_sha384;
 extern NX_CRYPTO_METHOD crypto_method_hkdf;
 extern NX_CRYPTO_METHOD crypto_method_hmac;
 extern NX_CRYPTO_METHOD crypto_method_ecdh;
+extern NX_CRYPTO_METHOD crypto_method_auth_psk;
 
 
 /* Lookup table for X.509 digital certificates - they need a public-key algorithm and a hash routine for verification. */

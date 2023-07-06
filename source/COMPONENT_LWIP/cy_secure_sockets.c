@@ -382,7 +382,7 @@ static int find_multicast_member_index(cy_socket_ctx_t *socket, const cy_socket_
     return -1;
 }
 
-static cy_socket_ctx_t* alloc_socket()
+static cy_socket_ctx_t* alloc_socket(cy_socket_interface_t iface_type)
 {
     int i;
     cy_rslt_t result;
@@ -441,12 +441,11 @@ static cy_socket_ctx_t* alloc_socket()
 
             socket_list[i].used = 1;
             socket_list[i].ctx->id = i;
+            socket_list[i].ctx->iface_type = iface_type;
+
 #if defined(CYBSP_ETHERNET_CAPABLE)
-            socket_list[i].ctx->iface_type = CY_SOCKET_ETH1_INTERFACE;
             socket_list[i].ctx->iface_idx = 1;
 #else
-            /* Default interface for Wi-Fi will be STA interface */
-            socket_list[i].ctx->iface_type = CY_SOCKET_STA_INTERFACE;
             socket_list[i].ctx->iface_idx = 0;
 #endif
             socket_list[i].ctx->socket_magic_header = SECURE_SOCKETS_MAGIC_HEADER;
@@ -1505,6 +1504,10 @@ cy_rslt_t cy_socket_create(int domain, int type, int protocol, cy_socket_t *hand
     cy_socket_ctx_t *ctx = NULL;
     struct netconn  *conn = NULL;
     enum netconn_type conn_type = NETCONN_INVALID;
+    cy_socket_interface_t iface_type = CY_SOCKET_STA_INTERFACE;
+#if defined(CYBSP_WIFI_CAPABLE)
+    void *netif;
+#endif
 
     ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_socket_create Start\r\n");
 
@@ -1550,8 +1553,25 @@ cy_rslt_t cy_socket_create(int domain, int type, int protocol, cy_socket_t *hand
         *handle = CY_SOCKET_INVALID_HANDLE;
         return CY_RSLT_MODULE_SECURE_SOCKETS_BADARG;
     }
-
-    ctx = alloc_socket();
+#if defined(CYBSP_ETHERNET_CAPABLE)
+    /* At present only CY_SOCKET_ETH1_INTERFACE is supported for ethernet */
+    iface_type = CY_SOCKET_ETH1_INTERFACE;
+#else
+    netif = cy_network_get_nw_interface(CY_NETWORK_WIFI_STA_INTERFACE, 0);
+    if (netif == NULL)
+    {
+        /* STA interface is not created, it can be AP only mode check if AP netif exists */
+        netif = cy_network_get_nw_interface(CY_NETWORK_WIFI_AP_INTERFACE, 0);
+        if (netif == NULL)
+        {
+            ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Invalid network interface\n");
+            *handle = CY_SOCKET_INVALID_HANDLE;
+            return CY_RSLT_MODULE_SECURE_SOCKETS_NETIF_DOES_NOT_EXIST;
+        }
+        iface_type = CY_SOCKET_AP_INTERFACE;
+    }
+#endif
+    ctx = alloc_socket(iface_type);
     if(ctx == NULL)
     {
         *handle = CY_SOCKET_INVALID_HANDLE;
@@ -4296,7 +4316,7 @@ cy_rslt_t cy_socket_accept(cy_socket_t handle, cy_socket_sockaddr_t *address, ui
         return CY_RSLT_MODULE_SECURE_SOCKETS_NOT_LISTENING;
     }
 
-    accept_ctx = alloc_socket();
+    accept_ctx = alloc_socket(ctx->iface_type);
     if(accept_ctx == NULL)
     {
         ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Failed to allocate socket context for accepted client socket\r\n");

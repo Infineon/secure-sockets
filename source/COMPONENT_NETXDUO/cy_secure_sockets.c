@@ -481,7 +481,7 @@ static bool str_to_ipv6(const char *str, uint32_t *ipv6_addr)
     for (ch = str; *ch != 0; ch++)
     {
         if (*ch == ':')
-      	{
+          {
             if (curr_segment_idx & 0x1)
             {
                 ipv6_addr[addr_idx++] |= curr_segment_val;
@@ -1002,6 +1002,9 @@ static bool is_nx_tcp_bytes_available(NX_TCP_SOCKET *socket_ptr)
         return false;
     }
 
+    /* Call network activity function to resume the network stack if it was suspended */
+    cy_network_activity_notify(CY_NETWORK_ACTIVITY_RX);
+
     /* Obtain the IP mutex so we can examine the bound port.  */
     tx_mutex_get(&(ip_ptr->nx_ip_protection), TX_WAIT_FOREVER);
 
@@ -1039,6 +1042,9 @@ static bool is_nx_tcp_send_available(NX_TCP_SOCKET *socket_ptr)
     {
         return false;
     }
+
+    /* Call network activity function to resume the network stack if it was suspended */
+    cy_network_activity_notify(CY_NETWORK_ACTIVITY_TX);
 
     /* Obtain the IP mutex so we can examine the bound port.  */
     tx_mutex_get(&(ip_ptr->nx_ip_protection), TX_WAIT_FOREVER);
@@ -1098,6 +1104,9 @@ static void cy_process_receive_event_with_valid_context(cy_socket_ctx_t *ctx)
     {
         if (ctx->callbacks.receive.callback)
         {
+            /* Call network activity function to resume the network stack if it was suspended */
+            cy_network_activity_notify(CY_NETWORK_ACTIVITY_RX);
+
             /* For UDP transport protocol, check to find if receive data is available. */
             nx_udp_socket_bytes_available(ctx->nxd_socket.udp, &bytes_available);
 
@@ -1345,7 +1354,7 @@ static cy_rslt_t network_send(void *context, const unsigned char *data_buffer, u
         return CY_RSLT_MODULE_SECURE_SOCKETS_PROTOCOL_NOT_SUPPORTED;
     }
 
-    /* Call wifi-mw-core network activity function to resume the network stack. */
+    /* Call network activity function to resume the network stack if it was suspended */
     cy_network_activity_notify(CY_NETWORK_ACTIVITY_TX);
 
     while (data_buffer_length - *bytes_sent > 0)
@@ -1428,8 +1437,8 @@ static cy_rslt_t network_receive(void *context, unsigned char *buffer, uint32_t 
 
     *bytes_received = 0;
 
-    /* Call wifi-mw-core network activity function to resume the network stack. */
-    cy_network_activity_notify(CY_NETWORK_ACTIVITY_TX);
+    /* Call network activity function to resume the network stack if it was suspended */
+    cy_network_activity_notify(CY_NETWORK_ACTIVITY_RX);
 
     do
     {
@@ -1716,7 +1725,7 @@ cy_rslt_t cy_socket_create(int domain, int type, int protocol, cy_socket_t *hand
         return CY_RSLT_MODULE_SECURE_SOCKETS_NOMEM;
     }
 
-    /* Call wifi-mw-core network activity function to resume the network stack. */
+    /* Call network activity function to resume the network stack if it was suspended */
     cy_network_activity_notify(CY_NETWORK_ACTIVITY_TX);
 
     if (protocol == CY_SOCKET_IPPROTO_TCP || protocol == CY_SOCKET_IPPROTO_TLS)
@@ -2164,6 +2173,9 @@ cy_rslt_t cy_socket_setsockopt(cy_socket_t handle, int level, int optname, const
                             cy_rtos_set_mutex(&ctx->socket_mutex);
                             return CY_RSLT_MODULE_SECURE_SOCKETS_NETIF_DOES_NOT_EXIST;
                         }
+
+                        /* Call network activity function to resume the network stack if it was suspended */
+                        cy_network_activity_notify(CY_NETWORK_ACTIVITY_TX);
                         if (ctx->transport_protocol == CY_SOCKET_IPPROTO_TCP)
                         {
                             status = nx_tcp_socket_delete(ctx->nxd_socket.tcp);
@@ -2333,7 +2345,7 @@ cy_rslt_t cy_socket_setsockopt(cy_socket_t handle, int level, int optname, const
 
                             member_index = next_free_multicast_slot(0);
 
-                            /* Call wifi-mw-core network activity function to resume the network stack. */
+                            /* Call network activity function to resume the network stack if it was suspended */
                             cy_network_activity_notify(CY_NETWORK_ACTIVITY_TX);
 
 #ifndef NX_DISABLE_IPV4
@@ -2375,7 +2387,7 @@ cy_rslt_t cy_socket_setsockopt(cy_socket_t handle, int level, int optname, const
                             clear_multicast_slot_status_bit(member_index);
                             multicast_info.multicast_member_count--;
 
-                            /* Call wifi-mw-core network activity function to resume the network stack. */
+                            /* Call network activity function to resume the network stack if it was suspended */
                             cy_network_activity_notify(CY_NETWORK_ACTIVITY_TX);
 
 #ifndef NX_DISABLE_IPV4
@@ -2619,6 +2631,9 @@ cy_rslt_t cy_socket_getsockopt(cy_socket_t handle, int level, int optname, void 
 
                         return CY_RSLT_MODULE_SECURE_SOCKETS_BADARG;
                     }
+
+                    /* Call network activity function to resume the network stack if it was suspended */
+                    cy_network_activity_notify(CY_NETWORK_ACTIVITY_RX);
 
                     /* Get the number of bytes available */
                     if (ctx->transport_protocol == CY_SOCKET_IPPROTO_UDP)
@@ -2915,6 +2930,9 @@ cy_rslt_t cy_socket_connect(cy_socket_t handle, cy_socket_sockaddr_t *address, u
         return CY_RSLT_MODULE_SECURE_SOCKETS_NOT_SUPPORTED;
     }
 
+    /* Call network activity function to resume the network stack if it was suspended */
+    cy_network_activity_notify(CY_NETWORK_ACTIVITY_TX);
+
     /* Check if socket is not yet bound to a local port */
     if (!ctx->nxd_socket.tcp->nx_tcp_socket_bound_next)
     {
@@ -2945,7 +2963,7 @@ cy_rslt_t cy_socket_connect(cy_socket_t handle, cy_socket_sockaddr_t *address, u
         return result;
     }
 
-    /* Call wifi-mw-core network activity function to resume the network stack. */
+    /* Call network activity function to resume the network stack if it was suspended */
     cy_network_activity_notify(CY_NETWORK_ACTIVITY_TX);
 
     ret = nxd_tcp_client_socket_connect(ctx->nxd_socket.tcp, &remote, address->port, ctx->nonblocking ? NX_NO_WAIT : NX_TIMEOUT(ctx->send_timeout));
@@ -3043,7 +3061,7 @@ cy_rslt_t cy_socket_disconnect(cy_socket_t handle, uint32_t timeout)
         return CY_RSLT_MODULE_SECURE_SOCKETS_NOT_SUPPORTED;
     }
 
-    /* Call wifi-mw-core network activity function to resume the network stack. */
+    /* Call network activity function to resume the network stack if it was suspended */
     cy_network_activity_notify(CY_NETWORK_ACTIVITY_TX);
 
     if (ctx->role == CY_TLS_ENDPOINT_CLIENT)
@@ -3280,7 +3298,7 @@ cy_rslt_t cy_socket_sendto(cy_socket_t handle, const void *buffer, uint32_t leng
         return result;
     }
 
-    /* Call wifi-mw-core network activity function to resume the network stack. */
+    /* Call network activity function to resume the network stack if it was suspended */
     cy_network_activity_notify(CY_NETWORK_ACTIVITY_TX);
 
     /* Create a packet buffer */
@@ -3517,7 +3535,7 @@ cy_rslt_t cy_socket_recvfrom(cy_socket_t handle, void *buffer, uint32_t length, 
         }
     }
 
-    /* Call wifi-mw-core network activity function to resume the network stack. */
+    /* Call network activity function to resume the network stack if it was suspended */
     cy_network_activity_notify(CY_NETWORK_ACTIVITY_TX);
 
     if (src_filter_set == true)
@@ -3689,7 +3707,7 @@ cy_rslt_t cy_socket_gethostbyname(const char *hostname, cy_socket_ip_version_t i
 
     if (!ip_found)
     {
-        /* Call wifi-mw-core network activity function to resume the network stack. */
+        /* Call network activity function to resume the network stack if it was suspended */
         cy_network_activity_notify(CY_NETWORK_ACTIVITY_TX);
 
         result = cy_network_get_hostbyname(CY_NETWORK_WIFI_STA_INTERFACE, (UCHAR *)hostname, lookup_type, DEFAULT_DNS_TIMEOUT, &ip_address);
@@ -3759,6 +3777,9 @@ cy_rslt_t cy_socket_poll(cy_socket_t handle, uint32_t *rwflags, uint32_t timeout
 
         return CY_RSLT_MODULE_SECURE_SOCKETS_NOT_CONNECTED;
     }
+
+    /* Call network activity function to resume the network stack if it was suspended */
+    cy_network_activity_notify(CY_NETWORK_ACTIVITY_TX);
 
     if (flags & CY_SOCKET_POLL_READ)
     {
@@ -3868,6 +3889,9 @@ cy_rslt_t cy_socket_delete(cy_socket_t handle)
         return CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET;
     }
 
+    /* Call network activity function to resume the network stack if it was suspended */
+    cy_network_activity_notify(CY_NETWORK_ACTIVITY_TX);
+
     if (ctx->transport_protocol != CY_SOCKET_IPPROTO_UDP)
     {
         /* disconnect the socket */
@@ -3918,9 +3942,6 @@ cy_rslt_t cy_socket_delete(cy_socket_t handle)
 
         ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "multicast_join_leave_mutex locked %s %d\n", __FILE__, __LINE__);
         cy_rtos_get_mutex(&multicast_join_leave_mutex, CY_RTOS_NEVER_TIMEOUT);
-
-        /* Call wifi-mw-core network activity function to resume the network stack. */
-        cy_network_activity_notify(CY_NETWORK_ACTIVITY_TX);
 
         num_multicast_groups = multicast_info.multicast_member_count;
         while (count < num_multicast_groups)
@@ -4061,7 +4082,7 @@ cy_rslt_t cy_socket_bind(cy_socket_t handle, cy_socket_sockaddr_t *address, uint
     ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex locked %s %d\r\n", __FILE__, __LINE__);
     cy_rtos_get_mutex(&ctx->socket_mutex, CY_RTOS_NEVER_TIMEOUT);
 
-    /* Call wifi-mw-core network activity function to resume the network stack. */
+    /* Call network activity function to resume the network stack if it was suspended */
     cy_network_activity_notify(CY_NETWORK_ACTIVITY_TX);
 
     /*
@@ -4134,7 +4155,7 @@ cy_rslt_t cy_socket_listen(cy_socket_t handle, int backlog)
         return CY_RSLT_SUCCESS;
     }
 
-    /* Call wifi-mw-core network activity function to resume the network stack. */
+    /* Call network activity function to resume the network stack if it was suspended */
     cy_network_activity_notify(CY_NETWORK_ACTIVITY_TX);
 
     /* Check if socket is already bound to a local port */
@@ -4241,6 +4262,9 @@ cy_rslt_t cy_socket_accept(cy_socket_t handle, cy_socket_sockaddr_t *address, ui
         return CY_RSLT_MODULE_SECURE_SOCKETS_NOMEM;
     }
 
+    /* Call network activity function to resume the network stack if it was suspended */
+    cy_network_activity_notify(CY_NETWORK_ACTIVITY_TX);
+
     /* Create the new socket */
     result = nx_tcp_socket_create(ctx->nxd_socket.tcp->nx_tcp_socket_ip_ptr, accept_ctx->nxd_socket.tcp, (CHAR*)"",
                                   NX_IP_NORMAL, FRAGMENT_OPTION, NX_IP_TIME_TO_LIVE, DEFAULT_TCP_WINDOW_SIZE, NX_NULL, cy_tcp_disconnect_callback);
@@ -4255,9 +4279,6 @@ cy_rslt_t cy_socket_accept(cy_socket_t handle, cy_socket_sockaddr_t *address, ui
 
         return CY_RSLT_MODULE_SECURE_SOCKETS_NOMEM;
     }
-
-    /* Call wifi-mw-core network activity function to resume the network stack. */
-    cy_network_activity_notify(CY_NETWORK_ACTIVITY_TX);
 
     timeout = ctx->nonblocking ? NX_NO_WAIT : NX_TIMEOUT(ctx->recv_timeout);
 

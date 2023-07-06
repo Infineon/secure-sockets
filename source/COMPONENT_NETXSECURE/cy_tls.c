@@ -75,7 +75,7 @@
 
 /* Maximum certificate size */
 #ifndef CY_TLS_MAX_CERTIFICATE_SIZE
-#define CY_TLS_MAX_CERTIFICATE_SIZE 2000
+#define CY_TLS_MAX_CERTIFICATE_SIZE 2500
 #endif
 
 typedef struct cy_tls_context_nx_secure
@@ -494,8 +494,8 @@ static cy_rslt_t network_receive(cy_tls_context_nx_secure_t *ctx, unsigned char 
     ULONG bytes_copied = 0;
     *bytes_received = 0;
 
-    /* Call wifi-mw-core network activity function to resume the network stack. */
-    cy_network_activity_notify(CY_NETWORK_ACTIVITY_TX);
+    /* Call network activity function to resume the network stack if it was suspended */
+    cy_network_activity_notify(CY_NETWORK_ACTIVITY_RX);
 
     do
     {
@@ -789,6 +789,10 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint, uint32_
         tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "failed to allocate memory for tls meta data \r\n");
         return CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE;
     }
+
+    /* Call network activity function to resume the network stack if it was suspended */
+    cy_network_activity_notify(CY_NETWORK_ACTIVITY_TX);
+
     /* Create TLS session */
 
     error = nx_secure_tls_session_create(&ctx->tls_session, &cy_tls_ciphers, ctx->tls_metadata, metadata_size);
@@ -1030,6 +1034,9 @@ cy_rslt_t cy_tls_send(void *context, const unsigned char *data, uint32_t length,
         return CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE;
     }
 
+    /* Call network activity function to resume the network stack if it was suspended */
+    cy_network_activity_notify(CY_NETWORK_ACTIVITY_TX);
+
     while ((length - *bytes_sent) > 0)
     {
         size = length - *bytes_sent;
@@ -1119,6 +1126,9 @@ cy_rslt_t cy_tls_delete_context(cy_tls_context_t context)
         ctx->nx_secure_ca_cert = NULL;
         ctx->rootca_der = NULL;
     }
+
+    /* Call network activity function to resume the network stack if it was suspended */
+    cy_network_activity_notify(CY_NETWORK_ACTIVITY_TX);
 
     if (ctx->tls_handshake_successful)
     {
