@@ -214,7 +214,7 @@ extern uint32_t cy_tls_get_bytes_avail(void *context);
 
 static bool is_socket_valid(cy_socket_ctx_t* socket)
 {
-    if((socket->socket_magic_header == SECURE_SOCKETS_MAGIC_HEADER) && (socket->socket_magic_footer == SECURE_SOCKETS_MAGIC_FOOTER))
+    if((socket != NULL) && (socket->socket_magic_header == SECURE_SOCKETS_MAGIC_HEADER) && (socket->socket_magic_footer == SECURE_SOCKETS_MAGIC_FOOTER))
     {
         return true;
     }

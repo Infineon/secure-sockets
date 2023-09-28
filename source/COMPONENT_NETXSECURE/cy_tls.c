@@ -468,20 +468,6 @@ static cy_rslt_t nxsecure_to_tls_error(UINT error)
 
 /*-----------------------------------------------------------*/
 /*
- * @brief helper function to get the current time from RTC.
- */
-ULONG get_current_time()
-{
-    time_t current_time;
-
-    memset(&current_time, 0, sizeof(current_time));
-
-    current_time = time(&current_time);
-
-    return current_time;
-}
-/*-----------------------------------------------------------*/
-/*
  * @brief Network receive helper function.
  */
 static cy_rslt_t network_receive(cy_tls_context_nx_secure_t *ctx, unsigned char *buffer, uint32_t len, uint32_t timeout, uint32_t *bytes_received)
@@ -754,6 +740,23 @@ cy_rslt_t cy_tls_create_context(void **context, cy_tls_params_t *params)
 
     return CY_RSLT_SUCCESS;
 }
+
+#ifdef ENABLE_HAVE_DATE_TIME
+/*-----------------------------------------------------------*/
+/*
+ * @brief helper function to get the current time from RTC.
+ */
+ULONG get_current_time()
+{
+    time_t current_time;
+
+    memset(&current_time, 0, sizeof(current_time));
+
+    current_time = time(&current_time);
+
+    return (current_time);
+}
+#endif /* ENABLE_HAVE_DATE_TIME */
 
 /*-----------------------------------------------------------*/
 cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint, uint32_t timeout)

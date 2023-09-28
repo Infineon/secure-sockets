@@ -49,7 +49,7 @@
 
 
 #ifndef DEFAULT_TCP_WINDOW_SIZE
-#define DEFAULT_TCP_WINDOW_SIZE             (7 * 1024)
+#define DEFAULT_TCP_WINDOW_SIZE             (16 * 1024)
 #endif
 
 #ifndef DEFAULT_UDP_QUEUE_SIZE
@@ -229,7 +229,7 @@ static cy_nxd_sock_t socket_list[NUM_SOCKETS];
 
 static bool is_socket_valid(cy_socket_ctx_t *socket)
 {
-    if ((socket->socket_magic_header == SECURE_SOCKETS_MAGIC_HEADER) && (socket->socket_magic_footer == SECURE_SOCKETS_MAGIC_FOOTER))
+    if ((socket != NULL) && (socket->socket_magic_header == SECURE_SOCKETS_MAGIC_HEADER) && (socket->socket_magic_footer == SECURE_SOCKETS_MAGIC_FOOTER))
     {
         return true;
     }
@@ -485,10 +485,10 @@ static bool str_to_ipv6(const char *str, uint32_t *ipv6_addr)
             if (curr_segment_idx & 0x1)
             {
                 ipv6_addr[addr_idx++] |= curr_segment_val;
-            }        
+            }
             else
             {
-                ipv6_addr[addr_idx] = curr_segment_val << 16; 
+                ipv6_addr[addr_idx] = curr_segment_val << 16;
             }
 
             curr_segment_idx++;
@@ -514,12 +514,12 @@ static bool str_to_ipv6(const char *str, uint32_t *ipv6_addr)
                     if (curr_segment_idx & 0x1)
                     {
                         addr_idx++;
-                    }  
+                    }
                     else
                     {
-                        ipv6_addr[addr_idx] = 0;        
+                        ipv6_addr[addr_idx] = 0;
                     }
-                    
+
                     curr_segment_idx++;
                     if (curr_segment_idx > (IPV6_SEGMENT_CNT-1))
                     {
@@ -544,12 +544,12 @@ static bool str_to_ipv6(const char *str, uint32_t *ipv6_addr)
     if (curr_segment_idx & 0x1)
     {
         ipv6_addr[addr_idx++] |= curr_segment_val;
-    }        
+    }
 
     if (curr_segment_idx != (IPV6_SEGMENT_CNT-1))
     {
         return false;
-    }    
+    }
 
     return true;
 }
@@ -793,84 +793,6 @@ static void free_socket(cy_socket_ctx_t *socket)
     free(socket);
 }
 
-static unsigned char max_fragment_length_to_mfl_code(uint32_t max_fragment_length)
-{
-    unsigned char mfl;
-    switch (max_fragment_length)
-    {
-        case 0:
-        {
-            mfl = SECURE_SOCKETS_MAX_FRAG_LEN_NONE;
-            break;
-        }
-        case 512:
-        {
-            mfl = SECURE_SOCKETS_MAX_FRAG_LEN_512;
-            break;
-        }
-        case 1024:
-        {
-            mfl = SECURE_SOCKETS_MAX_FRAG_LEN_1024;
-            break;
-        }
-        case 2048:
-        {
-            mfl = SECURE_SOCKETS_MAX_FRAG_LEN_2048;
-            break;
-        }
-        case 4096:
-        {
-            mfl = SECURE_SOCKETS_MAX_FRAG_LEN_4096;
-            break;
-        }
-        default:
-        {
-            mfl = SECURE_SOCKETS_MAX_FRAG_LEN_INVALID;
-            ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Invalid maximum fragment length\n");
-        }
-    }
-    return mfl;
-}
-
-static uint32_t mfl_code_to_max_fragment_length(unsigned char mfl_code)
-{
-    uint32_t max_fragment_length=0;;
-
-    switch (mfl_code)
-    {
-        case SECURE_SOCKETS_MAX_FRAG_LEN_NONE:
-        {
-            max_fragment_length = 0;
-            break;
-        }
-        case SECURE_SOCKETS_MAX_FRAG_LEN_512:
-        {
-            max_fragment_length = 512;
-            break;
-        }
-        case SECURE_SOCKETS_MAX_FRAG_LEN_1024:
-        {
-            max_fragment_length = 1024;
-            break;
-        }
-        case SECURE_SOCKETS_MAX_FRAG_LEN_2048:
-        {
-            max_fragment_length = 2048;
-            break;
-        }
-        case SECURE_SOCKETS_MAX_FRAG_LEN_4096:
-        {
-            max_fragment_length = 4096;
-            break;
-        }
-        default:
-        {
-            ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Invalid mflcode %d\n", mfl_code);
-        }
-    }
-    return max_fragment_length;
-}
-
 static cy_rslt_t nxd_to_secure_socket_error(UINT error)
 {
     switch (error)
@@ -1075,7 +997,7 @@ static bool is_nx_tcp_send_available(NX_TCP_SOCKET *socket_ptr)
     return is_tx_queue_free;
 }
 
-/* Check if a given UDP socket is available for sending data. */ 
+/* Check if a given UDP socket is available for sending data. */
 static bool is_nx_udp_send_available(NX_UDP_SOCKET *socket_ptr)
 {
     /* There is no queuing of data in UDP sockets. Data can be sent if the socket is bound to a port. */
@@ -1855,16 +1777,12 @@ cy_rslt_t cy_socket_setsockopt(cy_socket_t handle, int level, int optname, const
 
                 case CY_SOCKET_SO_TLS_MFL:
                 {
-                    uint32_t mfl = *((uint32_t *)optval);
-                    ctx->mfl_code = max_fragment_length_to_mfl_code(mfl);
-                    if (SECURE_SOCKETS_MAX_FRAG_LEN_INVALID == ctx->mfl_code)
-                    {
-                        cy_rtos_set_mutex(&ctx->socket_mutex);
-                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex unlocked %s %d\n", __FILE__, __LINE__);
+                    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Incompatible Socket option\n");
 
-                        return CY_RSLT_MODULE_SECURE_SOCKETS_BADARG;
-                    }
-                    break;
+                    cy_rtos_set_mutex(&ctx->socket_mutex);
+                    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex unlocked %s %d\n", __FILE__, __LINE__);
+
+                    return CY_RSLT_MODULE_SECURE_SOCKETS_OPTION_NOT_SUPPORTED;
                 }
                 case CY_SOCKET_SO_TRUSTED_ROOTCA_CERTIFICATE:
                 {
@@ -2550,22 +2468,12 @@ cy_rslt_t cy_socket_getsockopt(cy_socket_t handle, int level, int optname, void 
 
                 case CY_SOCKET_SO_TLS_MFL:
                 {
-                    uint32_t mfl;
+                    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Incompatible Socket option\n");
 
-                    if (*optlen < sizeof(mfl))
-                    {
-                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "insufficient option value buffer\n");
+                    cy_rtos_set_mutex(&ctx->socket_mutex);
+                    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex unlocked %s %d\n", __FILE__, __LINE__);
 
-                        cy_rtos_set_mutex(&ctx->socket_mutex);
-                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex unlocked %s %d\n", __FILE__, __LINE__);
-
-                        return CY_RSLT_MODULE_SECURE_SOCKETS_BADARG;
-                    }
-
-                    mfl = mfl_code_to_max_fragment_length(ctx->mfl_code);
-                    *((uint32_t *)optval) = mfl;
-                    *optlen = sizeof(mfl);
-                    break;
+                    return CY_RSLT_MODULE_SECURE_SOCKETS_OPTION_NOT_SUPPORTED;
                 }
                 default:
                 {
@@ -3322,7 +3230,7 @@ cy_rslt_t cy_socket_sendto(cy_socket_t handle, const void *buffer, uint32_t leng
         return CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE;
     }
 
-    /* Add data to the packet's payload. 
+    /* Add data to the packet's payload.
      * The below API will automatically perform packet chaining, if enabled. If there isn't enough
      * packets available in the packet pool for the amount of data to be sent, it will immediately
      * return with error.
@@ -3583,7 +3491,7 @@ cy_rslt_t cy_socket_recvfrom(cy_socket_t handle, void *buffer, uint32_t length, 
             if (!ip_addrs_same(&addr, &remote) || port != src_addr->port)
             {
                 ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "Sender addr doesn't match src_filter\n");
-                continue;
+                /* Removing 'continue' here as this is a do while(0) loop and continue has no effect */
             }
         }
     } while (0);
@@ -4428,7 +4336,7 @@ cy_rslt_t cy_socket_accept(cy_socket_t handle, cy_socket_sockaddr_t *address, ui
     nx_tcp_socket_receive_notify(accept_ctx->nxd_socket.tcp, cy_tcp_receive_callback);
 
     /*
-     * Ideally, the existing callbacks should not be copied. Typically the callers have 
+     * Ideally, the existing callbacks should not be copied. Typically the callers have
      * added a callback argument for the callback event. If we copy the callback
      * info to the new socket, the callback argument will be same as that passed to the
      * the listening socket, instead of it being unique to the connected client socket.

@@ -12,6 +12,10 @@ Refer to the [README.md](./README.md) for a complete description of the Secure S
 
 ## Changelog
 
+### v3.3.0
+* Resolved coverity warnings
+* Added support for KIT_XMC72_EVK_MUR_43439M2 kit
+
 ### v3.2.2
 * Minor bug fixes
 
