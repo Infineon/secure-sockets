@@ -49,7 +49,11 @@
 
 
 #ifndef DEFAULT_TCP_WINDOW_SIZE
+#ifdef COMPONENT_CAT5
+#define DEFAULT_TCP_WINDOW_SIZE             (12 * 1024)
+#else
 #define DEFAULT_TCP_WINDOW_SIZE             (16 * 1024)
+#endif
 #endif
 
 #ifndef DEFAULT_UDP_QUEUE_SIZE

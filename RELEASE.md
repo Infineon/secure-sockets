@@ -9,8 +9,14 @@ Refer to the [README.md](./README.md) for a complete description of the Secure S
 | Datagram Transport Layer Security (DTLS) is not supported in the Secure Sockets Library | Currently, no workaround is available. Support will be added in a future release. |
 | TLS client connection takes around 25 seconds in PKCS mode for RSA keys due to the limitation of hardware crypto for RSA. | It is recommended to use ECDHE keys for the client connection. Connection time improvement for RSA keys will be addressed in a future release. |
 | IAR 9.30 toolchain throws build errors on Debug mode, if application explicitly includes iar_dlmalloc.h file | Add '--advance-heap' to LDFLAGS in application Makefile. |
+| Socket receive fails if application establishes TLS1.3 connection to a server where session tickets are enabled. This is due to the bug in third party MBEDTLS library | Disable session tickets on the server side. |
 
 ## Changelog
+
+### v3.4.0
+* Supports TLS version 1.3
+* Supports Mbed TLS version 3.4.0
+* Added support for CY8CEVAL-062S2-CYW43022CUB kit
 
 ### v3.3.0
 * Resolved coverity warnings

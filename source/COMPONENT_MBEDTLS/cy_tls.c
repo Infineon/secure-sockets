@@ -49,13 +49,15 @@
 #include <mbedtls/entropy.h>
 #include <mbedtls/ctr_drbg.h>
 #include <mbedtls/error.h>
-#include <mbedtls/certs.h>
+#include <mbedtls/x509_crt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
 #include <time.h>
 #include <mbedtls/platform_time.h>
+#include "psa/crypto.h"
+#include "cy_secure_socket_mbedtls_version.h"
 
 #ifdef COMPONENT_4390X
 extern cy_rslt_t cy_prng_get_random( void* buffer, uint32_t buffer_length );
@@ -543,12 +545,23 @@ cy_rslt_t cy_tls_create_identity(const char *certificate_data, const uint32_t ce
         /* load key */
         mbedtls_pk_init( &identity->private_key );
 
-        ret = mbedtls_pk_parse_key( &identity->private_key, (const unsigned char *) private_key, private_key_len+1, NULL, 0 );
+#if MBEDTLS_VERSION_MAJOR == MBEDTLS_MAJOR_VERSION_3
+        ret = mbedtls_pk_parse_key( &identity->private_key, (const unsigned char *) private_key, private_key_len+1, NULL, 0, NULL, 0 );
         if ( ret != 0 )
         {
             tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_pk_parse_key failed with error %d\r\n", ret);
             result = CY_RSLT_MODULE_TLS_PARSE_KEY;
         }
+#elif MBEDTLS_VERSION_MAJOR == MBEDTLS_MAJOR_VERSION_2
+        ret = mbedtls_pk_parse_key( &identity->private_key, (const unsigned char *) private_key, private_key_len+1, NULL, 0);
+        if ( ret != 0 )
+        {
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_pk_parse_key failed with error %d\r\n", ret);
+            result = CY_RSLT_MODULE_TLS_PARSE_KEY;
+        }
+#else
+#error "Unsupported MEBDTLS version"
+#endif
     }
 
     if(result != CY_RSLT_SUCCESS)
@@ -927,6 +940,9 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint, uint32_
     cy_tls_identity_t *tls_identity;
     cy_rslt_t result = CY_RSLT_SUCCESS;
     bool load_cert_key_from_ram = CY_TLS_LOAD_CERT_FROM_RAM;
+#if MBEDTLS_VERSION_MAJOR == MBEDTLS_MAJOR_VERSION_3
+    psa_status_t psa_status;
+#endif
 
     (void)(timeout);
 
@@ -940,6 +956,15 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint, uint32_
     }
 
     tls_identity = (cy_tls_identity_t *)ctx->tls_identity;
+
+#if MBEDTLS_VERSION_MAJOR == MBEDTLS_MAJOR_VERSION_3
+    psa_status = psa_crypto_init();
+    if(CY_RSLT_SUCCESS != psa_status)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Failed to initialize PSA crypto \r\n", psa_status);
+        return CY_RSLT_MODULE_TLS_ERROR;
+    }
+#endif
 
     /* Initialize mbedTLS structures. */
     mbedtls_ssl_init(&ctx->ssl_ctx);
@@ -967,6 +992,20 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint, uint32_
     }
 
     mbedtls_ssl_conf_rng(&ctx->ssl_config, mbedtls_ctr_drbg_random, &ctx->ctr_drbg);
+
+    /* When device is acting as a server and both TLS1.2 and TLS1.3 are enabled, MBEDTLS 3.4.0 version doesnt support version negotiation
+     * on server side, hence user need to provide the TLS version that need to be forced on server side. Please note that this is required
+     * only for server since client already supports version negotiation
+     */
+#if MBEDTLS_VERSION_MAJOR == MBEDTLS_MAJOR_VERSION_3
+#ifdef MBEDTLS_SSL_PROTO_TLS1_3
+    if(endpoint == CY_TLS_ENDPOINT_SERVER)
+    {
+        mbedtls_ssl_conf_min_tls_version(&ctx->ssl_config, FORCE_TLS_VERSION);
+        mbedtls_ssl_conf_max_tls_version(&ctx->ssl_config, FORCE_TLS_VERSION);
+    }
+#endif
+#endif
 
     mbedtls_ssl_conf_authmode(&ctx->ssl_config, ctx->auth_mode);
     ret = mbedtls_ssl_conf_max_frag_len(&ctx->ssl_config, ctx->mfl_code);
@@ -1126,6 +1165,9 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint, uint32_
     }
 
     ctx->tls_handshake_successful = true;
+#if MBEDTLS_VERSION_MAJOR == MBEDTLS_MAJOR_VERSION_3
+    tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_INFO, "Negotiated TLS version : %0x [TLS1.2 (303), TLS1.3 (304)] \r\n", ctx->ssl_ctx.MBEDTLS_PRIVATE(tls_version));
+#endif
     tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "TLS handshake successful \r\n");
 
     return CY_RSLT_SUCCESS;
