@@ -1,5 +1,5 @@
 /*
- * Copyright 2023, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2024, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -62,7 +62,12 @@ extern "C" {
 /******************************************************
  *                      Constants
  ******************************************************/
-
+/*! \cond */
+#define MAX_KEY_LENGTH      48
+#define MAX_MAC_KEY_LENGTH  32
+#define MAX_IV_LENGTH       32
+#define MAX_SEQUENCE_LENGTH 8
+/*! \endcond */
 /******************************************************
  *                      Enums
  ******************************************************/
@@ -162,8 +167,55 @@ typedef struct cy_tls_params
     bool              load_device_cert_key_from_ram; /**< Flag for setting the device cert & key location. */
 #endif
 } cy_tls_params_t;
-
 /** \} group_cy_tls_structures */
+
+/*! \cond */
+/**
+ * Parameter structure for complete TLS offload info.
+ */
+typedef struct cy_tls_offload_info
+{
+    int protocol_major_ver;                        /**< TLS major version. */
+    int protocol_minor_ver;                        /**< TLS minor version. */
+    uint32_t compression_algorithm;                /**< TLS negotiated compression method. */
+    uint32_t cipher_algorithm;                     /**< TLS negotiated cipher algorithm. */
+    uint32_t cipher_type;                          /**< TLS negotiated cipher type. */
+    uint32_t mac_algorithm;                        /**< TLS negotiated MAC algorithm. */
+    uint8_t read_master_key[MAX_KEY_LENGTH];       /**< master key used for read. */
+    uint32_t read_master_key_len;                  /**< master key length for read. */
+    uint8_t read_iv[MAX_IV_LENGTH];                /**< iv for read. */
+    uint32_t read_iv_len;                          /**< iv length for read. */
+    uint8_t read_mac_key[MAX_MAC_KEY_LENGTH];      /**< MAC key used for read. */
+    uint32_t read_mac_key_len;                     /**< MAC key length for read. */
+    uint8_t read_sequence[MAX_SEQUENCE_LENGTH];    /**< 8-byte incoming message counter. */
+    uint32_t read_sequence_len;                    /**< read sequence data length. */
+    uint8_t write_master_key[MAX_KEY_LENGTH];      /**< master key used for write. */
+    uint32_t write_master_key_len;                 /**< master key length for write. */
+    uint8_t write_iv[MAX_IV_LENGTH];               /**< iv for write. */
+    uint32_t write_iv_len;                         /**< iv length for write. */
+    uint8_t write_mac_key[MAX_MAC_KEY_LENGTH];     /**< MAC key used for write. */
+    uint32_t write_mac_key_len;                    /**< MAC key length for write. */
+    uint8_t write_sequence[MAX_SEQUENCE_LENGTH];   /**< 8-byte outgoing sequence number. */
+    uint32_t write_sequence_len;                   /**< write sequence data length. */
+    bool encrypt_then_mac;                         /**< write sequence data length. */
+} cy_tls_offload_info_t;
+
+/**
+ * Parameter structure for exported TLS keys.
+ */
+typedef struct cy_tls_keys
+{
+    uint32_t iv_len;                         /**< iv data length. */
+    uint32_t key_len;                        /**< key data length. */
+    uint32_t mac_len;                        /**< mac data length. */
+    uint8_t key_dec[MAX_KEY_LENGTH];         /**< Decryption key data. */
+    uint8_t iv_dec[MAX_IV_LENGTH];           /**< iv decryption data. */
+    uint8_t mac_dec[MAX_MAC_KEY_LENGTH];     /**< mac decryption data. */
+    uint8_t key_enc[MAX_KEY_LENGTH];         /**< encryption key data. */
+    uint8_t iv_enc[MAX_IV_LENGTH];           /**< iv encryption data. */
+    uint8_t mac_enc[MAX_MAC_KEY_LENGTH];     /**< mac encryption data. */
+} cy_tls_keys_t;
+/*! \endcond */
 
 /**
  * \addtogroup group_cy_tls_functions
@@ -393,8 +445,35 @@ cy_rslt_t cy_tls_config_cert_profile_param(cy_tls_md_type_t mds_type, cy_tls_rsa
  */
 cy_rslt_t cy_tls_is_certificate_valid_x509(const char *certificate_data,
                                            const uint32_t certificate_len);
-
 /** \} group_cy_tls_functions */
+
+/*! \cond */
+/**
+ * Get the generated TLS keys and SSL Cipher details used for the TLS connection.
+ *
+ * @param[in]  context   Context handle returned by the TLS Layer created using \ref cy_tls_create_context.
+ * @param[out] tls_info Structure to store the TLS keys and SSl session details.
+ *
+ * @return CY_RSLT_SUCCESS on success; an error code on failure.
+ *         Important error code related to this API function is: \n
+ *         CY_RSLT_MODULE_TLS_BADARG
+ */
+
+cy_rslt_t cy_tls_get_tls_info(void *context, cy_tls_offload_info_t *tls_info);
+
+/**
+ * Update the read and write sequence to the SSL context.
+ *
+ * @param[in]  context    Context handle returned by the TLS Layer created using \ref cy_tls_create_context.
+ * @param[out] read_seq   Byte array containing the read sequence to be update for the SSL context.
+ * @param[out] write_seq  Byte array containing the write sequence to be update for the SSL context.
+ *
+ * @return CY_RSLT_SUCCESS on success; an error code on failure.
+ *         Important error code related to this API function is: \n
+ *         CY_RSLT_MODULE_TLS_BADARG
+ */
+cy_rslt_t cy_tls_update_tls_sequence(void *context, uint8_t *read_seq, uint8_t* write_seq);
+/*! \endcond */
 
 #ifdef __cplusplus
 } /*extern "C" */

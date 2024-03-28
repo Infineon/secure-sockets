@@ -1,5 +1,5 @@
 /*
- * Copyright 2023, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2024, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -167,6 +167,10 @@ const NX_SECURE_TLS_CRYPTO cy_tls_ciphers =
 #if (NX_SECURE_TLS_TLS_1_2_ENABLED)
     &crypto_method_sha256,
     &crypto_method_tls_prf_sha256,
+#ifdef COMPONENT_NETXSECURE_WPA3
+    &crypto_method_sha384,
+    &crypto_method_tls_prf_sha384,
+#endif
 #endif
 
 #if (NX_SECURE_TLS_TLS_1_3_ENABLED)

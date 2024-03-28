@@ -1,5 +1,5 @@
 /*
- * Copyright 2023, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2024, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -57,7 +57,7 @@
 #endif
 
 #ifndef DEFAULT_UDP_QUEUE_SIZE
-#define DEFAULT_UDP_QUEUE_SIZE              (5)
+#define DEFAULT_UDP_QUEUE_SIZE              (10)
 #endif
 
 #ifndef DEFAULT_PACKET_ALLOCATE_TIMEOUT
@@ -189,6 +189,7 @@ typedef enum
 
 #define SECURE_SOCKETS_MAGIC_HEADER         0xbaefdcbd
 #define SECURE_SOCKETS_MAGIC_FOOTER         0xefbcabfe
+#define SECURE_SOCKETS_TOS_MASK             0x00ff0000
 
 /* Maximum number of multicast groups supported. */
 #define SECURE_SOCKETS_MAX_MULTICAST_GROUPS 10
@@ -838,8 +839,12 @@ static cy_rslt_t nxd_to_secure_socket_error(UINT error)
 //        case ERR_BUF:
 //        case ERR_WOULDBLOCK:
 //        case ERR_IF:
+
+        case NX_WINDOW_OVERFLOW:
+            return CY_RSLT_MODULE_SECURE_SOCKETS_WOULDBLOCK;
+
         default:
-            printf("NetXDuo error: 0x%02x\n", error);
+            ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "NetXDuo error: 0x%02x\n", error);
             return CY_RSLT_MODULE_SECURE_SOCKETS_TCPIP_ERROR;
     }
 }
@@ -2368,12 +2373,19 @@ cy_rslt_t cy_socket_setsockopt(cy_socket_t handle, int level, int optname, const
 
                 case CY_SOCKET_SO_IP_TOS:
                 {
-                    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Socket option not supported\n");
+                    uint32_t type_of_service;
 
-                    cy_rtos_set_mutex(&ctx->socket_mutex);
-                    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex unlocked %s %d\n", __FILE__, __LINE__);
+                    type_of_service = (((*(uint32_t *)optval) << 16) & SECURE_SOCKETS_TOS_MASK);
 
-                    return CY_RSLT_MODULE_SECURE_SOCKETS_OPTION_NOT_SUPPORTED;
+                    if(ctx->transport_protocol == CY_SOCKET_IPPROTO_UDP)
+                    {
+                        ctx->nxd_socket.udp -> nx_udp_socket_type_of_service = type_of_service;
+                    }
+                    else
+                    {
+                        ctx->nxd_socket.tcp -> nx_tcp_socket_type_of_service = type_of_service;
+                    }
+                    break;
                 }
                 default:
                 {
@@ -2756,12 +2768,16 @@ cy_rslt_t cy_socket_getsockopt(cy_socket_t handle, int level, int optname, void 
 
                 case CY_SOCKET_SO_IP_TOS:
                 {
-                    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Socket option not supported\n");
-
-                    cy_rtos_set_mutex(&ctx->socket_mutex);
-                    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex unlocked %s %d\n", __FILE__, __LINE__);
-
-                    return CY_RSLT_MODULE_SECURE_SOCKETS_OPTION_NOT_SUPPORTED;
+                    if(ctx->transport_protocol == CY_SOCKET_IPPROTO_UDP)
+                    {
+                        *(uint32_t *)optval = ctx->nxd_socket.udp -> nx_udp_socket_type_of_service;
+                    }
+                    else
+                    {
+                        *(uint32_t *)optval = ctx->nxd_socket.tcp -> nx_tcp_socket_type_of_service;
+                    }
+                    *(uint32_t *)optval = (*(uint32_t *)optval & SECURE_SOCKETS_TOS_MASK) >> 16;
+                    break;
                 }
 
                 default:

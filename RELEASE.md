@@ -8,10 +8,14 @@ Refer to the [README.md](./README.md) for a complete description of the Secure S
 | ------- | ---------- |
 | Datagram Transport Layer Security (DTLS) is not supported in the Secure Sockets Library | Currently, no workaround is available. Support will be added in a future release. |
 | TLS client connection takes around 25 seconds in PKCS mode for RSA keys due to the limitation of hardware crypto for RSA. | It is recommended to use ECDHE keys for the client connection. Connection time improvement for RSA keys will be addressed in a future release. |
-| IAR 9.30 toolchain throws build errors on Debug mode, if application explicitly includes iar_dlmalloc.h file | Add '--advance-heap' to LDFLAGS in application Makefile. |
+| IAR 9.40.2 toolchain throws build errors on Debug mode, if application explicitly includes iar_dlmalloc.h file | Add '--advanced_heap' to LDFLAGS in application Makefile. |
 | Socket receive fails if application establishes TLS1.3 connection to a server where session tickets are enabled. This is due to the bug in third party MBEDTLS library | Disable session tickets on the server side. |
 
 ## Changelog
+
+### v3.5.0
+* Added socket options to get local and peer address
+* Added changes to eliminate use of HAL TRNG APIs
 
 ### v3.4.0
 * Supports TLS version 1.3
@@ -97,8 +101,8 @@ This version of the library was validated for compatibility with the following s
 
 | Software and Tools                                        | Version |
 | :---                                                      | :----:  |
-| ModusToolbox&trade; Software Environment                  | 3.1     |
-| ModusToolbox&trade; Device Configurator                   | 4.10    |
+| ModusToolbox&trade; Software Environment                  | 3.2     |
+| ModusToolbox&trade; Device Configurator                   | 4.20    |
 | GCC Compiler                                              | 11.3.1  |
-| IAR Compiler                                              | 9.30    |
+| IAR Compiler                                              | 9.40.2  |
 | Arm Compiler 6                                            | 6.16    |

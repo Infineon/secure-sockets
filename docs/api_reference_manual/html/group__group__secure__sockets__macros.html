@@ -237,6 +237,12 @@ Macros</h2></td></tr>
 <tr class="memitem:gace8deb2d476b5a1bf57d1fffbdbc36d0"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__secure__sockets__macros.html#gace8deb2d476b5a1bf57d1fffbdbc36d0">CY_SOCKET_SO_TCP_NODELAY</a>&#160;&#160;&#160;( 25 )</td></tr>
 <tr class="memdesc:gace8deb2d476b5a1bf57d1fffbdbc36d0"><td class="mdescLeft">&#160;</td><td class="mdescRight">Enable/disable TCP no delay socket option.  <a href="group__group__secure__sockets__macros.html#gace8deb2d476b5a1bf57d1fffbdbc36d0">More...</a><br /></td></tr>
 <tr class="separator:gace8deb2d476b5a1bf57d1fffbdbc36d0"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga22b4a6f9f25c1815f016dcc7ceb17a16"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__secure__sockets__macros.html#ga22b4a6f9f25c1815f016dcc7ceb17a16">CY_SOCKET_SO_LOCALADDR</a>&#160;&#160;&#160;( 26 )</td></tr>
+<tr class="memdesc:ga22b4a6f9f25c1815f016dcc7ceb17a16"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the local address details for the socket.  <a href="group__group__secure__sockets__macros.html#ga22b4a6f9f25c1815f016dcc7ceb17a16">More...</a><br /></td></tr>
+<tr class="separator:ga22b4a6f9f25c1815f016dcc7ceb17a16"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:ga8d1184c6afa6cfe38f27dd22d8dc9e6e"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="group__group__secure__sockets__macros.html#ga8d1184c6afa6cfe38f27dd22d8dc9e6e">CY_SOCKET_SO_PEERADDR</a>&#160;&#160;&#160;( 27 )</td></tr>
+<tr class="memdesc:ga8d1184c6afa6cfe38f27dd22d8dc9e6e"><td class="mdescLeft">&#160;</td><td class="mdescRight">Get the peer address details for the socket.  <a href="group__group__secure__sockets__macros.html#ga8d1184c6afa6cfe38f27dd22d8dc9e6e">More...</a><br /></td></tr>
+<tr class="separator:ga8d1184c6afa6cfe38f27dd22d8dc9e6e"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:gaf28eb4b38ee21e41c56f26cae8431439"><td class="memItemLeft" align="right" valign="top"><a id="gaf28eb4b38ee21e41c56f26cae8431439" name="gaf28eb4b38ee21e41c56f26cae8431439"></a>
 #define&#160;</td><td class="memItemRight" valign="bottom"><b>CY_SOCKET_ROOTCA_SECURE_STORAGE</b>&#160;&#160;&#160;( 0x0 )</td></tr>
 <tr class="memdesc:gaf28eb4b38ee21e41c56f26cae8431439"><td class="mdescLeft">&#160;</td><td class="mdescRight">Use RootCA certificate which is provisioned. <br /></td></tr>
@@ -839,6 +845,46 @@ Macros</h2></td></tr>
 <p >Arguments related to this optname:</p><ul>
 <li>Option value: Pointer holding the uint8_t value. Value "0" enables Nagle's algorithm. Value "1" disables Nagle's algorithm.</li>
 <li>Level: <a class="el" href="group__group__secure__sockets__macros.html#gab245bb6040c3f680cc38e39e9e3a97d7">CY_SOCKET_SOL_TCP</a> </li>
+</ul>
+
+</div>
+</div>
+<a id="ga22b4a6f9f25c1815f016dcc7ceb17a16" name="ga22b4a6f9f25c1815f016dcc7ceb17a16"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ga22b4a6f9f25c1815f016dcc7ceb17a16">&#9670;&nbsp;</a></span>CY_SOCKET_SO_LOCALADDR</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define CY_SOCKET_SO_LOCALADDR&#160;&#160;&#160;( 26 )</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Get the local address details for the socket. </p>
+<p >Arguments related to this optname:</p><ul>
+<li>Option value: Pointer to the <a class="el" href="structcy__socket__sockaddr__t.html" title="Socket Address.">cy_socket_sockaddr_t</a> type into which the API function fills the local address and port number.</li>
+<li>Level: <a class="el" href="group__group__secure__sockets__macros.html#gaf36b6f0f1bc53927d148746fedad7149">CY_SOCKET_SOL_SOCKET</a> </li>
+</ul>
+
+</div>
+</div>
+<a id="ga8d1184c6afa6cfe38f27dd22d8dc9e6e" name="ga8d1184c6afa6cfe38f27dd22d8dc9e6e"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#ga8d1184c6afa6cfe38f27dd22d8dc9e6e">&#9670;&nbsp;</a></span>CY_SOCKET_SO_PEERADDR</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define CY_SOCKET_SO_PEERADDR&#160;&#160;&#160;( 27 )</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p>Get the peer address details for the socket. </p>
+<p >Arguments related to this optname:</p><ul>
+<li>Option value: Pointer to the <a class="el" href="structcy__socket__sockaddr__t.html" title="Socket Address.">cy_socket_sockaddr_t</a> type into which the API function fills the peer address and port number.</li>
+<li>Level: <a class="el" href="group__group__secure__sockets__macros.html#gaf36b6f0f1bc53927d148746fedad7149">CY_SOCKET_SOL_SOCKET</a> </li>
 </ul>
 
 </div>

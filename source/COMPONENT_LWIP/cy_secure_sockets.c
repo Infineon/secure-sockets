@@ -1,5 +1,5 @@
 /*
- * Copyright 2023, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2024, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -845,9 +845,9 @@ static void cy_process_receive_event_with_valid_context(cy_socket_ctx_t *ctx)
                 {
                     ctx->callbacks.receive.callback((cy_socket_t)ctx, ctx->callbacks.receive.arg);
                 }
-                /* Problem: Currently, LWIP sends event to application/library for each packet received from the network, if data from the packet is not yet consumed. 
-                 * In secure connection, when a TLS record is fragmented over multiple LWIP packets, if the first read call from application to security stack, reads all 
-                 * the LWIP packets for that TLS record then data is consumed from the packet. Hence LWIP doesn't send any more event to application and due to which the 
+                /* Problem: Currently, LWIP sends event to application/library for each packet received from the network, if data from the packet is not yet consumed.
+                 * In secure connection, when a TLS record is fragmented over multiple LWIP packets, if the first read call from application to security stack, reads all
+                 * the LWIP packets for that TLS record then data is consumed from the packet. Hence LWIP doesn't send any more event to application and due to which the
                  * application doesnt receive full data.
                  *
                  * Solution: Added ctx->data_received to keep track of data read in security stack. If there are no more packets with LWIP, then check if the security stack
@@ -1269,7 +1269,7 @@ static cy_rslt_t network_send(void *context, const unsigned char *data_buffer, u
     if(ret != ERR_OK)
     {
         *bytes_sent = 0;
-        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "netconn_write_partly failed with error %d\n", ret);
+        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "netconn_write_partly failed with error %d\n", ret);
         return  LWIP_TO_CY_SECURE_SOCKETS_ERR(ret) ;
     }
 
@@ -1320,7 +1320,7 @@ static cy_rslt_t network_receive(void *context, unsigned char *buffer, uint32_t 
                 }
                 else
                 {
-                    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "netconn_recv_tcp_pbuf returned %d\n", ret);
+                    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "netconn_recv_tcp_pbuf returned %d\n", ret);
                     return LWIP_TO_CY_SECURE_SOCKETS_ERR(ret);
                 }
             }
@@ -2074,7 +2074,7 @@ cy_rslt_t cy_socket_setsockopt(cy_socket_t handle, int level, int optname, const
                             result = cy_worker_thread_enqueue(&socket_worker, cy_process_connect_disconnect_notification_event, (void *)ctx->conn_handler);
                             if(result != CY_RSLT_SUCCESS)
                             {
-                                ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_defer_work failed at file: %s line: %d with error: 0x%lx\r\n", __FILE__, __LINE__, result);
+                                ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "cy_defer_work failed at file: %s line: %d with error: 0x%lx\r\n", __FILE__, __LINE__, result);
                             }
                         }
                         ctx->disconnect_event_cache = false;
@@ -2750,7 +2750,51 @@ cy_rslt_t cy_socket_getsockopt(cy_socket_t handle,  int level, int optname, void
 
                     break;
                 }
+                case CY_SOCKET_SO_LOCALADDR:
+                {
+                    ip_addr_t local_addr;
+                    u16_t local_port;
+                    cy_socket_sockaddr_t * address = optval;
 
+                    if (*optlen < sizeof(cy_socket_sockaddr_t))
+                    {
+                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "insufficient option value buffer\n");
+
+                        cy_rtos_set_mutex(&ctx->socket_mutex);
+                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex unlocked %s %d\n", __FILE__, __LINE__);
+
+                        return CY_RSLT_MODULE_SECURE_SOCKETS_BADARG;
+                    }
+
+                    netconn_addr(ctx->conn_handler, &local_addr, &local_port);
+                    convert_lwip_to_secure_socket_ip_addr(&(address->ip_address), &local_addr);
+                    address->port = local_port;
+
+                    break;
+                }
+
+                case CY_SOCKET_SO_PEERADDR:
+                {
+                    ip_addr_t peer_addr;
+                    u16_t peer_port;
+                    cy_socket_sockaddr_t * address = optval;
+
+                    if (*optlen < sizeof(cy_socket_sockaddr_t))
+                    {
+                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "insufficient option value buffer\n");
+
+                        cy_rtos_set_mutex(&ctx->socket_mutex);
+                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex unlocked %s %d\n", __FILE__, __LINE__);
+
+                        return CY_RSLT_MODULE_SECURE_SOCKETS_BADARG;
+                    }
+
+                    netconn_peer(ctx->conn_handler, &peer_addr, &peer_port);
+                    convert_lwip_to_secure_socket_ip_addr(&(address->ip_address), &peer_addr);
+                    address->port = peer_port;
+
+                    break;
+                }
                 default:
                 {
                     ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Invalid Socket option\r\n");
@@ -3209,14 +3253,7 @@ cy_rslt_t cy_socket_disconnect(cy_socket_t handle, uint32_t timeout)
     error = netconn_close(ctx->conn_handler);
     if(error != ERR_OK)
     {
-        if(error == ERR_CONN || error == ERR_CLSD)
-        {
-            ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "netconn_close failed with error %d\n",  error);
-        }
-        else
-        {
-            ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "netconn_close failed with error %d\n",  error);
-        }
+        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "netconn_close failed with error %d\n",  error);
     }
 
     /* LwIP doesn't allow reusing netconn object once it's closed. Also for server mode sockets, the client sockets
@@ -3235,7 +3272,7 @@ cy_rslt_t cy_socket_disconnect(cy_socket_t handle, uint32_t timeout)
             ctx->conn_handler = NULL;
         }
     }
-    
+
     /* Reset the data_received element of the socket */
     ctx->data_received = 0;
 
@@ -3315,7 +3352,7 @@ cy_rslt_t cy_socket_send(cy_socket_t handle, const void *data, uint32_t size, in
         ret = cy_tls_send(ctx->tls_ctx, data, size, 0, bytes_sent);
         if(ret != CY_RSLT_SUCCESS)
         {
-            ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_tls_send failed with error code %lu\n", ret);
+            ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "cy_tls_send failed with error code %lu\n", ret);
             ret = TLS_TO_CY_SECURE_SOCKETS_ERR(ret);
         }
     }
@@ -3324,7 +3361,7 @@ cy_rslt_t cy_socket_send(cy_socket_t handle, const void *data, uint32_t size, in
         ret = network_send((void *)ctx, data, size, bytes_sent);
         if( ret != CY_RSLT_SUCCESS)
         {
-            ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_network_send failed with error code %lu\n", ret);
+            ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "cy_network_send failed with error code %lu\n", ret);
         }
     }
 
@@ -3540,7 +3577,7 @@ cy_rslt_t cy_socket_recv(cy_socket_t handle, void * data, uint32_t size, int fla
         ret = cy_tls_recv(ctx->tls_ctx, data, size, 0, bytes_received);
         if(ret != CY_RSLT_SUCCESS)
         {
-            ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_tls_recv failed with error %ld\n", ret);
+            ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "cy_tls_recv failed with error %ld\n", ret);
             ret = TLS_TO_CY_SECURE_SOCKETS_ERR(ret);
         }
         ctx->data_received = cy_tls_get_bytes_avail(ctx->tls_ctx);
@@ -3550,7 +3587,7 @@ cy_rslt_t cy_socket_recv(cy_socket_t handle, void * data, uint32_t size, int fla
         ret = network_receive((void *)ctx, data, size, bytes_received);
         if(ret != CY_RSLT_SUCCESS)
         {
-            ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "network_recv_callback failed with error [0x%lX]\n", ret);
+            ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "network_recv_callback failed with error [0x%lX]\n", ret);
         }
     }
 
@@ -4523,7 +4560,7 @@ cy_rslt_t cy_socket_accept(cy_socket_t handle, cy_socket_sockaddr_t *address, ui
 
             return TLS_TO_CY_SECURE_SOCKETS_ERR(ret);
         }
-        
+
         ret = cy_tls_connect(accept_ctx->tls_ctx, CY_TLS_ENDPOINT_SERVER, 0);
         if(ret != CY_RSLT_SUCCESS)
         {
@@ -4553,7 +4590,7 @@ cy_rslt_t cy_socket_accept(cy_socket_t handle, cy_socket_sockaddr_t *address, ui
             result = cy_worker_thread_enqueue(&socket_worker, cy_process_connect_disconnect_notification_event, (void *)accept_ctx->conn_handler);
             if(result != CY_RSLT_SUCCESS)
             {
-                ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_defer_work failed at file: %s line: %d with error: 0x%lx\r\n", __FILE__, __LINE__, result);
+                ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "cy_defer_work failed at file: %s line: %d with error: 0x%lx\r\n", __FILE__, __LINE__, result);
                 /*
                  * Do not fail cy_socket_accept if cy_worker_thread_enqueue fails. In-case there are receive events then returning fail from here
                  * will mislead application not to receive the data that is available to read.
@@ -4637,4 +4674,72 @@ cy_rslt_t cy_socket_shutdown(cy_socket_t handle, int how)
     ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex unlocked %s %d\n", __FILE__, __LINE__);
 
     return CY_RSLT_SUCCESS;
+}
+
+cy_rslt_t cy_socket_get_tls_info(cy_socket_t handle, cy_tls_offload_info_t *tls_info)
+{
+    cy_socket_ctx_t * ctx;
+    cy_rslt_t result = CY_RSLT_SUCCESS;
+
+    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_socket_get_tls_info Start\r\n");
+    if(CY_SOCKET_INVALID_HANDLE == handle)
+    {
+        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "invalid handle\r\n");
+        return CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET;
+    }
+    ctx = (cy_socket_ctx_t *) handle;
+
+    if(!is_socket_valid(ctx))
+    {
+        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "invalid handle\r\n");
+        return CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET;
+    }
+
+    /* While this function is running, application may delete the socket. Protect entire function with a mutex. */
+    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex locked %s %d ctx %p\r\n", __FILE__, __LINE__, ctx);
+    cy_rtos_get_mutex(&ctx->socket_mutex, CY_RTOS_NEVER_TIMEOUT);
+    result = cy_tls_get_tls_info(ctx->tls_ctx, tls_info);
+    if(result != CY_RSLT_SUCCESS)
+    {
+        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "cy_tls_get_tls_info failed\r\n");
+        result = CY_RSLT_MODULE_SECURE_SOCKETS_TLS_ERROR;
+    }
+
+    cy_rtos_set_mutex(&ctx->socket_mutex);
+    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex unlocked %s %d\n", __FILE__, __LINE__);
+    return result;
+}
+
+cy_rslt_t cy_socket_update_tls_sequence(cy_socket_t handle,  uint8_t *read_seq, uint8_t *write_seq)
+{
+    cy_socket_ctx_t * ctx;
+    cy_rslt_t result = CY_RSLT_SUCCESS;
+
+    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_socket_update_tls_sequence Start\r\n");
+    if(CY_SOCKET_INVALID_HANDLE == handle)
+    {
+        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "invalid handle\r\n");
+        return CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET;
+    }
+    ctx = (cy_socket_ctx_t *) handle;
+
+    if(!is_socket_valid(ctx))
+    {
+        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "invalid handle\r\n");
+        return CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET;
+    }
+
+    /* While this function is running, application may delete the socket. Protect entire function with a mutex. */
+    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex locked %s %d ctx %p\r\n", __FILE__, __LINE__, ctx);
+    cy_rtos_get_mutex(&ctx->socket_mutex, CY_RTOS_NEVER_TIMEOUT);
+    result = cy_tls_update_tls_sequence(ctx->tls_ctx, read_seq, write_seq);
+    if(result != CY_RSLT_SUCCESS)
+    {
+        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "cy_tls_get_tls_info failed\r\n");
+        result = CY_RSLT_MODULE_SECURE_SOCKETS_TLS_ERROR;
+    }
+
+    cy_rtos_set_mutex(&ctx->socket_mutex);
+    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex unlocked %s %d\n", __FILE__, __LINE__);
+    return result;
 }

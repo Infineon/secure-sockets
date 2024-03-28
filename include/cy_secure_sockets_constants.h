@@ -1,5 +1,5 @@
 /*
- * Copyright 2023, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2024, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -401,6 +401,25 @@ extern "C" {
  *   * Level: \ref CY_SOCKET_SOL_TCP
  */
 #define CY_SOCKET_SO_TCP_NODELAY        ( 25 )
+
+/**
+ * Get the local address details for the socket.
+ *
+ * Arguments related to this optname:
+ *   * Option value: Pointer to the cy_socket_sockaddr_t type into which the API function fills the local address and port number.
+ *   * Level: \ref CY_SOCKET_SOL_SOCKET
+ */
+
+#define CY_SOCKET_SO_LOCALADDR         ( 26 )
+
+/**
+ * Get the peer address details for the socket.
+ *
+ * Arguments related to this optname:
+ *   * Option value: Pointer to the cy_socket_sockaddr_t type into which the API function fills the peer address and port number.
+ *   * Level: \ref CY_SOCKET_SOL_SOCKET
+ */
+#define CY_SOCKET_SO_PEERADDR         ( 27 )
 
 #ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
 

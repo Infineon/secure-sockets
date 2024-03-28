@@ -1,5 +1,5 @@
 /*
- * Copyright 2023, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2024, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -58,13 +58,12 @@
 #include <mbedtls/platform_time.h>
 #include "psa/crypto.h"
 #include "cy_secure_socket_mbedtls_version.h"
+#if (defined (CY_DEVICE_SECURE) && !defined (CY_SECURE_SOCKETS_PKCS_SUPPORT)) || defined(CYBSP_ETHERNET_CAPABLE)
+#include "cy_network_mw_core.h"
+#endif
 
 #ifdef COMPONENT_4390X
 extern cy_rslt_t cy_prng_get_random( void* buffer, uint32_t buffer_length );
-#endif
-
-#if !defined CY_SECURE_SOCKETS_PKCS_SUPPORT && !defined COMPONENT_4390X
-#include "cyhal_trng.h"
 #endif
 
 #ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
@@ -100,6 +99,37 @@ extern cy_rslt_t cy_prng_get_random( void* buffer, uint32_t buffer_length );
 #define CY_TLS_LOAD_CERT_FROM_SECURE_STORAGE     0
 #endif
 
+/**
+ * Supported Cipher Algorithm in MQTT Offload
+ */
+typedef enum {
+    CY_TLS_BULKCIPHERALGORITHM_NULL,
+    CY_TLS_BULKCIPHERALGORITHM_RC4,
+    CY_TLS_BULKCIPHERALGORITHM_3DES,
+    CY_TLS_BULKCIPHERALGORITHM_AES
+} cy_bulk_cipher_algorithm_t;
+
+/**
+ * Supported Cipher Type in MQTT Offload
+ */
+typedef enum {
+    CY_TLS_CIPHERTYPE_STREAM = 1,
+    CY_TLS_CIPHERTYPE_BLOCK,
+    CY_TLS_CIPHERTYPE_AEAD
+} cy_cipher_type_t;
+
+/**
+ * Supported MAC Algorithm in MQTT Offload
+ */
+typedef enum {
+    CY_TLS_MACALGORITHM_NULL,
+    CY_TLS_MACALGORITHM_HMAC_MD5,
+    CY_TLS_MACALGORITHM_HMAC_SHA1,
+    CY_TLS_MACALGORITHM_HMAC_SHA256,
+    CY_TLS_MACALGORITHM_HMAC_SHA384,
+    CY_TLS_MACALGORITHM_HMAC_SHA512
+} cy_mac_algorithm_t;
+
 #ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
 typedef struct cy_tls_pkcs_context
 {
@@ -133,7 +163,9 @@ typedef struct cy_tls_context_mbedtls
     unsigned char               mfl_code;
     const char                **alpn_list;
     char                       *hostname;
-
+#if (MBEDTLS_VERSION_NUMBER == 0x02190000) && defined(MBEDTLS_SSL_EXPORT_KEYS)
+    cy_tls_keys_t              export_key;
+#endif
     /* mbedTLS specific members */
     mbedtls_ssl_context         ssl_ctx;
     mbedtls_ssl_config          ssl_config;
@@ -185,6 +217,127 @@ static mbedtls_x509_crt_profile default_crt_profile =
     0xFFFFFFF, /* Any curve     */
     2048,
 };
+
+#if defined(MBEDTLS_SSL_EXPORT_KEYS)
+static int cy_tls_key_derivation ( void *p_expkey,
+                                    const unsigned char *ms,
+                                    const unsigned char *kb,
+                                    size_t maclen,
+                                    size_t keylen,
+                                    size_t ivlen,
+                                    const unsigned char client_random[32],
+                                    const unsigned char server_random[32],
+                                    mbedtls_tls_prf_types tls_prf_type )
+{
+    cy_tls_keys_t *keys = (cy_tls_keys_t *)p_expkey;
+
+    uint8_t* key1 = (uint8_t*)kb + maclen * 2 ;
+    uint8_t* key2 = (uint8_t*)key1 + keylen;
+
+    keys->mac_len = maclen;
+    memcpy(keys->mac_enc, kb , maclen);
+    memcpy(keys->mac_dec, kb + maclen, maclen);
+
+    keys->key_len = keylen;
+    memcpy(keys->key_enc, key1, keylen);
+    memcpy(keys->key_dec, key2, keylen);
+
+    keys->iv_len = ivlen;
+    memcpy( keys->iv_enc, key2 + keylen,  ivlen );
+    memcpy( keys->iv_dec, key2 + keylen + ivlen, ivlen);
+
+    return( 0 );
+}
+#endif
+
+cy_rslt_t cy_tls_update_tls_sequence(void *context, uint8_t *read_seq, uint8_t *write_seq)
+{
+#if (MBEDTLS_VERSION_NUMBER == 0x02190000) &&  defined(MBEDTLS_SSL_EXPORT_KEYS)
+    cy_tls_context_mbedtls_t *ctx = (cy_tls_context_mbedtls_t *) context;
+    mbedtls_ssl_context      *ssl = &ctx->ssl_ctx;
+
+    memcpy(ssl->in_ctr,read_seq, 8);
+    memcpy(ssl->cur_out_ctr,write_seq, 8);
+
+    return CY_RSLT_SUCCESS;
+#else
+    return CY_RSLT_MODULE_TLS_UNSUPPORTED;
+#endif
+}
+
+cy_rslt_t cy_tls_get_tls_info(void *context, cy_tls_offload_info_t *tls_info)
+{
+#if (MBEDTLS_VERSION_NUMBER == 0x02190000) && defined(MBEDTLS_SSL_EXPORT_KEYS)
+    cy_tls_context_mbedtls_t *ctx = (cy_tls_context_mbedtls_t *) context;
+    mbedtls_ssl_context    *ssl;
+    const mbedtls_ssl_ciphersuite_t *ciphersuite_info;
+    cy_tls_keys_t    *export_key;
+
+    if(ctx == NULL)
+    {
+        return CY_RSLT_MODULE_TLS_ERROR;
+    }
+    ssl = &ctx->ssl_ctx;
+    export_key = &ctx->export_key;
+
+    tls_info->protocol_major_ver = ssl->major_ver;
+    tls_info->protocol_minor_ver = ssl->minor_ver;
+
+    if(ssl->session->compression != 0)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "ssl->session->compression %d \n", ssl->session->compression);
+        return CY_RSLT_MODULE_TLS_BADARG;
+     }
+
+    tls_info->compression_algorithm = ssl->session->compression;
+
+    ciphersuite_info = mbedtls_ssl_ciphersuite_from_id( ssl->session->ciphersuite );
+
+    tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_tls_get_tls_info: suite = %u, mac = %u, cipher = %u\n", ssl->session->ciphersuite,
+                   ciphersuite_info->mac, ciphersuite_info->cipher);
+
+    if((ciphersuite_info->mac == MBEDTLS_MD_SHA1) && ((ciphersuite_info->cipher == MBEDTLS_CIPHER_AES_128_CBC)||(ciphersuite_info->cipher == MBEDTLS_CIPHER_AES_256_CBC)))
+    {
+        tls_info->cipher_algorithm = CY_TLS_BULKCIPHERALGORITHM_AES;
+        tls_info->cipher_type = CY_TLS_CIPHERTYPE_BLOCK;
+        tls_info->mac_algorithm = CY_TLS_MACALGORITHM_HMAC_SHA1;
+    }
+    else
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Invalid Cipher suites \n");
+        return CY_RSLT_MODULE_TLS_BADARG;
+    }
+
+#if defined(MBEDTLS_SSL_ENCRYPT_THEN_MAC)
+    tls_info->encrypt_then_mac = ssl->session->encrypt_then_mac;
+#else
+    tls_info->encrypt_then_mac = 0;
+#endif
+
+    tls_info->write_iv_len = tls_info->read_iv_len = export_key->iv_len;
+    memcpy(&tls_info->write_iv,ssl->out_iv, tls_info->write_iv_len);
+    memcpy(&tls_info->read_iv, ssl->in_iv,  tls_info->read_iv_len);
+
+    tls_info->write_master_key_len = tls_info->read_master_key_len = export_key->key_len;
+    memcpy(&tls_info->write_master_key,&export_key->key_enc, tls_info->write_master_key_len);
+    memcpy(&tls_info->read_master_key,&export_key->key_dec, tls_info->read_master_key_len);
+
+    tls_info->write_mac_key_len = tls_info->read_mac_key_len = export_key->mac_len;
+    memcpy(&tls_info->write_mac_key,&export_key->mac_enc, tls_info->write_mac_key_len);
+    memcpy(&tls_info->read_mac_key,&export_key->mac_dec, tls_info->read_mac_key_len);
+
+    tls_info->read_sequence_len = 8;
+    memcpy(tls_info->read_sequence, ssl->in_ctr, 8);
+    tls_info->write_sequence_len = 8;
+    memcpy(tls_info->write_sequence, ssl->cur_out_ctr, 8);
+
+    return CY_RSLT_SUCCESS;
+#else
+    return CY_RSLT_MODULE_TLS_UNSUPPORTED;
+#endif
+}
+
+/*-----------------------------------------------------------*/
 
 #ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
 static cy_rslt_t convert_pkcs_error_to_tls(CK_RV result)
@@ -377,50 +530,6 @@ cy_rslt_t cy_tls_load_global_root_ca_certificates(const char *trusted_ca_certifi
     return cy_tls_internal_load_root_ca_certificates(&root_ca_certificates, trusted_ca_certificates, cert_length);
 }
 
-#ifndef CY_TFM_PSA_SUPPORTED
-/*-----------------------------------------------------------*/
-/* This function generates true random number using TRNG HW engine.
- *
- * Parameters:
- *  cyhal_trng_t *obj:        cyhal RNG object
- *  uint8_t *output:          output buffer holding the random number
- *  size_t length:            Requested random number length
- *  size_t *output_length:    Actual generated random number length
- * Return:
- *  int    zero on success, negative value on failure
- */
-#if !defined COMPONENT_4390X && !defined COMPONENT_OPTIGA
-static int trng_get_bytes(cyhal_trng_t *obj, uint8_t *output, size_t length, size_t *output_length)
-{
-    uint32_t offset = 0;
-    /* If output is not word-aligned, write partial word */
-    uint32_t prealign = (uint32_t)((uintptr_t)output % sizeof(uint32_t));
-    if(prealign != 0)
-    {
-        uint32_t value = cyhal_trng_generate(obj);
-        uint32_t count = sizeof(uint32_t) - prealign;
-        memmove(&output[0], &value, count);
-        offset += count;
-    }
-    /* Write aligned full words */
-    for(; offset < length - (sizeof(uint32_t) - 1u); offset += sizeof(uint32_t))
-    {
-        *(uint32_t *)(&output[offset]) = cyhal_trng_generate(obj);
-    }
-    /* Write partial trailing word if requested */
-    if(offset < length)
-    {
-        uint32_t value = cyhal_trng_generate(obj);
-        uint32_t count = length - offset;
-        memmove(&output[offset], &value, count);
-        offset += count;
-    }
-    *output_length = offset;
-    return 0;
-}
-#endif
-#endif
-
 /*-----------------------------------------------------------*/
 /*
  * This function is the entropy source function. It generates true random number
@@ -428,13 +537,15 @@ static int trng_get_bytes(cyhal_trng_t *obj, uint8_t *output, size_t length, siz
  * to get the entropy from HW TRGN engine.
  *
  * Parameters:
- *  cyhal_trng_t *obj:        cyhal RNG object
+ *  void *data                Callback-specific data pointer
  *  uint8_t *output:          output buffer holding the random number
  *  size_t length:            Requested random number length
  *  size_t *output_length:    Actual generated random number length
  * Return:
  *  int    zero on success, negative value on failure
  */
+#if (defined(CY_SECURE_SOCKETS_PKCS_SUPPORT) && defined (CY_DEVICE_SECURE)) \
+        || defined(COMPONENT_4390X) || defined(CY_DEVICE_SECURE) || defined(CYBSP_ETHERNET_CAPABLE)
 int mbedtls_hardware_poll(void *data, unsigned char *output, size_t len, size_t *olen)
 {
 #ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
@@ -457,6 +568,8 @@ int mbedtls_hardware_poll(void *data, unsigned char *output, size_t len, size_t 
         return -1;
     }
     *olen = len;
+
+    return 0;
 #elif defined(COMPONENT_4390X)
     /* 43907 kits does not have TRNG module. Get the random
      * number from wifi-mw-core internal PRNG API. */
@@ -467,29 +580,32 @@ int mbedtls_hardware_poll(void *data, unsigned char *output, size_t len, size_t 
         return -1;
     }
     *olen = len;
-#else
-    cyhal_trng_t obj;
-    int ret;
-    cy_rslt_t result;
 
-    result = cyhal_trng_init(&obj);
-    if(result != CY_RSLT_SUCCESS)
-    {
-        return -1;
-    }
-
-    ret = trng_get_bytes(&obj, output, len, olen);
-    if(ret != 0)
-    {
-        cyhal_trng_free(&obj);
-        return -1;
-    }
-
-    cyhal_trng_free(&obj);
-#endif
     return 0;
-}
+#elif defined(CY_TFM_PSA_SUPPORTED)
+    /* In case of secure device without pkcs support get the
+     * random number using psa crypto */
 
+    psa_status_t status = psa_crypto_init();
+    if( status != PSA_SUCCESS )
+    {
+        return -1;
+    }
+
+    status = psa_generate_random( output, len );
+    if( status != PSA_SUCCESS )
+    {
+        return -1;
+    }
+
+    *olen = len;
+    return 0;
+#else
+    /* Generate random number using pdl trng APIs */
+    return cy_network_random_number_generate(output, len, olen);
+#endif
+}
+#endif
 /*-----------------------------------------------------------*/
 cy_rslt_t cy_tls_init(void)
 {
@@ -1030,6 +1146,9 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint, uint32_
     mbedtls_ssl_conf_dbg(&ctx->ssl_config, mbedtls_debug_logs, NULL);
 #endif
 
+#if (MBEDTLS_VERSION_NUMBER == 0x02190000) && defined(MBEDTLS_SSL_EXPORT_KEYS)
+    mbedtls_ssl_conf_export_keys_ext_cb( &ctx->ssl_config, cy_tls_key_derivation, &ctx->export_key );
+#endif
 
 #ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
     /* If CY_SECURE_SOCKETS_PKCS_SUPPORT flag is enabled and ctx->load_rootca_from_ram flag is not set through
@@ -1318,7 +1437,7 @@ cy_rslt_t cy_tls_recv(void *context, unsigned char *buffer, uint32_t length, uin
         }
         else if(ret == MBEDTLS_ERR_SSL_ALLOC_FAILED)
         {
-            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "Alloc failed\r\n");
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Alloc failed\r\n");
             result = CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE;
             break;
         }

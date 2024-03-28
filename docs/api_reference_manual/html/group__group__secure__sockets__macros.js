@@ -42,6 +42,8 @@ var group__group__secure__sockets__macros =
     [ "CY_SOCKET_SO_IP_TOS", "group__group__secure__sockets__macros.html#gacaf74e4db4c47e33cf258b1e83c4f3eb", null ],
     [ "CY_SOCKET_SO_BYTES_AVAILABLE", "group__group__secure__sockets__macros.html#ga249a390f7ea3ad7f8db90bac96cd0357", null ],
     [ "CY_SOCKET_SO_TCP_NODELAY", "group__group__secure__sockets__macros.html#gace8deb2d476b5a1bf57d1fffbdbc36d0", null ],
+    [ "CY_SOCKET_SO_LOCALADDR", "group__group__secure__sockets__macros.html#ga22b4a6f9f25c1815f016dcc7ceb17a16", null ],
+    [ "CY_SOCKET_SO_PEERADDR", "group__group__secure__sockets__macros.html#ga8d1184c6afa6cfe38f27dd22d8dc9e6e", null ],
     [ "CY_SOCKET_ROOTCA_SECURE_STORAGE", "group__group__secure__sockets__macros.html#gaf28eb4b38ee21e41c56f26cae8431439", null ],
     [ "CY_SOCKET_ROOTCA_RAM", "group__group__secure__sockets__macros.html#gaa8b81ff302c2c897b9b2093434a2cab3", null ],
     [ "CY_SOCKET_SO_ROOTCA_CERTIFICATE_LOCATION", "group__group__secure__sockets__macros.html#gabd1282620f4c23953600ffa57124925b", null ],

@@ -1,5 +1,5 @@
 /*
- * Copyright 2023, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2024, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -94,6 +94,7 @@ extern "C" {
 #include "cy_result.h"
 #include "cy_secure_sockets_error.h"
 #include "cy_secure_sockets_constants.h"
+#include "cy_tls.h"
 
 /******************************************************
  *                      Constants
@@ -640,6 +641,32 @@ cy_rslt_t cy_socket_shutdown(cy_socket_t handle, int how);
 cy_rslt_t cy_socket_delete(cy_socket_t handle);
 
 /** \} group_secure_sockets_functions */
+
+/*! \cond */
+/**
+ * Get the tls parameters of the established session
+ *
+ * @param[in] handle        Socket handle returned by the \ref cy_socket_create API function.
+ * @param[out] tls_info     buffer containing the tls parameters to get for the current session.
+ * @return    CY_RSLT_SUCCESS on success; an error code on failure.
+ *            Important error code related to this API function is: \n
+ *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET
+ */
+cy_rslt_t cy_socket_get_tls_info(cy_socket_t handle, cy_tls_offload_info_t *tls_info);
+
+/**
+ * Update the read and write sequence for current established session
+ *
+ * @param[in] handle        Socket handle returned by the \ref cy_socket_create API function.
+ * @param[in] read_seq      buffer containing the read sequence to update.
+ * @param[in] write_seq     buffer containing the write sequence to update.
+ * @return    CY_RSLT_SUCCESS on success; an error code on failure.
+ *            Important error code related to this API function is: \n
+ *            \ref CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET
+ */
+cy_rslt_t cy_socket_update_tls_sequence(cy_socket_t handle,  uint8_t *read_seq, uint8_t *write_seq);
+/*! \endcond */
+
 #ifdef __cplusplus
 } /*extern "C" */
 #endif
