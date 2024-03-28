@@ -138,6 +138,8 @@ static int cy_tls_internal_recv(WOLFSSL* ssl, char* buffer, int length,
     return WOLFSSL_CBIO_ERR_GENERAL;
 }
 
+extern char *strptime(const char *restrict s, const char *restrict format,
+                      struct tm *restrict tm);
 cy_rslt_t cy_tls_init(void)
 {
     cy_rslt_t result = CY_RSLT_SUCCESS;
@@ -415,8 +417,8 @@ cy_rslt_t cy_tls_send(void *context, const unsigned char *data, uint32_t length,
         err = wolfSSL_get_error(tls_ctx->ssl, ret);
     } while (err == WOLFSSL_ERROR_WANT_WRITE);
 
-    if (ret == WOLFSSL_SUCCESS) {
-        *bytes_sent = length;
+    if (ret > 0) {
+        *bytes_sent = ret;
         result = CY_RSLT_SUCCESS;
     }
     else {
