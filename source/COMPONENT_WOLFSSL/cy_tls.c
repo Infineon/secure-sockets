@@ -45,6 +45,7 @@
 #include "cyabs_rtos.h"
 #include "cy_log.h"
 #include "cy_result_mw.h"
+#include "cy_time.h"
 
 #include "wolfssl/wolfcrypt/settings.h"
 #include "wolfssl/ssl.h"
@@ -137,14 +138,37 @@ static int cy_tls_internal_recv(WOLFSSL* ssl, char* buffer, int length,
     return WOLFSSL_CBIO_ERR_GENERAL;
 }
 
-
 cy_rslt_t cy_tls_init(void)
 {
-    return (cy_rslt_t)wolfSSL_Init();
+    cy_rslt_t result = CY_RSLT_SUCCESS;
+    time_t cur_time;
+    int ret;
+
+#ifdef ENABLE_SECURE_SOCKETS_LOGS
+    wolfSSL_Debugging_ON();
+#endif
+    ret = wolfSSL_Init();
+    if (ret != WOLFSSL_SUCCESS) {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "wolfSSL_Init failed!\r\n");
+        return CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE;
+    }
+
+    if (time(&cur_time) == 0) {
+        cyhal_rtc_t* rtc_obj = cy_get_rtc_instance();
+
+        /* advance RTC to last compiler time */
+        static const char *built = __DATE__" "__TIME__;
+        struct tm t;
+        (void)strptime(built, "%b %d %Y %H:%M:%S", &t);
+        result = cyhal_rtc_write(rtc_obj, &t);
+    }
+
+    return result;
 }
 
 cy_rslt_t cy_tls_create_context(void **context, cy_tls_params_t *params)
 {
+    cy_rslt_t result;
     cy_tls_context_wolfssl_t *tls_ctx = NULL;
 
     if (context == NULL || params == NULL) {
@@ -168,20 +192,14 @@ cy_rslt_t cy_tls_create_context(void **context, cy_tls_params_t *params)
     tls_ctx->mfl_code  = params->mfl_code;
     tls_ctx->hostname  = params->hostname;
 
-    if (gWolfCtx == NULL) {
-        gWolfCtx = wolfSSL_CTX_new(wolfSSLv23_method());
-        if (gWolfCtx == NULL) {
-            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "wolfSSL_CTX_new failed!\r\n");
-            free(tls_ctx);
-            *context = NULL;
-            return CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE;
-        }
-    }
-
-    cy_tls_load_global_root_ca_certificates(params->rootca_certificate,
+    result = cy_tls_load_global_root_ca_certificates(params->rootca_certificate,
         params->rootca_certificate_length);
-
-    return CY_RSLT_SUCCESS;
+    if (result != CY_RSLT_SUCCESS) {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "load root CA failed!\r\n");
+        free(tls_ctx);
+        *context = NULL;
+    }
+    return result;
 }
 
 static int cy_tls_verify_cb(int preverify, WOLFSSL_X509_STORE_CTX* store)
@@ -274,22 +292,19 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint, uint32_
     if (tls_ctx->auth_mode == CY_SOCKET_TLS_VERIFY_NONE) {
         mode = WOLFSSL_VERIFY_NONE;
     }
-    else if (tls_ctx->auth_mode == CY_SOCKET_TLS_VERIFY_OPTIONAL) {
-        mode = WOLFSSL_VERIFY_PEER;
-    }
     else {
-        mode = WOLFSSL_VERIFY_PEER | WOLFSSL_VERIFY_FAIL_IF_NO_PEER_CERT;
+        mode = WOLFSSL_VERIFY_PEER;
     }
     wolfSSL_set_verify(ssl, mode, cy_tls_verify_cb);
 
     do {
         if (endpoint == CY_TLS_ENDPOINT_SERVER) {
-            /* we are client */
-            ret = wolfSSL_connect(ssl);
-        }
-        else {
             /* we are server */
             ret = wolfSSL_accept(ssl);
+        }
+        else {
+            /* we are client */
+            ret = wolfSSL_connect(ssl);
         }
         err = wolfSSL_get_error(ssl, ret);
     } while (err == WOLFSSL_ERROR_WANT_READ || err == WOLFSSL_ERROR_WANT_WRITE);
@@ -307,12 +322,20 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint, uint32_
 cy_rslt_t cy_tls_load_global_root_ca_certificates(
     const char *trusted_ca_certificates, const uint32_t cert_length)
 {
-    int ret = WOLFSSL_SUCCESS;
-    if (gWolfCtx != NULL) {
-        ret = wolfSSL_CTX_load_verify_buffer(gWolfCtx,
-            (byte*)trusted_ca_certificates, cert_length, WOLFSSL_FILETYPE_PEM);
+    int ret;
+    if (cert_length == 0) {
+        return CY_RSLT_SUCCESS;
     }
-    if (gWolfCtx == NULL || ret != WOLFSSL_SUCCESS) {
+    if (gWolfCtx == NULL) {
+        gWolfCtx = wolfSSL_CTX_new(wolfSSLv23_method());
+        if (gWolfCtx == NULL) {
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "wolfSSL_CTX_new failed!\r\n");
+            return CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE;
+        }
+    }
+    ret = wolfSSL_CTX_load_verify_buffer(gWolfCtx,
+        (byte*)trusted_ca_certificates, cert_length, WOLFSSL_FILETYPE_PEM);
+    if (ret != WOLFSSL_SUCCESS) {
         tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR,
             "wolfSSL error loading root CA! %d\r\n", ret);
         return CY_RSLT_MODULE_TLS_PARSE_CERTIFICATE;
@@ -344,7 +367,7 @@ cy_rslt_t cy_tls_create_identity(const char *certificate_data,
         return CY_RSLT_MODULE_TLS_BAD_INPUT_DATA;
     }
 
-    identity = malloc(sizeof(cy_tls_identity_t));
+    identity = (cy_tls_identity_t*)malloc(sizeof(cy_tls_identity_t));
     if (identity == NULL) {
         return CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE;
     }
