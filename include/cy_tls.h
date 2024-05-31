@@ -48,12 +48,13 @@
  * \defgroup group_cy_tls_structures Structures
  * \defgroup group_cy_tls_functions Functions
  */
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 #ifndef INCLUDED_CY_TLS_INTERFACE_H_
 #define INCLUDED_CY_TLS_INTERFACE_H_
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include "cy_result.h"
 #include "cy_result_mw.h"

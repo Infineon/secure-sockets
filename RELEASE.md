@@ -13,6 +13,9 @@ Refer to the [README.md](./README.md) for a complete description of the Secure S
 
 ## Changelog
 
+### v3.6.0
+* Added support for CYW955913EVK-01 kit.
+
 ### v3.5.0
 * Added socket options to get local and peer address
 * Added changes to eliminate use of HAL TRNG APIs

@@ -2941,6 +2941,9 @@ cy_rslt_t cy_socket_connect(cy_socket_t handle, cy_socket_sockaddr_t *address, u
 
             ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "cy_tls_connect failed with error %lu\n", result);
             result = TLS_TO_CY_SECURE_SOCKETS_ERR(result);
+
+            /* Delete created context */
+            cy_tls_delete_context(ctx->tls_ctx);
             goto exit;
         }
         ctx->status |= SOCKET_STATUS_FLAG_SECURED;

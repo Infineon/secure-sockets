@@ -8,7 +8,7 @@ The secure sockets library provides APIs to create software that can send and/or
 
 - Supports non-secure TCP and UDP sockets
 
-- Secure TCP (TLS) socket communication using Mbed TLS library
+- Secure TCP (TLS) socket communication using Mbed TLS/NetXSecure library
 
 - Supports both IPv4 and IPv6 addressing. Only link-local IPv6 addressing is supported
 
@@ -33,6 +33,11 @@ To pull wifi-core-freertos-lwip-mbedtls create the following *.mtb* file in deps
       `https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls#latest-v1.X#$$ASSET_REPO$$/wifi-core-freertos-lwip-mbedtls/latest-v1.X`
 
       **Note:** To use TLS version 1.3, please upgrade wifi-core-freertos-lwip-mbedtls to latest-v2.X (It is supported on all the platforms except [PSoC&trade; 64S0S2 Wi-Fi Bluetooth&reg; pioneer kit (CY8CKIT-064S0S2-4343W)](https://www.cypress.com/documentation/development-kitsboards/psoc-64-standard-secure-aws-wi-fi-bt-pioneer-kit-cy8ckit))
+
+* To use secure-sockets library with CYW955913EVK-01 kits on Threadx, NetXDuo, and NetXSecure combination, the application should pull [wifi-core-threadx-cat5](https://github.com/Infineon/wifi-core-threadx-cat5) library which will internally pull secure-sockets and other dependent modules.
+To pull wifi-core-threadx-cat5 create the following *.mtb* file in deps folder.
+   - *wifi-core-threadx-cat5.mtb:*
+      `https://github.com/Infineon/wifi-core-threadx-cat5#latest-v1.X#$$ASSET_REPO$$/wifi-core-threadx-cat5/latest-v1.X`
 
 * To use secure-sockets library with Ethernet kits on FreeRTOS, lwIP, and Mbed TLS combination, the application should pull [ethernet-core-freertos-lwip-mbedtls](https://github.com/Infineon/ethernet-core-freertos-lwip-mbedtls) library which will internally pull secure-sockets, ethernet-connection-manager, FreeRTOS, lwIP, Mbed TLS and other dependent modules.
 To pull ethernet-core-freertos-lwip-mbedtls create the following *.mtb* file in deps folder.
@@ -84,6 +89,8 @@ This library and its features are supported on the following Infineon MCUs:
 
 - [PSoC&trade; 62S2 evaluation kit (CY8CEVAL-062S2-CYW43022CUB)](https://www.infineon.com/cms/en/product/evaluation-boards/cy8ceval-062s2/)
 
+- [CYW955913EVK-01 Wi-Fi Bluetooth&reg; Prototyping Kit (CYW955913EVK-01)](https://www.infineon.com/CYW955913EVK-01)
+
 ## Send and receive timeout values
 
 The secure sockets library configures the default send and receive timeout values to 10 seconds for a newly created socket. These can be changed using the `cy_socket_setsockopt` API function. To change the send timeout, use the `CY_SOCKET_SO_SNDTIMEO` socket option; similarly, for receive timeout, use the `CY_SOCKET_SO_RCVTIMEO` socket option. Adjust the default timeout values based on the network speed or use case.
@@ -91,15 +98,23 @@ The secure sockets library configures the default send and receive timeout value
 
 ## TCP/IP and security stacks
 
-The secure sockets library has been designed to support different flavors of the TCP/IP stack or security stack. Currently, lwIP and Mbed TLS are the default network and security stacks respectively. Therefore, any application that uses the secure sockets library must ensure that the following COMPONENTS are defined in the code example project's Makefile.
+* The secure sockets library has been designed to support different flavors of the TCP/IP stack or security stack. Currently, secure-sockets supports two combinations of TCP/IP stack and security stack.
+  
+    * lwIP + Mbed TLS combination
+  
+    * NetXDuo + NetXSecure combination
+  
+* Any application that uses the secure sockets library with lwIP + Mbed TLS combination, must ensure that the following COMPONENTS are defined in the code example project's Makefile.
 
-To do so, add `LWIP` and `MBEDTLS` components to the Makefile. The Makefile entry would look like as follows:
+  To do so, add `LWIP` and `MBEDTLS` components to the Makefile. The Makefile entry would look like as follows:
 
-  ```
-  COMPONENTS+=LWIP MBEDTLS
-  ```
+    ```
+    COMPONENTS+=LWIP MBEDTLS
+    ```
 
-Applications using the secure sockets library must include only the *cy_secure_sockets.h* file for non-secure connections. For secure connections, the application must include both *cy_secure_sockets.h* and *cy_tls.h* header files.
+* Currently NetXDuo + NetXSecure combination is supported only on CYW955913EVK-01. This does not require addition of any COMPONENTS to the code example project's Makefile.
+
+* Applications using the secure sockets library must include only the *cy_secure_sockets.h* file for non-secure connections. For secure connections, the application must include both *cy_secure_sockets.h* and *cy_tls.h* header files.
 
 
 ## Stack size
@@ -252,4 +267,4 @@ To use secure-sockets library for FreeRTOS, lwIP, and Mbed TLS, pull [wifi-core-
 
 - [Secure sockets version](./version.xml)
 
-- [ModusToolbox&trade; code examples](https://github.com/infineon?q=mtb-example-anycloud%20NOT%20Deprecated)
+- [ModusToolbox&trade; code examples](https://github.com/Infineon/Code-Examples-for-ModusToolbox-Software)

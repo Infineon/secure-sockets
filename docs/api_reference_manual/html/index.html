@@ -92,7 +92,7 @@ Features and Functionality</h1>
 <p >Features supported:</p><ul>
 <li>Supports Wi-Fi and Ethernet connections</li>
 <li>Supports non-secure TCP and UDP sockets</li>
-<li>Secure TCP (TLS) socket communication using Mbed TLS library</li>
+<li>Secure TCP (TLS) socket communication using Mbed TLS/NetXSecure library</li>
 <li>Supports both IPv4 and IPv6 addressing. Only link-local IPv6 addressing is supported</li>
 <li>Supports UDP multicast and broadcast for both IPv4 and IPv6.</li>
 <li>Thread-safe APIs</li>
@@ -105,14 +105,12 @@ Features and Functionality</h1>
 <h1><a class="anchor" id="section_integration"></a>
 Quick Start</h1>
 <ul>
-<li>To use secure-sockets library with Wi-Fi kits, on FreeRTOS, lwIP, and Mbed TLS combination, the application should pull <a href="https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls">wifi-core-freertos-lwip-mbedtls</a> library which will internally pull secure-sockets, wifi-connection-manager, FreeRTOS, lwIP, Mbed TLS and other dependent modules. To pull wifi-core-freertos-lwip-mbedtls create the following *.mtb* file in deps folder.<ul>
-<li>wifi-core-freertos-lwip-mbedtls.mtb: <a href="https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls#latest-v1.X#$$ASSET_REPO$$/wifi-core-freertos-lwip-mbedtls/latest-v1.X">https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls#latest-v1.X#$$ASSET_REPO$$/wifi-core-freertos-lwip-mbedtls/latest-v1.X</a></li>
-</ul>
-</li>
-<li>To use secure-sockets library with Ethernet kits, on FreeRTOS, lwIP, and Mbed TLS combination, the application should pull <a href="https://github.com/Infineon/ethernet-core-freertos-lwip-mbedtls">ethernet-core-freertos-lwip-mbedtls</a> library which will internally pull secure-sockets, ethernet-connection-manager, FreeRTOS, lwIP, Mbed TLS and other dependent modules. To pull ethernet-core-freertos-lwip-mbedtls create the following *.mtb* file in deps folder.<ul>
-<li>ethernet-core-freertos-lwip-mbedtls.mtb: <a href="https://github.com/Infineon/ethernet-core-freertos-lwip-mbedtls#latest-v1.X#$$ASSET_REPO$$/ethernet-core-freertos-lwip-mbedtls/latest-v1.X">https://github.com/Infineon/ethernet-core-freertos-lwip-mbedtls#latest-v1.X#$$ASSET_REPO$$/ethernet-core-freertos-lwip-mbedtls/latest-v1.X</a></li>
-</ul>
-</li>
+<li>To use secure-sockets library with Wi-Fi kits, on FreeRTOS, lwIP, and Mbed TLS combination, the application should pull <a href="https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls">wifi-core-freertos-lwip-mbedtls</a> library which will internally pull secure-sockets, wifi-connection-manager, FreeRTOS, lwIP, Mbed TLS and other dependent modules. To pull wifi-core-freertos-lwip-mbedtls create the following .mtb file in deps folder. wifi-core-freertos-lwip-mbedtls.mtb <div class="fragment"><div class="line">https:<span class="comment">//github.com/Infineon/wifi-core-freertos-lwip-mbedtls#latest-v1.X#$$ASSET_REPO$$/wifi-core-freertos-lwip-mbedtls/latest-v1.X</span></div>
+</div><!-- fragment --></li>
+<li>To use secure-sockets library with CYW955913EVK-01 kits on Threadx, NetXDuo, and NetXSecure combination, the application should pull <a href="https://github.com/Infineon/wifi-core-threadx-cat5">wifi-core-threadx-cat5</a> library which will internally pull secure-sockets and other dependent modules. To pull wifi-core-threadx-cat5 create the following .mtb file in deps folder. wifi-core-threadx-cat5.mtb <div class="fragment"><div class="line">https:<span class="comment">//github.com/Infineon/wifi-core-threadx-cat5#latest-v1.X#$$ASSET_REPO$$/wifi-core-threadx-cat5/latest-v1.X</span></div>
+</div><!-- fragment --></li>
+<li>To use secure-sockets library with Ethernet kits, on FreeRTOS, lwIP, and Mbed TLS combination, the application should pull <a href="https://github.com/Infineon/ethernet-core-freertos-lwip-mbedtls">ethernet-core-freertos-lwip-mbedtls</a> library which will internally pull secure-sockets, ethernet-connection-manager, FreeRTOS, lwIP, Mbed TLS and other dependent modules. To pull ethernet-core-freertos-lwip-mbedtls create the following .mtb file in deps folder. ethernet-core-freertos-lwip-mbedtls.mtb <div class="fragment"><div class="line">https:<span class="comment">//github.com/Infineon/ethernet-core-freertos-lwip-mbedtls#latest-v1.X#$$ASSET_REPO$$/ethernet-core-freertos-lwip-mbedtls/latest-v1.X</span></div>
+</div><!-- fragment --></li>
 <li>A set of pre-defined configuration files for FreeRTOS, lwIP, and Mbed TLS combination is bundled in wifi-core-freertos-lwip-mbedtls library for Wi-Fi kits and in ethernet-core-freertos-lwip-mbedtls library for Ethernet kits. The developer is expected to review the configuration and make adjustments. Also, a set of COMPONENTS must be defined in the code example project's Makefile for this library.<ul>
 <li>See the "Quick Start" section in <a href="https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls/blob/master/README.md">README.md</a> for Wi-Fi kits.</li>
 <li>See the "Quick Start" section in <a href="https://github.com/Infineon/ethernet-core-freertos-lwip-mbedtls/blob/master/README.md">README.md</a> for Ethernet kits.</li>
@@ -140,6 +138,7 @@ Supported Platforms</h1>
 <li><a href="https://www.infineon.com/cms/en/product/evaluation-boards/kit_xmc72_evk/">XMC7200D-E272K8384 kit (KIT-XMC72-EVK)</a></li>
 <li><a href="https://www.infineon.com/cms/en/product/evaluation-boards/kit_xmc72_evk/">XMC7200D-E272K8384 kit (KIT_XMC72_EVK_MUR_43439M2)</a></li>
 <li><a href="https://www.cypress.com/documentation/development-kitsboards/psoc-62s2-evaluation-kit-cy8ceval-062s2">PSoC&trade; 62S2 evaluation kit (CY8CEVAL-062S2-CYW43022CUB)</a></li>
+<li><a href="https://www.infineon.com/CYW955913EVK-01">CYW955913EVK-01 Wi-Fi Bluetooth&reg; Prototyping Kit (CYW955913EVK-01)</a></li>
 </ul>
 <h1><a class="anchor" id="section_Send"></a>
 Send and receive timeout values</h1>
@@ -149,9 +148,14 @@ Send and receive timeout values</h1>
 <h1><a class="anchor" id="section_TCPIP"></a>
 TCP/IP and security stacks</h1>
 <ul>
-<li><p class="startli">The secure sockets library has been designed to support different flavors of the TCP/IP stack or security stack. Currently, lwIP and Mbed TLS are the default network and security stacks respectively. Therefore, any application that uses the secure sockets library must ensure that the following COMPONENTS are defined in the code example project's Makefile.</p>
-<p class="startli">To do so, add LWIP and MBEDTLS components to the Makefile. The Makefile entry would look like as follows: </p><div class="fragment"><div class="line">COMPONENTS+=LWIP MBEDTLS</div>
+<li>The secure sockets library has been designed to support different flavors of the TCP/IP stack or security stack. Currently, secure-sockets supports two combinations of TCP/IP stack and security stack.<ul>
+<li>lwIP + Mbed TLS combination</li>
+<li>NetXDuo + NetXSecure combination</li>
+</ul>
+</li>
+<li>Any application that uses the secure sockets library with lwIP + Mbed TLS combination, must ensure that the following COMPONENTS are defined in the code example project's Makefile. To do so, add LWIP and MBEDTLS components to the Makefile. The Makefile entry would look like as follows: <div class="fragment"><div class="line">COMPONENTS+=LWIP MBEDTLS</div>
 </div><!-- fragment --></li>
+<li>Currently NetXDuo + NetXSecure combination is supported only on CYW955913EVK-01. This does not require addition of any COMPONENTS to the code example project's Makefile.</li>
 <li>Applications using the Secure Sockets Library must include only the <em>cy_secure_sockets.h</em> file for non-secure connections. For secure connections, the application must include both <em>cy_secure_sockets.h</em> and <em>cy_tls.h</em> header files.</li>
 </ul>
 <h1><a class="anchor" id="section_Stack"></a>
