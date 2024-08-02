@@ -91,6 +91,8 @@ This library and its features are supported on the following Infineon MCUs:
 
 - [CYW955913EVK-01 Wi-Fi Bluetooth&reg; Prototyping Kit (CYW955913EVK-01)](https://www.infineon.com/CYW955913EVK-01)
 
+- [PSoC&trade; 62S2 evaluation kit (CY8CEVAL-062S2-CYW955513SDM2WLIPA)]( https://www.infineon.com/cms/en/product/evaluation-boards/cy8ceval-062s2/ )
+
 ## Send and receive timeout values
 
 The secure sockets library configures the default send and receive timeout values to 10 seconds for a newly created socket. These can be changed using the `cy_socket_setsockopt` API function. To change the send timeout, use the `CY_SOCKET_SO_SNDTIMEO` socket option; similarly, for receive timeout, use the `CY_SOCKET_SO_RCVTIMEO` socket option. Adjust the default timeout values based on the network speed or use case.
