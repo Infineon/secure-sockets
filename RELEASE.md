@@ -13,6 +13,10 @@ Refer to the [README.md](./README.md) for a complete description of the Secure S
 
 ## Changelog
 
+### v3.8.0
+* Added fix to use TLS1.2 for NetXSecure if RSA keys/certificate are used.
+* Added PKCS11 OPTIGA Support for CYW955913EVK-01 kit.
+
 ### v3.7.0
 * Added support for CY8CEVAL-062S2-CYW955513SDM2WLIPA kit.
 

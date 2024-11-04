@@ -46,6 +46,7 @@
 #include "cy_log.h"
 #include "nx_api.h"
 #include "nx_packet.h"
+#include "nx_ipv6.h"
 
 
 #ifndef DEFAULT_TCP_WINDOW_SIZE
@@ -1673,7 +1674,6 @@ cy_rslt_t cy_socket_create(int domain, int type, int protocol, cy_socket_t *hand
         if (status == NX_SUCCESS)
         {
             ctx->nxd_socket.tcp->nx_tcp_socket_reserved_ptr = (void *)ctx->id;
-            nx_tcp_socket_receive_notify(ctx->nxd_socket.tcp, cy_tcp_receive_callback);
         }
     }
     else
@@ -1682,7 +1682,6 @@ cy_rslt_t cy_socket_create(int domain, int type, int protocol, cy_socket_t *hand
         if (status == NX_SUCCESS)
         {
             ctx->nxd_socket.udp->nx_udp_socket_reserved_ptr = (void *)ctx->id;
-            nx_udp_socket_receive_notify(ctx->nxd_socket.udp, cy_udp_receive_callback);
         }
     }
 
@@ -2032,6 +2031,17 @@ cy_rslt_t cy_socket_setsockopt(cy_socket_t handle, int level, int optname, const
                         cy_rtos_set_mutex(&accept_recv_event_mutex);
                         ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "accept_recv_event_mutex unlocked %s %d\n", __FILE__, __LINE__);
                     }
+                    /* Enable notification from NetX stack */
+                    if(ctx->transport_protocol == CY_SOCKET_IPPROTO_UDP)
+                    {
+                        nx_udp_socket_receive_notify(ctx->nxd_socket.udp,
+                                (ctx->callbacks.receive.callback) ? cy_udp_receive_callback : NULL);
+                    }
+                    else if(ctx->transport_protocol == CY_SOCKET_IPPROTO_TCP || ctx->transport_protocol == CY_SOCKET_IPPROTO_TLS)
+                    {
+                        nx_tcp_socket_receive_notify(ctx->nxd_socket.tcp,
+                                (ctx->callbacks.receive.callback) ? cy_tcp_receive_callback : NULL);
+                    }
                     break;
                 }
 
@@ -2122,12 +2132,12 @@ cy_rslt_t cy_socket_setsockopt(cy_socket_t handle, int level, int optname, const
                         ctx->iface_type = iface_type;
                     }
 
-                    cy_rtos_set_mutex(&ctx->socket_mutex);
                     if (status != NX_SUCCESS)
                     {
+                        cy_rtos_set_mutex(&ctx->socket_mutex);
+                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex unlocked %s %d\n", __FILE__, __LINE__);
                         return nxd_to_secure_socket_error(status);
                     }
-                    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex unlocked %s %d\n", __FILE__, __LINE__);
                     break;
                 }
 
@@ -2665,6 +2675,111 @@ cy_rslt_t cy_socket_getsockopt(cy_socket_t handle, int level, int optname, void 
                     break;
                 }
 
+                case CY_SOCKET_SO_LOCALADDR:
+                {
+                    NXD_ADDRESS local_addr;
+                    UINT local_port;
+                    cy_rslt_t result = CY_RSLT_SUCCESS;
+                    cy_socket_sockaddr_t *address = (cy_socket_sockaddr_t*)optval;
+
+                    if (*optlen < sizeof(cy_socket_sockaddr_t))
+                    {
+                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "insufficient option value buffer\n");
+
+                        cy_rtos_set_mutex(&ctx->socket_mutex);
+                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex unlocked %s %d\n", __FILE__, __LINE__);
+                        return CY_RSLT_MODULE_SECURE_SOCKETS_BADARG;
+                    }
+
+                    if (ctx->transport_protocol == CY_SOCKET_IPPROTO_UDP)
+                    {
+                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "UDP not supported for CY_SOCKET_SO_LOCALADDR\n");
+                        cy_rtos_set_mutex(&ctx->socket_mutex);
+                        return CY_RSLT_MODULE_SECURE_SOCKETS_NOT_SUPPORTED;
+                    }
+                    if ((ctx->status & SOCKET_STATUS_FLAG_CONNECTED) != SOCKET_STATUS_FLAG_CONNECTED)
+                    {
+                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Not connected\n");
+                        cy_rtos_set_mutex(&ctx->socket_mutex);
+                        return CY_RSLT_MODULE_SECURE_SOCKETS_NOT_CONNECTED;
+                    }
+                    result = nx_tcp_client_socket_port_get(ctx->nxd_socket.tcp, &local_port);
+                    if (result != NX_SUCCESS)
+                    {
+                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Invalid socket\n");
+                        cy_rtos_set_mutex(&ctx->socket_mutex);
+                        return CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET;
+                    }
+                    address->port = local_port;
+
+                    /* get the ip address based on the connected info */
+                    local_addr.nxd_ip_version = ctx->nxd_socket.tcp->nx_tcp_socket_connect_ip.nxd_ip_version;
+
+                    if(local_addr.nxd_ip_version == NX_IP_VERSION_V4)
+                    {
+                        local_addr.nxd_ip_address.v4 = ctx->nxd_socket.tcp->nx_tcp_socket_connect_interface->nx_interface_ip_address;
+                    }
+                    else if ( local_addr.nxd_ip_version == NX_IP_VERSION_V6 && ctx->nxd_socket.tcp->nx_tcp_socket_connect_interface->nxd_interface_ipv6_address_list_head)
+                    {
+                        COPY_IPV6_ADDRESS(ctx->nxd_socket.tcp->nx_tcp_socket_connect_interface->nxd_interface_ipv6_address_list_head->nxd_ipv6_address, local_addr.nxd_ip_address.v6);
+                    }
+                    /* Convert IP format from NetXDuo to secure socket */
+                    result = convert_nxd_to_secure_socket_ip_addr(&address->ip_address, &local_addr);
+                    if (result != CY_RSLT_SUCCESS)
+                    {
+                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Failed conversion from NetXDuo to secure socket\n");
+                        cy_rtos_set_mutex(&ctx->socket_mutex);
+                        return result;
+                    }
+
+                    break;
+                }
+                case CY_SOCKET_SO_PEERADDR:
+                {
+                    NXD_ADDRESS peer_addr;
+                    ULONG peer_port;
+                    cy_rslt_t result = CY_RSLT_SUCCESS;
+                    cy_socket_sockaddr_t *address = (cy_socket_sockaddr_t*)optval;
+
+                    if (*optlen < sizeof(cy_socket_sockaddr_t))
+                    {
+                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "insufficient option value buffer\n");
+
+                        cy_rtos_set_mutex(&ctx->socket_mutex);
+                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex unlocked %s %d\n", __FILE__, __LINE__);
+
+                        return CY_RSLT_MODULE_SECURE_SOCKETS_BADARG;
+                    }
+
+                    if (ctx->transport_protocol == CY_SOCKET_IPPROTO_UDP)
+                    {
+                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "UDP not supported for CY_SOCKET_SO_PEERADDR\n");
+                        cy_rtos_set_mutex(&ctx->socket_mutex);
+                        return CY_RSLT_MODULE_SECURE_SOCKETS_NOT_SUPPORTED;
+                    }
+
+                    /*
+                     * Get the peer information.
+                     */
+                    result = nxd_tcp_socket_peer_info_get(ctx->nxd_socket.tcp, &peer_addr, &peer_port);
+                    if (result != NX_SUCCESS)
+                    {
+                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "error getting peer info: 0x%02x\n", result);
+                        cy_rtos_set_mutex(&ctx->socket_mutex);
+                        return CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET;
+                    }
+
+                    /* Convert IP format from NetXDuo to secure socket */
+                    result = convert_nxd_to_secure_socket_ip_addr(&address->ip_address, &peer_addr);
+                    if (result != CY_RSLT_SUCCESS)
+                    {
+                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Failed conversion from NetXDuo to secure socket\n");
+                        cy_rtos_set_mutex(&ctx->socket_mutex);
+                        return result;
+                    }
+                    address->port = peer_port;
+                    break;
+                }
                 default:
                 {
                     ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Invalid Socket option\n");
@@ -4347,7 +4462,10 @@ cy_rslt_t cy_socket_accept(cy_socket_t handle, cy_socket_sockaddr_t *address, ui
     ctx->status |= SOCKET_STATUS_FLAG_LISTENING;
 
     ctx->nxd_socket.tcp->nx_tcp_socket_reserved_ptr = (void *)ctx->id;
-    nx_tcp_socket_receive_notify(ctx->nxd_socket.tcp, cy_tcp_receive_callback);
+    if(ctx->callbacks.receive.callback)
+    {
+        nx_tcp_socket_receive_notify(ctx->nxd_socket.tcp, cy_tcp_receive_callback);
+    }
 
     ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_INFO, "new connection accepted\n");
 
@@ -4356,7 +4474,12 @@ cy_rslt_t cy_socket_accept(cy_socket_t handle, cy_socket_sockaddr_t *address, ui
     accept_ctx->nonblocking          = ctx->nonblocking;
     accept_ctx->recv_timeout         = ctx->recv_timeout;
     accept_ctx->send_timeout         = ctx->send_timeout;
-    nx_tcp_socket_receive_notify(accept_ctx->nxd_socket.tcp, cy_tcp_receive_callback);
+
+    /* enable notification for the accepted socket if callback is already in place. */
+    if(ctx->callbacks.receive.callback)
+    {
+        nx_tcp_socket_receive_notify(accept_ctx->nxd_socket.tcp, cy_tcp_receive_callback);
+    }
 
     /*
      * Ideally, the existing callbacks should not be copied. Typically the callers have
@@ -4388,4 +4511,83 @@ cy_rslt_t cy_socket_shutdown(cy_socket_t handle, int how)
 
     ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "cy_socket_shutdown call not suppoert for NetXDuo\n");
     return CY_RSLT_MODULE_SECURE_SOCKETS_NOT_SUPPORTED;
+}
+
+cy_rslt_t cy_socket_get_tls_info(cy_socket_t handle, cy_tls_offload_info_t *tls_info)
+{
+    cy_socket_ctx_t * ctx;
+    cy_rslt_t result = CY_RSLT_SUCCESS;
+
+    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_socket_get_tls_info Start\r\n");
+    if(tls_info == NULL)
+    {
+    	ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "invalid TLS offload info\r\n");
+    	return CY_RSLT_MODULE_SECURE_SOCKETS_BADARG;
+    }
+    if(CY_SOCKET_INVALID_HANDLE == handle)
+    {
+        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "invalid handle\r\n");
+        return CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET;
+    }
+    ctx = (cy_socket_ctx_t *) handle;
+
+    /* While this function is running, application may delete the socket. Protect entire function with a mutex. */
+    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex locked %s %d ctx %p\r\n", __FILE__, __LINE__, ctx);
+    cy_rtos_get_mutex(&ctx->socket_mutex, CY_RTOS_NEVER_TIMEOUT);
+
+    if(!is_socket_valid(ctx))
+    {
+        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "invalid handle\r\n");
+        cy_rtos_set_mutex(&ctx->socket_mutex);
+        return CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET;
+    }
+
+    result = cy_tls_get_tls_info(ctx->tls_ctx, tls_info);
+    if(result != CY_RSLT_SUCCESS)
+    {
+        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "cy_tls_get_tls_info failed\r\n");
+        cy_rtos_set_mutex(&ctx->socket_mutex);
+        return CY_RSLT_MODULE_SECURE_SOCKETS_TLS_ERROR;
+    }
+
+    cy_rtos_set_mutex(&ctx->socket_mutex);
+    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex unlocked %s %d\n", __FILE__, __LINE__);
+    return result;
+}
+
+cy_rslt_t cy_socket_update_tls_sequence(cy_socket_t handle,  uint8_t *read_seq, uint8_t *write_seq)
+{
+    cy_socket_ctx_t * ctx;
+    cy_rslt_t result = CY_RSLT_SUCCESS;
+
+    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_socket_update_tls_sequence Start\r\n");
+    if(CY_SOCKET_INVALID_HANDLE == handle)
+    {
+        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "invalid handle\r\n");
+        return CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET;
+    }
+    ctx = (cy_socket_ctx_t *) handle;
+
+    /* While this function is running, application may delete the socket. Protect entire function with a mutex. */
+    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex locked %s %d ctx %p\r\n", __FILE__, __LINE__, ctx);
+    cy_rtos_get_mutex(&ctx->socket_mutex, CY_RTOS_NEVER_TIMEOUT);
+
+    if(!is_socket_valid(ctx))
+    {
+        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "invalid handle\r\n");
+        cy_rtos_set_mutex(&ctx->socket_mutex);
+        return CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET;
+    }
+
+    result = cy_tls_update_tls_sequence(ctx->tls_ctx, read_seq, write_seq);
+    if(result != CY_RSLT_SUCCESS)
+    {
+        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "cy_tls_get_tls_info failed\r\n");
+        cy_rtos_set_mutex(&ctx->socket_mutex);
+        return CY_RSLT_MODULE_SECURE_SOCKETS_TLS_ERROR;
+    }
+
+    cy_rtos_set_mutex(&ctx->socket_mutex);
+    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex unlocked %s %d\n", __FILE__, __LINE__);
+    return result;
 }

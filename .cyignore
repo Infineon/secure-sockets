@@ -1,14 +1,33 @@
 docs
 
-$(SEARCH_optiga-trust-m)/externals/mbedtls
+# Not required executeable for tools
+$(SEARCH_optiga-trust-m)/tests
 $(SEARCH_optiga-trust-m)/examples/
-$(SEARCH_optiga-trust-m)/pal/NEW_PAL_TEMPLATE
-$(SEARCH_optiga-trust-m)/pal/esp32_freertos
-$(SEARCH_optiga-trust-m)/pal/libusb
-$(SEARCH_optiga-trust-m)/pal/linux
-$(SEARCH_optiga-trust-m)/pal/xmc4800
-$(SEARCH_optiga-trust-m)/pal/xmc4800_freertos
+
+# Not required PALs
+$(SEARCH_optiga-trust-m)/extras/pal/NEW_PAL_TEMPLATE
+$(SEARCH_optiga-trust-m)/extras/pal/esp32_freertos
+$(SEARCH_optiga-trust-m)/extras/pal/libusb
+$(SEARCH_optiga-trust-m)/extras/pal/linux
+$(SEARCH_optiga-trust-m)/extras/pal/xmc4800
+$(SEARCH_optiga-trust-m)/extras/pal/xmc4800_freertos
+$(SEARCH_optiga-trust-m)/extras/pal/zephyr
+$(SEARCH_optiga-trust-m)/extras/pal/test_pal
+$(SEARCH_optiga-trust-m)/extras/pal/linux_uart
+$(SEARCH_optiga-trust-m)/extras/pal/windows_uart
 
 # Not required Crypto midlayers
-$(SEARCH_optiga-trust-m)/pal/pal_crypt_openssl.c
-$(SEARCH_optiga-trust-m)/pal/pal_crypt_wolfssl.c
+$(SEARCH_optiga-trust-m)/extras/pal/pal_crypt_openssl.c
+$(SEARCH_optiga-trust-m)/extras/pal/pal_crypt_wolfssl.c
+
+# Not required MbedTLS folders
+$(SEARCH_optiga-trust-m)/external/mbedtls/3rdparty
+$(SEARCH_optiga-trust-m)/external/mbedtls/ChangeLog.d
+$(SEARCH_optiga-trust-m)/external/mbedtls/configs
+$(SEARCH_optiga-trust-m)/external/mbedtls/docs
+$(SEARCH_optiga-trust-m)/external/mbedtls/doxygen
+$(SEARCH_optiga-trust-m)/external/mbedtls/programs
+$(SEARCH_optiga-trust-m)/external/mbedtls/scripts
+$(SEARCH_optiga-trust-m)/external/mbedtls/tests
+$(SEARCH_optiga-trust-m)/external/mbedtls/visualc
+$(SEARCH_optiga-trust-m)/external/mbedtls/include/mbedtls

@@ -45,7 +45,9 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "cyabs_rtos.h"
+#ifndef COMPONENT_CAT5
 #include "cy_syslib.h"
+#endif
 #include "cy_log.h"
 
 /* PKCS#11 includes. */
@@ -53,15 +55,15 @@
 #include "core_pkcs11.h"
 
 /* OPTIGA(TM) Trust M Includes */
-#include "optiga/optiga_crypt.h"
-#include "optiga/optiga_util.h"
-#include "optiga/pal/pal.h"
-#include "optiga/pal/pal_gpio.h"
-#include "optiga/pal/pal_os_lock.h"
-#include "optiga/pal/pal_os_event.h"
-#include "optiga/pal/pal_i2c.h"
-#include "optiga/ifx_i2c/ifx_i2c_config.h"
-#include "optiga/pal/pal_ifx_i2c_config.h"
+#include "optiga_crypt.h"
+#include "optiga_util.h"
+#include "pal/pal.h"
+#include "pal/pal_gpio.h"
+#include "pal/pal_os_lock.h"
+#include "pal/pal_os_event.h"
+#include "pal/pal_i2c.h"
+#include "ifx_i2c/ifx_i2c_config.h"
+#include "pal/pal_ifx_i2c_config.h"
 #include "optiga_lib_common.h"
 #include "pkcs11_optiga_trustm.h"
 
@@ -736,7 +738,7 @@ static uint32_t prvGetObjectValue( CK_OBJECT_HANDLE object_handle, uint8_t **  p
                 P11CTX_WAIT_FOR_OPTIGA_STATUS;
 
                 /* If the first byte is TLS Identity Tag, than we need to skip 9 bytes */
-                if(object_handle == DeviceCertificate && *ppucData[0] == OPTIGA_TLS_IDENTITY_TAG)
+                if((object_handle == DeviceCertificate || object_handle == RootCertificate) && *ppucData[0] == OPTIGA_TLS_IDENTITY_TAG)
                 {
                     xOffset = OPTIGA_TLS_IDENTITY_TAG_LEN;
                 }

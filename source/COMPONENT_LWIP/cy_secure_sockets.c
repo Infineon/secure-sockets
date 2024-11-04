@@ -50,6 +50,10 @@
 #include <ethernet.h>
 #include <string.h>
 
+#if defined(CYBSP_ETHERNET_CAPABLE)
+#include "cycfg.h"
+#endif
+
 #if LWIP_IPV4 && LWIP_IGMP
 #include <lwip/igmp.h>
 #endif
@@ -444,7 +448,12 @@ static cy_socket_ctx_t* alloc_socket(cy_socket_interface_t iface_type)
             socket_list[i].ctx->iface_type = iface_type;
 
 #if defined(CYBSP_ETHERNET_CAPABLE)
+#if (defined (eth_0_ENABLED) && (eth_0_ENABLED == 1u))
+            socket_list[i].ctx->iface_idx = 0;
+#endif
+#if (defined (eth_1_ENABLED) && (eth_1_ENABLED == 1u))
             socket_list[i].ctx->iface_idx = 1;
+#endif
 #else
             socket_list[i].ctx->iface_idx = 0;
 #endif
@@ -1554,8 +1563,12 @@ cy_rslt_t cy_socket_create(int domain, int type, int protocol, cy_socket_t *hand
         return CY_RSLT_MODULE_SECURE_SOCKETS_BADARG;
     }
 #if defined(CYBSP_ETHERNET_CAPABLE)
-    /* At present only CY_SOCKET_ETH1_INTERFACE is supported for ethernet */
+#if (defined (eth_0_ENABLED) && (eth_0_ENABLED == 1u))
+    iface_type = CY_SOCKET_ETH0_INTERFACE;
+#endif
+#if (defined (eth_1_ENABLED) && (eth_1_ENABLED == 1u))
     iface_type = CY_SOCKET_ETH1_INTERFACE;
+#endif
 #else
     netif = cy_network_get_nw_interface(CY_NETWORK_WIFI_STA_INTERFACE, 0);
     if (netif == NULL)
@@ -4692,20 +4705,23 @@ cy_rslt_t cy_socket_get_tls_info(cy_socket_t handle, cy_tls_offload_info_t *tls_
     }
     ctx = (cy_socket_ctx_t *) handle;
 
-    if(!is_socket_valid(ctx))
-    {
-        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "invalid handle\r\n");
-        return CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET;
-    }
-
     /* While this function is running, application may delete the socket. Protect entire function with a mutex. */
     ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex locked %s %d ctx %p\r\n", __FILE__, __LINE__, ctx);
     cy_rtos_get_mutex(&ctx->socket_mutex, CY_RTOS_NEVER_TIMEOUT);
+
+    if(!is_socket_valid(ctx))
+    {
+        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "invalid handle\r\n");
+        cy_rtos_set_mutex(&ctx->socket_mutex);
+        return CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET;
+    }
+
     result = cy_tls_get_tls_info(ctx->tls_ctx, tls_info);
     if(result != CY_RSLT_SUCCESS)
     {
         ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "cy_tls_get_tls_info failed\r\n");
-        result = CY_RSLT_MODULE_SECURE_SOCKETS_TLS_ERROR;
+        cy_rtos_set_mutex(&ctx->socket_mutex);
+        return CY_RSLT_MODULE_SECURE_SOCKETS_TLS_ERROR;
     }
 
     cy_rtos_set_mutex(&ctx->socket_mutex);
@@ -4726,20 +4742,23 @@ cy_rslt_t cy_socket_update_tls_sequence(cy_socket_t handle,  uint8_t *read_seq, 
     }
     ctx = (cy_socket_ctx_t *) handle;
 
-    if(!is_socket_valid(ctx))
-    {
-        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "invalid handle\r\n");
-        return CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET;
-    }
-
     /* While this function is running, application may delete the socket. Protect entire function with a mutex. */
     ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex locked %s %d ctx %p\r\n", __FILE__, __LINE__, ctx);
     cy_rtos_get_mutex(&ctx->socket_mutex, CY_RTOS_NEVER_TIMEOUT);
+
+    if(!is_socket_valid(ctx))
+    {
+        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "invalid handle\r\n");
+        cy_rtos_set_mutex(&ctx->socket_mutex);
+        return CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET;
+    }
+
     result = cy_tls_update_tls_sequence(ctx->tls_ctx, read_seq, write_seq);
     if(result != CY_RSLT_SUCCESS)
     {
         ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "cy_tls_get_tls_info failed\r\n");
-        result = CY_RSLT_MODULE_SECURE_SOCKETS_TLS_ERROR;
+        cy_rtos_set_mutex(&ctx->socket_mutex);
+        return CY_RSLT_MODULE_SECURE_SOCKETS_TLS_ERROR;
     }
 
     cy_rtos_set_mutex(&ctx->socket_mutex);

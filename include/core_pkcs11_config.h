@@ -46,12 +46,20 @@
 /**
  * @brief Malloc API used by core_pkcs11.h
  */
+#ifdef COMPONENT_FREERTOS
 #define PKCS11_MALLOC pvPortMalloc
+#else
+#define PKCS11_MALLOC malloc
+#endif
 
 /**
  * @brief Free API used by core_pkcs11.h
  */
+#ifdef COMPONENT_FREERTOS
 #define PKCS11_FREE vPortFree
+#else
+#define PKCS11_FREE free
+#endif
 
 /* A non-standard version of C_INITIALIZE should be used by this port. */
 /* #define pkcs11configC_INITIALIZE_ALT */

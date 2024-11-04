@@ -70,13 +70,8 @@ extern cy_rslt_t cy_prng_get_random( void* buffer, uint32_t buffer_length );
 #ifdef CY_TFM_PSA_SUPPORTED
 #include "tfm_mbedtls_version.h"
 #endif
-#include <mbedtls/version.h>
-#include <mbedtls/pk.h>
-#include <mbedtls/pk_internal.h>
-#include <core_pkcs11_config.h>
-#include <core_pkcs11.h>
-#include <core_pki_utils.h>
 #endif
+#include "cy_secure_sockets_pkcs.h"
 
 #ifdef ENABLE_SECURE_SOCKETS_LOGS
 #define tls_cy_log_msg cy_log_msg
@@ -92,11 +87,6 @@ extern cy_rslt_t cy_prng_get_random( void* buffer, uint32_t buffer_length );
 #if MBEDTLS_VERSION_NUMBER != TFM_MBEDTLS_VERSION_NUMBER
 #error "MBEDTLS version mismatch between secure core and non-secure core implementation. Please refer tfm_mbedtls_version.h present inside trusted-firmware-m library and version.h in mbedtls library"
 #endif
-#endif
-
-#define CY_TLS_LOAD_CERT_FROM_RAM                1
-#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
-#define CY_TLS_LOAD_CERT_FROM_SECURE_STORAGE     0
 #endif
 
 /**
@@ -129,20 +119,6 @@ typedef enum {
     CY_TLS_MACALGORITHM_HMAC_SHA384,
     CY_TLS_MACALGORITHM_HMAC_SHA512
 } cy_mac_algorithm_t;
-
-#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
-typedef struct cy_tls_pkcs_context
-{
-    CK_FUNCTION_LIST_PTR        functionlist;
-    CK_SESSION_HANDLE           session;
-    CK_OBJECT_HANDLE            privatekey_obj;
-    CK_KEY_TYPE                 key_type;
-    mbedtls_pk_context          ssl_pk_ctx;
-    mbedtls_pk_info_t           ssl_pk_info;
-    bool                        load_rootca_from_ram;
-    bool                        load_device_cert_key_from_ram;
-} cy_tls_pkcs_context_t;
-#endif
 
 typedef struct cy_tls_context_mbedtls
 {
@@ -338,24 +314,6 @@ cy_rslt_t cy_tls_get_tls_info(void *context, cy_tls_offload_info_t *tls_info)
 }
 
 /*-----------------------------------------------------------*/
-
-#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
-static cy_rslt_t convert_pkcs_error_to_tls(CK_RV result)
-{
-    switch( result )
-    {
-        case CKR_OK:
-            return CY_RSLT_SUCCESS;
-        case CKR_HOST_MEMORY:
-            return CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE;
-        case CKR_ARGUMENTS_BAD:
-            return CY_RSLT_MODULE_TLS_BADARG;
-        case CKR_GENERAL_ERROR:
-        default:
-            return CY_RSLT_MODULE_TLS_PKCS_ERROR;
-    }
-}
-#endif
 
 /* Get the current time. */
 mbedtls_time_t get_current_time(mbedtls_time_t *t)
@@ -710,7 +668,6 @@ cy_rslt_t cy_tls_create_context(void **context, cy_tls_params_t *params)
 {
     cy_tls_context_mbedtls_t *ctx = NULL;
 #ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
-    CK_C_GetFunctionList function_list = NULL;
     CK_RV pkcs_result = CKR_OK;
 #endif
 
@@ -744,15 +701,14 @@ cy_rslt_t cy_tls_create_context(void **context, cy_tls_params_t *params)
     ctx->load_device_cert_key_from_ram = params->load_device_cert_key_from_ram;
 
     /* Get the function pointer list for the PKCS#11 module. */
-    function_list = C_GetFunctionList;
-    pkcs_result = function_list(&ctx->pkcs_context.functionlist);
+    pkcs_result = C_GetFunctionList(&ctx->pkcs_context.functionlist);
 
     if(pkcs_result != CKR_OK)
     {
         tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : C_GetFunctionList failed with error : 0x%x \r\n", pkcs_result);
         free(ctx);
         *context = NULL;
-        return convert_pkcs_error_to_tls(pkcs_result);
+        return cy_tls_convert_pkcs_error_to_tls(pkcs_result);
     }
 
     /* Ensure that the PKCS #11 module is initialized and create a session. */
@@ -769,7 +725,7 @@ cy_rslt_t cy_tls_create_context(void **context, cy_tls_params_t *params)
             tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : xInitializePkcs11Session failed with error : 0x%x \r\n", pkcs_result);
             free(ctx);
             *context = NULL;
-            return convert_pkcs_error_to_tls(pkcs_result);
+            return cy_tls_convert_pkcs_error_to_tls(pkcs_result);
         }
     }
 #endif
@@ -785,7 +741,7 @@ static int cy_tls_sign_with_private_key(void* context, mbedtls_md_type_t xMdAlg,
     CK_RV result = CKR_OK;
     cy_tls_context_mbedtls_t* tls_context = (cy_tls_context_mbedtls_t*) context;
     CK_MECHANISM xMech = {0};
-    CK_BYTE xToBeSigned[256];
+    CK_BYTE xToBeSigned[MAX_HASH_DATA_LENGTH];
     CK_ULONG xToBeSignedLen = sizeof(xToBeSigned);
 
     if(context == NULL)
@@ -942,7 +898,7 @@ cleanup:
 static CK_RV cy_tls_initialize_client_credentials(cy_tls_context_mbedtls_t* context)
 {
     CK_RV result = CKR_OK;
-    CK_ATTRIBUTE xTemplate[ 2 ];
+    CK_ATTRIBUTE xTemplate;
     mbedtls_pk_type_t mbedtls_key_algo = ( mbedtls_pk_type_t ) ~0;
     int mbedtls_result = 0;
 
@@ -978,11 +934,11 @@ static CK_RV cy_tls_initialize_client_credentials(cy_tls_context_mbedtls_t* cont
     }
 
     /* Query the device private key type. */
-    xTemplate[0].type = CKA_KEY_TYPE;
-    xTemplate[0].pValue = &context->pkcs_context.key_type;
-    xTemplate[0].ulValueLen = sizeof(CK_KEY_TYPE);
+    xTemplate.type = CKA_KEY_TYPE;
+    xTemplate.pValue = &context->pkcs_context.key_type;
+    xTemplate.ulValueLen = sizeof(CK_KEY_TYPE);
 
-    result = context->pkcs_context.functionlist->C_GetAttributeValue(context->pkcs_context.session, context->pkcs_context.privatekey_obj, xTemplate, 1);
+    result = context->pkcs_context.functionlist->C_GetAttributeValue(context->pkcs_context.session, context->pkcs_context.privatekey_obj, &xTemplate, 1);
     if(result != CKR_OK)
     {
         tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : C_GetAttributeValue failed with error : %d \r\n", result);
@@ -1501,7 +1457,6 @@ cy_rslt_t cy_tls_delete_context(cy_tls_context_t context)
     {
         ctx->pkcs_context.functionlist->C_CloseSession(ctx->pkcs_context.session);
     }
-
     if(ctx->cert_x509ca != NULL)
     {
         mbedtls_x509_crt_free(ctx->cert_x509ca);

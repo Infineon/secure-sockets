@@ -51,8 +51,9 @@
 #include <stdbool.h>
 #include <string.h>
 #include <time.h>
-
+#include <limits.h>
 #include <cy_tls_ciphersuites.h>
+#include "cy_secure_sockets_pkcs.h"
 
 #ifdef ENABLE_SECURE_SOCKETS_LOGS
 #define tls_cy_log_msg cy_log_msg
@@ -102,6 +103,13 @@ typedef struct cy_tls_context_nx_secure
     unsigned char              *certificate_buffer;
     NX_PACKET                  *packet;
     uint32_t                    offset;
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+    NX_SECURE_X509_CERT        *cert_x509ca;
+    NX_SECURE_X509_CERT        *cert_client;
+    bool                        load_rootca_from_ram;
+    bool                        load_device_cert_key_from_ram;
+    cy_tls_pkcs_context_t       pkcs_context;
+#endif
 } cy_tls_context_nx_secure_t;
 
 typedef struct
@@ -130,6 +138,10 @@ static unsigned char *root_ca_certificates_der = NULL;
 
 /* TLS library usage count */
 static int init_ref_count = 0;
+
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+static CK_RV cy_tls_initialize_client_credentials(cy_tls_context_nx_secure_t* context);
+#endif
 
 static const unsigned char base64_dec_map[128] =
 {
@@ -712,9 +724,268 @@ cy_rslt_t cy_tls_delete_identity(void *tls_identity )
     return CY_RSLT_SUCCESS;
 }
 /*-----------------------------------------------------------*/
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+static CK_RV cy_tls_find_key_type(cy_tls_context_nx_secure_t* context, bool* is_rsa)
+{
+    CK_RV result = CKR_OK;
+    CK_ATTRIBUTE xTemplate;
+    if(context->pkcs_context.session == CK_INVALID_HANDLE)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : session is not initialized \r\n");
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+
+    /* Get the handle of the device private key. */
+    result = xFindObjectWithLabelAndClass(context->pkcs_context.session, pkcs11configLABEL_DEVICE_PRIVATE_KEY_FOR_TLS,
+                                          sizeof( pkcs11configLABEL_DEVICE_PRIVATE_KEY_FOR_TLS ) - 1,
+                                          CKO_PRIVATE_KEY,
+                                          &context->pkcs_context.privatekey_obj);
+    if(result != CKR_OK)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : xFindObjectWithLabelAndClass failed with error : %d \r\n", result);
+        return result;
+    }
+
+    if(context->pkcs_context.privatekey_obj == CK_INVALID_HANDLE)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : Private key not found \r\n", result);
+        return CKR_GENERAL_ERROR;
+    }
+
+    /* Query the device private key type. */
+    xTemplate.type = CKA_KEY_TYPE;
+    xTemplate.pValue = &context->pkcs_context.key_type;
+    xTemplate.ulValueLen = sizeof(CK_KEY_TYPE);
+
+    result = context->pkcs_context.functionlist->C_GetAttributeValue(context->pkcs_context.session, context->pkcs_context.privatekey_obj, &xTemplate, 1);
+    if(result != CKR_OK)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : C_GetAttributeValue failed with error : %d \r\n", result);
+        return result;
+    }
+    switch (context->pkcs_context.key_type)
+    {
+        case CKK_RSA:
+            *is_rsa = 1;
+            break;
+
+        case CKK_EC:
+            *is_rsa = 0;
+            break;
+    }
+    return result;
+}
+/*-----------------------------------------------------------*/
+/* Read RootCA certificate/ device certificate from secure element through PKCS interface
+ * and load into the NetXSecure context */
+static CK_RV cy_tls_read_certificate(cy_tls_context_nx_secure_t* context, char *label_name, CK_OBJECT_CLASS obj_class, NX_SECURE_X509_CERT* cert_context)
+{
+    CK_RV result = CKR_OK;
+    CK_ATTRIBUTE xTemplate[2];
+    CK_OBJECT_HANDLE obj_cert = 0;
+    INT error;
+#if (NX_SECURE_TLS_TLS_1_3_ENABLED)
+    uint8_t curve_p256[] = pkcs11DER_ENCODED_OID_P256;
+    uint8_t curve_p384[] = pkcs11DER_ENCODED_OID_P384;
+    uint8_t curve_p521[] = pkcs11DER_ENCODED_OID_P521;
+#endif
+    /* Get the handle of the certificate. */
+    result = xFindObjectWithLabelAndClass(context->pkcs_context.session, label_name, strlen(label_name), obj_class, &obj_cert);
+    if(result != CKR_OK)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : xFindObjectWithLabelAndClass failed with error : %d \r\n", result);
+        return result;
+    }
+
+    if(obj_cert == CK_INVALID_HANDLE)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : Failed to get the handle of the certificate \r\n");
+        return CKR_OBJECT_HANDLE_INVALID;
+    }
+
+    /* Query the certificate size. */
+    xTemplate[0].type = CKA_VALUE;
+    xTemplate[0].ulValueLen = 0;
+    xTemplate[0].pValue = NULL;
+    result = context->pkcs_context.functionlist->C_GetAttributeValue(context->pkcs_context.session, obj_cert, xTemplate, 1);
+    if(result != CKR_OK)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : C_GetAttributeValue failed with error : %d \r\n", result);
+        return result;
+    }
+
+    /* Create a buffer for the certificate. */
+    xTemplate[0].pValue = malloc(xTemplate[0].ulValueLen);
+    if(xTemplate[0].pValue == NULL)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : Failed to create buffer for the certificate \r\n");
+        return CKR_HOST_MEMORY;
+    }
+
+    /* Export the certificate. */
+    result = context->pkcs_context.functionlist->C_GetAttributeValue(context->pkcs_context.session, obj_cert, xTemplate, 1);
+    if(result != CKR_OK)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : C_GetAttributeValue failed with error : %d \r\n", result);
+        goto cleanup;
+    }
+
+    /* Initialize the Certificate */
+    if( 0 == strncmp( pkcs11configLABEL_DEVICE_CERTIFICATE_FOR_TLS,label_name,sizeof( pkcs11configLABEL_DEVICE_CERTIFICATE_FOR_TLS ) ))
+    {
+        error = nx_secure_x509_certificate_initialize(cert_context, (UCHAR *)xTemplate[0].pValue, (USHORT)xTemplate[0].ulValueLen, NULL, 0, (const unsigned char *)context, USHRT_MAX, NX_SECURE_X509_KEY_TYPE_HARDWARE);
+        if(error != NX_SUCCESS)
+        {
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : nx_secure_x509_certificate_initialize failed 0x%x\r\n", error);
+            result = CY_RSLT_MODULE_TLS_PARSE_CERTIFICATE;
+            goto cleanup;
+        }
+        else
+        {
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "PKCS : Device certificate initialized\r\n");
+            context->pkcs_context.device_cert_ptr = xTemplate[0].pValue;
+        }
+
+        switch (context->pkcs_context.key_type)
+        {
+            /* TLS context and an identifiable number is stored and are used during signing.
+             * TLS context is stored and used to get pkcs context to handle multiple connections
+             * USHRT_MAX is used to indicate when private key from optiga storage should be used */
+
+            case CKK_RSA:
+                cert_context->nx_secure_x509_private_key.rsa_private_key.nx_secure_rsa_private_exponent = (UCHAR *)&context->pkcs_context;
+                cert_context->nx_secure_x509_private_key.rsa_private_key.nx_secure_rsa_private_exponent_length = USHRT_MAX;
+                break;
+
+            case CKK_EC:
+                cert_context->nx_secure_x509_private_key.ec_private_key.nx_secure_ec_private_key = (UCHAR *)&context->pkcs_context;
+                cert_context->nx_secure_x509_private_key.ec_private_key.nx_secure_ec_private_key_length = USHRT_MAX;
+
+                /*For TLS1.3 Expected sign algorithm depends on the private key's curve type*/
+#if (NX_SECURE_TLS_TLS_1_3_ENABLED)
+                xTemplate[1].type = CKA_EC_PARAMS;
+                xTemplate[1].ulValueLen = 20;
+                xTemplate[1].pValue = NULL;
+                /* Create a buffer for the EC curve oid bite array. */
+                xTemplate[1].pValue = malloc(xTemplate[1].ulValueLen);
+                if(xTemplate[1].pValue == NULL)
+                {
+                    tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : Failed to create buffer for the certificate \r\n");
+                    result = CKR_HOST_MEMORY;
+                    goto cleanup;
+                }
+                result = context->pkcs_context.functionlist->C_GetAttributeValue(context->pkcs_context.session, obj_cert, &xTemplate[1], 1);
+                if(result != CKR_OK)
+                {
+                    tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : C_GetAttributeValue failed with error : %d \r\n", result);
+                    goto cleanup;
+                }
+
+                if(!memcmp((uint8_t*)xTemplate[1].pValue,curve_p256,xTemplate[1].ulValueLen))
+                {
+                    cert_context->nx_secure_x509_private_key.ec_private_key.nx_secure_ec_named_curve = NX_CRYPTO_EC_SECP256R1;
+                }
+                else if(!memcmp((uint8_t*)xTemplate[1].pValue,curve_p384,xTemplate[1].ulValueLen))
+                {
+                    cert_context->nx_secure_x509_private_key.ec_private_key.nx_secure_ec_named_curve = NX_CRYPTO_EC_SECP384R1;
+                }
+                else if(!memcmp((uint8_t*)xTemplate[1].pValue,curve_p521,xTemplate[1].ulValueLen))
+                {
+                    cert_context->nx_secure_x509_private_key.ec_private_key.nx_secure_ec_named_curve = NX_CRYPTO_EC_SECP521R1;
+                }
+                else
+                {
+                    tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : Unsupported curve type %d \r\n", CKR_ARGUMENTS_BAD);
+                    result = CKR_ARGUMENTS_BAD;
+                    goto cleanup;
+                }
+                if(xTemplate[1].pValue != NULL)
+                {
+                    free(xTemplate[1].pValue);
+                    xTemplate[1].pValue = NULL;
+                }
+#endif
+                break;
+        }
+    }
+    else if( 0 == strncmp( pkcs11configLABEL_ROOT_CERTIFICATE,label_name,sizeof( pkcs11configLABEL_ROOT_CERTIFICATE ) ))
+    {
+        error = nx_secure_x509_certificate_initialize(cert_context, (UCHAR *)xTemplate[0].pValue, (USHORT)xTemplate[0].ulValueLen, NULL, 0, NULL, 0, NX_SECURE_X509_KEY_TYPE_NONE);
+        if(error != NX_SUCCESS)
+        {
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : nx_secure_x509_certificate_initialize failed 0x%x\r\n", error);
+            result = CY_RSLT_MODULE_TLS_PARSE_CERTIFICATE;
+            goto cleanup;
+        }
+        else
+        {
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "PKCS : Root certificate initialized\r\n");
+            context->pkcs_context.root_cert_ptr = xTemplate[0].pValue;
+        }
+
+    }
+    return result;
+    cleanup:
+        if(xTemplate[0].pValue != NULL)
+        {
+            free(xTemplate[0].pValue);
+            xTemplate[0].pValue = NULL;
+        }
+        if(xTemplate[1].pValue != NULL)
+        {
+            free(xTemplate[1].pValue);
+            xTemplate[1].pValue = NULL;
+        }
+	return result;
+}
+/*-----------------------------------------------------------*/
+/* Setup the hardware cryptographic context  */
+static CK_RV cy_tls_initialize_client_credentials(cy_tls_context_nx_secure_t* context)
+{
+    CK_RV result = CKR_OK;
+    INT error;
+
+    if(context->pkcs_context.session == CK_INVALID_HANDLE)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : session is not initialized \r\n");
+        return CKR_SESSION_HANDLE_INVALID;
+    }
+
+    result = context->pkcs_context.functionlist->C_Login(context->pkcs_context.session, CKU_USER, (CK_UTF8CHAR_PTR)configPKCS11_DEFAULT_USER_PIN,
+                                                         sizeof(configPKCS11_DEFAULT_USER_PIN) - 1);
+    if(result != CKR_OK)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : C_Login failed with error : %d \r\n", result);
+        return result;
+    }
+
+    result = cy_tls_read_certificate(context, pkcs11configLABEL_DEVICE_CERTIFICATE_FOR_TLS, CKO_CERTIFICATE, context->cert_client );
+    if(result != CKR_OK)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : failed to read device certificate : %d \r\n", result);
+        return result;
+    }
+    tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "PKCS : cy_tls_read_certificate() complete\r\n");
+    error = nx_secure_tls_local_certificate_add(&context->tls_session, context->cert_client);
+    if (error != NX_SUCCESS)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : nx_secure_tls_local_certificate_add failed 0x%x\r\n", error);
+        result = CY_RSLT_MODULE_TLS_ERROR;
+    }
+    else
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "PKCS : nx_secure_tls_local_certificate_add() complete\r\n");
+    }
+    return result;
+}
+#endif
+/*-----------------------------------------------------------*/
 cy_rslt_t cy_tls_create_context(void **context, cy_tls_params_t *params)
 {
     cy_tls_context_nx_secure_t *ctx = NULL;
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+    CK_RV pkcs_result = CKR_OK;
+#endif
 
     if (context == NULL || params == NULL)
     {
@@ -737,6 +1008,35 @@ cy_rslt_t cy_tls_create_context(void **context, cy_tls_params_t *params)
     ctx->alpn_list = params->alpn_list;
     ctx->mfl_code  = params->mfl_code;
     ctx->hostname  = params->hostname;
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+
+    ctx->load_rootca_from_ram  = params->load_rootca_from_ram;
+    ctx->load_device_cert_key_from_ram = params->load_device_cert_key_from_ram;
+
+    /* Get the function pointer list for the PKCS#11 module. */
+    pkcs_result = C_GetFunctionList(&ctx->pkcs_context.functionlist);
+
+    if(pkcs_result != CKR_OK)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : C_GetFunctionList failed with error : 0x%x \r\n", pkcs_result);
+        free(ctx);
+        *context = NULL;
+        return cy_tls_convert_pkcs_error_to_tls(pkcs_result);
+    }
+    /* Ensure that the PKCS #11 module is initialized and create a session. */
+    pkcs_result = xInitializePkcs11Session(&ctx->pkcs_context.session);
+
+    if(pkcs_result != CKR_CRYPTOKI_ALREADY_INITIALIZED)
+    {
+        if(pkcs_result != CKR_OK)
+        {
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : xInitializePkcs11Session failed with error : 0x%x \r\n", pkcs_result);
+            free(ctx);
+            *context = NULL;
+            return cy_tls_convert_pkcs_error_to_tls(pkcs_result);
+        }
+    }
+#endif
 
     return CY_RSLT_SUCCESS;
 }
@@ -759,6 +1059,7 @@ ULONG get_current_time()
 #endif /* ENABLE_HAVE_DATE_TIME */
 
 /*-----------------------------------------------------------*/
+
 cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint, uint32_t timeout)
 {
     cy_tls_context_nx_secure_t *ctx = (cy_tls_context_nx_secure_t *) context;
@@ -768,6 +1069,12 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint, uint32_
     ULONG metadata_size;
     NX_SECURE_X509_DNS_NAME dns_name;
     bool tls_session_created = false;
+    const NX_SECURE_TLS_CRYPTO *cipher_table;
+    bool load_cert_key_from_ram = CY_TLS_LOAD_CERT_FROM_RAM;
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+    CK_RV pkcs_result = CKR_OK;
+    bool is_rsa = 1;
+#endif
 
     if (ctx == NULL)
     {
@@ -776,8 +1083,35 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint, uint32_
 
     tls_identity = (cy_tls_identity_t *)ctx->tls_identity;
 
+    cipher_table = &cy_tls_tlsv12_ciphers;
+
+#if (NX_SECURE_TLS_TLS_1_3_ENABLED)
+    /* NetXSecure doesnt support TLS1.3 with RSA keys/certificate. Hence only if the key type is not RSA,
+     * use the TLS1.3 cipher table
+     */
+    if ((tls_identity == NULL) || (tls_identity->certificate.nx_secure_x509_private_key_type != NX_SECURE_X509_KEY_TYPE_RSA_PKCS1_DER))
+    {
+        cipher_table = &cy_tls_tlsv13_ciphers;
+    }
+#endif
+
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+    if(ctx->load_device_cert_key_from_ram == CY_TLS_LOAD_CERT_FROM_SECURE_STORAGE)
+    {
+        pkcs_result = cy_tls_find_key_type(ctx,&is_rsa);
+        if(CKR_OK == pkcs_result && is_rsa)
+        {
+            cipher_table = &cy_tls_tlsv12_ciphers;
+        }
+        else
+        {
+            cipher_table = &cy_tls_tlsv13_ciphers;
+        }
+    }
+#endif
+
     /* Find meta-data size that is needed for TLS session creation. */
-    error = nx_secure_tls_metadata_size_calculate(&cy_tls_ciphers, &metadata_size);
+    error = nx_secure_tls_metadata_size_calculate(cipher_table, &metadata_size);
 
     if (error != NX_SUCCESS)
     {
@@ -798,7 +1132,7 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint, uint32_
 
     /* Create TLS session */
 
-    error = nx_secure_tls_session_create(&ctx->tls_session, &cy_tls_ciphers, ctx->tls_metadata, metadata_size);
+    error = nx_secure_tls_session_create(&ctx->tls_session, cipher_table, ctx->tls_metadata, metadata_size);
     if (error == NX_SUCCESS)
     {
         tls_session_created = true;
@@ -918,42 +1252,117 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint, uint32_
 
 #endif
 
-    if(ctx->rootca_certificate)
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+    /* If CY_SECURE_SOCKETS_PKCS_SUPPORT flag is enabled and ctx->load_rootca_from_ram flag is not set through
+     * cy_socket_setsockopt then use the rootCA certificate which was provisioned to secure element else read from the
+     * RAM
+     */
+    if(ctx->load_rootca_from_ram == CY_TLS_LOAD_CERT_FROM_SECURE_STORAGE)
     {
-        cy_tls_internal_load_root_ca_certificates(&ctx->nx_secure_ca_cert, ctx->rootca_certificate,  ctx->rootca_certificate_length, &ctx->rootca_der);
-        error = nx_secure_tls_trusted_certificate_add(&ctx->tls_session, ctx->nx_secure_ca_cert);
-        if (error != NX_SUCCESS)
-        {
-            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "nx_secure_tls_trusted_certificate_add failed 0x%x\r\n", error);
+        load_cert_key_from_ram = CY_TLS_LOAD_CERT_FROM_SECURE_STORAGE;
 
+        ctx->cert_x509ca = calloc(sizeof(NX_SECURE_X509_CERT), 1);
+        if(ctx->cert_x509ca == NULL)
+        {
+            return CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE;
+        }
+
+        /* Read rootCA certificate */
+        result = cy_tls_read_certificate(ctx, pkcs11configLABEL_ROOT_CERTIFICATE, CKO_CERTIFICATE, ctx->cert_x509ca);
+
+        /* If reading RootCA certificate fails then continue with TLS handshake as TLS handshake may
+         * go through if server certificate doesnt need to be verified */
+        if(result == CKR_OK)
+        {
+            error = nx_secure_tls_trusted_certificate_add(&ctx->tls_session, ctx->cert_x509ca);
+            if (error != NX_SUCCESS)
+            {
+                tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "nx_secure_tls_trusted_certificate_add failed 0x%x\r\n", error);
+                result = CY_RSLT_MODULE_TLS_ERROR;
+                goto cleanup;
+            }
+        }
+        else
+        {
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "cy_tls_read_certificate failed 0x%x\r\n", error);
             result = CY_RSLT_MODULE_TLS_ERROR;
             goto cleanup;
         }
     }
-    else if (root_ca_certificates)
-    {
-        error = nx_secure_tls_trusted_certificate_add(&ctx->tls_session, root_ca_certificates);
-        if (error != NX_SUCCESS)
-        {
-            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "nx_secure_tls_trusted_certificate_add failed 0x%x\r\n", error);
+#endif
 
-            result = CY_RSLT_MODULE_TLS_ERROR;
-            goto cleanup;
+    if(load_cert_key_from_ram == CY_TLS_LOAD_CERT_FROM_RAM)
+    {
+        if(ctx->rootca_certificate)
+        {
+            cy_tls_internal_load_root_ca_certificates(&ctx->nx_secure_ca_cert, ctx->rootca_certificate,  ctx->rootca_certificate_length, &ctx->rootca_der);
+            error = nx_secure_tls_trusted_certificate_add(&ctx->tls_session, ctx->nx_secure_ca_cert);
+            if (error != NX_SUCCESS)
+            {
+                tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "nx_secure_tls_trusted_certificate_add failed 0x%x\r\n", error);
+
+                result = CY_RSLT_MODULE_TLS_ERROR;
+                goto cleanup;
+            }
+        }
+        else if (root_ca_certificates)
+        {
+            error = nx_secure_tls_trusted_certificate_add(&ctx->tls_session, root_ca_certificates);
+            if (error != NX_SUCCESS)
+            {
+                tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "nx_secure_tls_trusted_certificate_add failed 0x%x\r\n", error);
+
+                result = CY_RSLT_MODULE_TLS_ERROR;
+                goto cleanup;
+            }
         }
     }
 
-    if (tls_identity)
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+    if(ctx->load_device_cert_key_from_ram == CY_TLS_LOAD_CERT_FROM_SECURE_STORAGE)
     {
-        error = nx_secure_tls_local_certificate_add(&ctx->tls_session, &tls_identity->certificate);
-        if (error != NX_SUCCESS)
-        {
-            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "nx_secure_tls_local_certificate_add failed 0x%x\r\n", error);
+        load_cert_key_from_ram = CY_TLS_LOAD_CERT_FROM_SECURE_STORAGE;
 
-            result = CY_RSLT_MODULE_TLS_ERROR;
-            goto cleanup;
+        ctx->cert_client = calloc(sizeof(NX_SECURE_X509_CERT), 1);
+        if(ctx->cert_client == NULL)
+        {
+            return CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE;
+        }
+
+        /* If reading provisioned device certificate and keys failed from secure element. still continue the TLS
+         * handshake. as for server which doesnt require mutual authentication may successully complete the TLS handshake
+         */
+        pkcs_result = cy_tls_initialize_client_credentials(ctx);
+        if(pkcs_result != CKR_OK)
+        {
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Reading device credentials from secure element failed with error %d \r\n", pkcs_result);
+            free(ctx->cert_client);
+            ctx->cert_client = NULL;
+        }
+        else
+        {
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "client credentials initialized\r\n");
         }
     }
+    else
+    {
+        load_cert_key_from_ram = CY_TLS_LOAD_CERT_FROM_RAM;
+    }
+#endif
+    if(load_cert_key_from_ram == CY_TLS_LOAD_CERT_FROM_RAM)
+    {
+        if (tls_identity)
+        {
+            error = nx_secure_tls_local_certificate_add(&ctx->tls_session, &tls_identity->certificate);
+            if (error != NX_SUCCESS)
+            {
+                tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "nx_secure_tls_local_certificate_add failed 0x%x\r\n", error);
 
+                result = CY_RSLT_MODULE_TLS_ERROR;
+                goto cleanup;
+            }
+        }
+    }
     tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "Performing the TLS handshake\r\n");
 
     error = nx_secure_tls_session_start(&ctx->tls_session, ctx->nx_tcp_socket, NX_TIMEOUT(timeout));
@@ -967,7 +1376,6 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint, uint32_
 
     ctx->tls_handshake_successful = true;
     tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "TLS handshake successful \r\n");
-
     return CY_RSLT_SUCCESS;
 
 cleanup:
@@ -1001,7 +1409,29 @@ cleanup:
         free(ctx->certificate_buffer);
         ctx->certificate_buffer = NULL;
     }
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+    if(ctx->cert_x509ca != NULL)
+    {
+        free(ctx->cert_x509ca);
+        ctx->cert_x509ca = NULL;
+    }
 
+    if(ctx->cert_client != NULL)
+    {
+        free(ctx->cert_client);
+        ctx->cert_client = NULL;
+    }
+    if(ctx->pkcs_context.root_cert_ptr != NULL)
+    {
+        free(ctx->pkcs_context.root_cert_ptr);
+        ctx->pkcs_context.root_cert_ptr = NULL;
+    }
+    if(ctx->pkcs_context.device_cert_ptr != NULL)
+    {
+        free(ctx->pkcs_context.device_cert_ptr);
+        ctx->pkcs_context.device_cert_ptr = NULL;
+    }
+#endif
     return result;
 }
 
@@ -1180,6 +1610,33 @@ cy_rslt_t cy_tls_delete_context(cy_tls_context_t context)
         ctx->rootca_der = NULL;
     }
 
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+    if(ctx->pkcs_context.root_cert_ptr != NULL)
+    {
+        free(ctx->pkcs_context.root_cert_ptr);
+        ctx->pkcs_context.root_cert_ptr = NULL;
+    }
+    if(ctx->pkcs_context.device_cert_ptr != NULL)
+    {
+        free(ctx->pkcs_context.device_cert_ptr);
+        ctx->pkcs_context.device_cert_ptr = NULL;
+    }
+    if((ctx->pkcs_context.functionlist != NULL) && (ctx->pkcs_context.functionlist->C_CloseSession != NULL) && (ctx->pkcs_context.session != CK_INVALID_HANDLE))
+    {
+        ctx->pkcs_context.functionlist->C_CloseSession(ctx->pkcs_context.session);
+    }
+    if(ctx->cert_x509ca != NULL)
+    {
+        free(ctx->cert_x509ca);
+        ctx->cert_x509ca = NULL;
+    }
+
+    if(ctx->cert_client != NULL)
+    {
+        free(ctx->cert_client);
+        ctx->cert_client = NULL;
+    }
+#endif
 
     free(context);
     return CY_RSLT_SUCCESS;
@@ -1198,4 +1655,149 @@ cy_rslt_t cy_tls_deinit(void)
 
     return result;
 }
+/*-----------------------------------------------------------*/
+
+/*
+ * @func  : cy_tls_update_tls_sequence
+ *
+ * @brief : Update the tls sequence numbers back to stack.
+ */
+cy_rslt_t cy_tls_update_tls_sequence(void *context, uint8_t *read_seq, uint8_t *write_seq)
+{
+    cy_tls_context_nx_secure_t *tls_context = (cy_tls_context_nx_secure_t *)context;
+
+    if(tls_context == NULL)
+    {
+        return CY_RSLT_MODULE_TLS_ERROR;
+    }
+
+    if (!tls_context->tls_handshake_successful)
+    {
+        return CY_RSLT_MODULE_TLS_ERROR;
+    }
+
+    /* Form the sequence numbers and copy them back to TLS context structure */
+    tls_context->tls_session.nx_secure_tls_remote_sequence_number[1] =  ((ULONG)read_seq[3]) | ((ULONG)read_seq[2] << 8) | ((ULONG)read_seq[1] << 16) | ((ULONG)read_seq[0] << 24);
+    tls_context->tls_session.nx_secure_tls_remote_sequence_number[0] =  ((ULONG)read_seq[7]) | ((ULONG)read_seq[6] << 8) | ((ULONG)read_seq[5] << 16) | ((ULONG)read_seq[4] << 24);
+
+    tls_context->tls_session.nx_secure_tls_local_sequence_number[1] =  ((ULONG)write_seq[3]) | ((ULONG)write_seq[2] << 8) | ((ULONG)write_seq[1] << 16) | ((ULONG)write_seq[0] << 24);
+    tls_context->tls_session.nx_secure_tls_local_sequence_number[0] =  ((ULONG)write_seq[7]) | ((ULONG)write_seq[6] << 8) | ((ULONG)write_seq[5] << 16) | ((ULONG)write_seq[4] << 24);
+
+    return CY_RSLT_SUCCESS;
+}
+
+/*-----------------------------------------------------------*/
+
+/**
+ * Supported Cipher Algorithm in MQTT Offload
+ */
+typedef enum {
+    CY_TLS_BULKCIPHERALGORITHM_NULL,
+    CY_TLS_BULKCIPHERALGORITHM_RC4,
+    CY_TLS_BULKCIPHERALGORITHM_3DES,
+    CY_TLS_BULKCIPHERALGORITHM_AES
+} cy_bulk_cipher_algorithm_t;
+
+/**
+ * Supported Cipher Type in MQTT Offload
+ */
+typedef enum {
+    CY_TLS_CIPHERTYPE_STREAM = 1,
+    CY_TLS_CIPHERTYPE_BLOCK,
+    CY_TLS_CIPHERTYPE_AEAD
+} cy_cipher_type_t;
+
+/**
+ * Supported MAC Algorithm in MQTT Offload
+ */
+typedef enum {
+    CY_TLS_MACALGORITHM_NULL,
+    CY_TLS_MACALGORITHM_HMAC_MD5,
+    CY_TLS_MACALGORITHM_HMAC_SHA1,
+    CY_TLS_MACALGORITHM_HMAC_SHA256,
+    CY_TLS_MACALGORITHM_HMAC_SHA384,
+    CY_TLS_MACALGORITHM_HMAC_SHA512
+} cy_mac_algorithm_t;
+
+/*
+ * @func  : cy_tls_get_tls_info
+ *
+ * @brief : Get the TLS session details from stack.
+ */
+cy_rslt_t cy_tls_get_tls_info(void *context, cy_tls_offload_info_t *tls_info)
+{
+    cy_tls_context_nx_secure_t *tls_context = (cy_tls_context_nx_secure_t *)context;
+    NX_SECURE_TLS_SESSION *tls_session;
+    const NX_CRYPTO_METHOD *session_cipher_method;
+
+    if(tls_context == NULL || tls_info == NULL)
+    {
+        return CY_RSLT_MODULE_TLS_BADARG;
+    }
+
+    tls_session = &tls_context->tls_session;
+    session_cipher_method = tls_session -> nx_secure_tls_session_ciphersuite -> nx_secure_tls_session_cipher;
+
+    tls_info->protocol_major_ver = (UCHAR)((tls_session -> nx_secure_tls_protocol_version & 0xFF00) >> 8);
+    tls_info->protocol_minor_ver = (UCHAR)(tls_session -> nx_secure_tls_protocol_version & 0x00FF);
+
+    tls_info->compression_algorithm = 0;
+
+    if (tls_session -> nx_secure_tls_session_ciphersuite->nx_secure_tls_hash->nx_crypto_algorithm != NX_CRYPTO_AUTHENTICATION_HMAC_SHA1_160)
+    {
+        return CY_RSLT_MODULE_TLS_BADARG;
+    }
+    if (session_cipher_method->nx_crypto_algorithm != NX_CRYPTO_ENCRYPTION_AES_CBC)
+    {
+        return CY_RSLT_MODULE_TLS_BADARG;
+    }
+
+    tls_info->cipher_algorithm = CY_TLS_BULKCIPHERALGORITHM_AES;
+    tls_info->cipher_type = CY_TLS_CIPHERTYPE_BLOCK;
+    tls_info->mac_algorithm = CY_TLS_MACALGORITHM_HMAC_SHA1;
+
+    tls_info->encrypt_then_mac = 0;
+
+    /* Read/Write IV */
+    tls_info->write_iv_len = session_cipher_method -> nx_crypto_IV_size_in_bits >> 3;
+    tls_info->read_iv_len  = tls_info->write_iv_len;
+    memcpy(&tls_info->write_iv, tls_session -> nx_secure_tls_key_material.nx_secure_tls_client_iv, tls_info->write_iv_len);
+    memcpy(&tls_info->read_iv, tls_session -> nx_secure_tls_key_material.nx_secure_tls_server_iv,  tls_info->read_iv_len);
+
+    /* Master Key */
+    tls_info->write_master_key_len = session_cipher_method -> nx_crypto_key_size_in_bits >> 3;
+    tls_info->read_master_key_len = tls_info->write_master_key_len;
+    memcpy(&tls_info->write_master_key, tls_session -> nx_secure_tls_key_material.nx_secure_tls_client_write_key, tls_info->write_master_key_len);
+    memcpy(&tls_info->read_master_key, tls_session -> nx_secure_tls_key_material.nx_secure_tls_server_write_key, tls_info->read_master_key_len);
+
+    /* MAC key */
+    tls_info->write_mac_key_len = tls_session -> nx_secure_tls_session_ciphersuite -> nx_secure_tls_hash_size;
+    tls_info->read_mac_key_len = tls_info->write_mac_key_len;
+    memcpy(&tls_info->write_mac_key, tls_session -> nx_secure_tls_key_material.nx_secure_tls_client_write_mac_secret, tls_info->write_mac_key_len);
+    memcpy(&tls_info->read_mac_key,  tls_session -> nx_secure_tls_key_material.nx_secure_tls_server_write_mac_secret, tls_info->read_mac_key_len);
+
+    /* Get the read/write sequence numbers */
+    tls_info->read_sequence[0] = (UCHAR)(tls_session -> nx_secure_tls_remote_sequence_number[1] >> 24);
+    tls_info->read_sequence[1] = (UCHAR)(tls_session -> nx_secure_tls_remote_sequence_number[1] >> 16);
+    tls_info->read_sequence[2] = (UCHAR)(tls_session -> nx_secure_tls_remote_sequence_number[1] >> 8);
+    tls_info->read_sequence[3] = (UCHAR)(tls_session -> nx_secure_tls_remote_sequence_number[1]);
+    tls_info->read_sequence[4] = (UCHAR)(tls_session -> nx_secure_tls_remote_sequence_number[0] >> 24);
+    tls_info->read_sequence[5] = (UCHAR)(tls_session -> nx_secure_tls_remote_sequence_number[0] >> 16);
+    tls_info->read_sequence[6] = (UCHAR)(tls_session -> nx_secure_tls_remote_sequence_number[0] >> 8);
+    tls_info->read_sequence[7] = (UCHAR)(tls_session -> nx_secure_tls_remote_sequence_number[0]);
+    tls_info->read_sequence_len = 8;
+
+    tls_info->write_sequence[0] = (UCHAR)(tls_session -> nx_secure_tls_local_sequence_number[1] >> 24);
+    tls_info->write_sequence[1] = (UCHAR)(tls_session -> nx_secure_tls_local_sequence_number[1] >> 16);
+    tls_info->write_sequence[2] = (UCHAR)(tls_session -> nx_secure_tls_local_sequence_number[1] >> 8);
+    tls_info->write_sequence[3] = (UCHAR)(tls_session -> nx_secure_tls_local_sequence_number[1]);
+    tls_info->write_sequence[4] = (UCHAR)(tls_session -> nx_secure_tls_local_sequence_number[0] >> 24);
+    tls_info->write_sequence[5] = (UCHAR)(tls_session -> nx_secure_tls_local_sequence_number[0] >> 16);
+    tls_info->write_sequence[6] = (UCHAR)(tls_session -> nx_secure_tls_local_sequence_number[0] >> 8);
+    tls_info->write_sequence[7] = (UCHAR)(tls_session -> nx_secure_tls_local_sequence_number[0]);
+    tls_info->write_sequence_len = 8;
+
+    return CY_RSLT_SUCCESS;
+}
+
 /*-----------------------------------------------------------*/

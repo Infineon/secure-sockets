@@ -206,7 +206,7 @@ Ensure that the following libraries are pulled in by creating the following *.mt
 
   - *aws-iot-device-sdk-embedded-C.mtb:* `https://github.com/aws/aws-iot-device-sdk-embedded-C/#202103.00#$$ASSET_REPO$$/aws-iot-device-sdk-embedded-C/202103.00`
 
-  - *optiga-trust-m.mtb:* `https://github.com/Infineon/optiga-trust-m#release-v4.0.3#$$ASSET_REPO$$/optiga-trust-m/release-v4.0.3`
+  - *optiga-trust-m.mtb:* `https://github.com/Infineon/optiga-trust-m#release-v5.3.0#$$ASSET_REPO$$/optiga-trust-m/release-v5.3.0`
 
 ###### ***Pull required libraries and enable PKCS mode***
 1. Execute the `make getlibs` command to pull the required libraries created as .mtb.
@@ -217,11 +217,13 @@ Ensure that the following libraries are pulled in by creating the following *.mt
     COMPONENTS+= OPTIGA
    ```
 
-3. Add the Optiga PAL interface as per the platform. Use `PSOC6_FREERTOS` for PSOC6 with FREERTOS. The Makefile entry would look like as follows
+3. To enable communication over I<sup>2</sup>C with Optiga, a PAL interface implementation is required. Follow the steps outlined below based on the version of the optiga-trust-m library used in your application:
+   - When using the optiga-trust-m library with a version of 4.0.3 or lower, the Optiga PAL interface implementation is already provided. To enable this implementation for the PSoC6 platform with FreeRTOS, add the PSOC6_FREERTOS component to the application's Makefile. The Makefile entry would look like as follows:
 
    ```
     COMPONENTS+= PSOC6_FREERTOS
    ```
+   - When using the optiga-trust-m library with a version higher than 4.0.3, it is necessary to implement the Optiga PAL interface within the application itself. For guidance on this implementation, refer to the example provided in the [mtb-example-optiga-mqtt-client](https://github.com/Infineon/mtb-example-optiga-mqtt-client/tree/master/source/COMPONENT_OPTIGA_PAL_FREERTOS) repository.
 
 4. Add `OPTIGAFLAGS` with the configuration file for Optiga. A pre-defined configuration file *optiga_lib_config_mtb.h* is bundled with the secure sockets library. To change the default configuration for PKCS11, copy the *optiga_config.h* file from the secure sockets library to the top-level application directory, and then modify it.
 
@@ -233,6 +235,15 @@ Ensure that the following libraries are pulled in by creating the following *.mt
 
    ```
     DEFINES+= $(OPTIGAFLAGS) CY_SECURE_SOCKETS_PKCS_SUPPORT
+   ```
+
+6. For CYW955913EVK-01 kit add the below Makefile entries to use default mbedtls config file provided by
+   `optiga-trust-m` library. For more information refer `optiga-trust-m` documentation
+   [Configuring Mbed TLS library](https://github.com/Infineon/optiga-trust-m?tab=readme-ov-file#configuring-mbed-tls-library)
+
+   ```
+    MBEDTLSFLAGS = MBEDTLS_USER_CONFIG_FILE='"mbedtls_default_config.h"'
+    DEFINES+= $(MBEDTLSFLAGS) $(OPTIGAFLAGS) CY_SECURE_SOCKETS_PKCS_SUPPORT
    ```
 
 ##### ***Configuration for PKCS11***
