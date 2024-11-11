@@ -143,7 +143,7 @@ extern char *strptime(const char *restrict s, const char *restrict format,
 cy_rslt_t cy_tls_init(void)
 {
     cy_rslt_t result = CY_RSLT_SUCCESS;
-    time_t cur_time;
+    time_t cur_time = 0;
     int ret;
 
 #ifdef ENABLE_SECURE_SOCKETS_LOGS
@@ -155,7 +155,7 @@ cy_rslt_t cy_tls_init(void)
         return CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE;
     }
 
-    if (time(&cur_time) == 0) {
+    if (time(&cur_time) == 0 && cur_time < 100) {
         cyhal_rtc_t* rtc_obj = cy_get_rtc_instance();
 
         /* advance RTC to last compiler time */
@@ -163,6 +163,9 @@ cy_rslt_t cy_tls_init(void)
         struct tm t;
         (void)strptime(built, "%b %d %Y %H:%M:%S", &t);
         result = cyhal_rtc_write(rtc_obj, &t);
+
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_WARNING,
+            "Advancing clock to %s\r\n", built);
     }
 
     return result;
@@ -248,6 +251,14 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint, uint32_
         return CY_RSLT_MODULE_TLS_BADARG;
     }
     tls_identity = (cy_tls_identity_t *)tls_ctx->tls_identity;
+
+    if (gWolfCtx == NULL) {
+        gWolfCtx = wolfSSL_CTX_new(wolfSSLv23_method());
+        if (gWolfCtx == NULL) {
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "wolfSSL_CTX_new failed!\r\n");
+            return CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE;
+        }
+    }
 
     ssl = wolfSSL_new(gWolfCtx);
     if (ssl == NULL) {
