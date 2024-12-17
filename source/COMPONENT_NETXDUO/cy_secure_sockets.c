@@ -2723,6 +2723,13 @@ cy_rslt_t cy_socket_getsockopt(cy_socket_t handle, int level, int optname, void 
                     {
                         COPY_IPV6_ADDRESS(ctx->nxd_socket.tcp->nx_tcp_socket_connect_interface->nxd_interface_ipv6_address_list_head->nxd_ipv6_address, local_addr.nxd_ip_address.v6);
                     }
+                    else
+                    {
+                        ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Unable to get Local IP\n");
+                        cy_rtos_set_mutex(&ctx->socket_mutex);
+                        return CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_OPTION;
+                    }
+
                     /* Convert IP format from NetXDuo to secure socket */
                     result = convert_nxd_to_secure_socket_ip_addr(&address->ip_address, &local_addr);
                     if (result != CY_RSLT_SUCCESS)

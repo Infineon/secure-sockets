@@ -79,6 +79,17 @@
 #define CY_TLS_MAX_CERTIFICATE_SIZE 2500
 #endif
 
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+#ifdef COMPONENT_CAT5
+/* Allow identity creation without private key */
+#define CY_TLS_CREATE_IDENTITY_WITHOUT_PRIVATE_KEY
+
+#endif /* COMPONENT_CAT5 */
+
+#define CY_TLS_IS_IDENTITY_WITHOUT_PRIVATE_KEY(identity) \
+    (identity != NULL && identity->private_key_der == NULL && identity->certificate_der != NULL)
+
+#endif /* CY_SECURE_SOCKETS_PKCS_SUPPORT */
 typedef struct cy_tls_context_nx_secure
 {
     const char                 *server_name;
@@ -116,6 +127,7 @@ typedef struct
 {
     NX_SECURE_X509_CERT certificate;
     unsigned char *certificate_der;
+    UINT           certificate_der_len;
     unsigned char *private_key_der;
     uint8_t is_client_auth;
 } cy_tls_identity_t;
@@ -616,7 +628,6 @@ cy_rslt_t cy_tls_create_identity(const char *certificate_data, const uint32_t ce
     cy_tls_identity_t *identity = NULL;
     cy_rslt_t result = CY_RSLT_SUCCESS;
     UINT error = 0;
-    UINT der_cert_len = 0;
     UINT der_key_len = 0;
     UINT private_key_type;
 
@@ -625,18 +636,29 @@ cy_rslt_t cy_tls_create_identity(const char *certificate_data, const uint32_t ce
         return CY_RSLT_MODULE_TLS_BADARG;
     }
 
-    if (((certificate_data == NULL) || (certificate_len == 0)) || ((private_key == NULL) || (private_key_len == 0)))
+    if ((certificate_data == NULL) || (certificate_len == 0))
     {
-        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "certificate or private keys are empty \r\n");
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "certificate is empty \r\n");
         return CY_RSLT_MODULE_TLS_BAD_INPUT_DATA;
     }
 
-    /* Find private key type */
-    error = cy_tls_parse_private_key(private_key, &private_key_type);
-    if ( error == -1 )
+#ifndef CY_TLS_CREATE_IDENTITY_WITHOUT_PRIVATE_KEY
+    if ((private_key == NULL) || (private_key_len == 0))
     {
-        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Invalid private keys \r\n");
-        return CY_RSLT_MODULE_TLS_PARSE_KEY;
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "private key is empty \r\n");
+        return CY_RSLT_MODULE_TLS_BAD_INPUT_DATA;
+    }
+#endif
+
+    if(private_key_len)
+    {
+        /* Find private key type */
+        error = cy_tls_parse_private_key(private_key, &private_key_type);
+        if ( error == -1 )
+        {
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Invalid private keys \r\n");
+            return CY_RSLT_MODULE_TLS_PARSE_KEY;
+        }
     }
 
     identity = calloc(sizeof(cy_tls_identity_t), 1);
@@ -644,6 +666,7 @@ cy_rslt_t cy_tls_create_identity(const char *certificate_data, const uint32_t ce
     {
         return CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE;
     }
+    identity->private_key_der = NULL;
 
     /* Allocate memory for certificate's DER data. */
     identity->certificate_der = calloc(certificate_len, 1);
@@ -653,39 +676,48 @@ cy_rslt_t cy_tls_create_identity(const char *certificate_data, const uint32_t ce
         return CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE;
     }
 
-    /* Allocate memory for privatekey's DER data. */
-    identity->private_key_der = calloc(private_key_len, 1);
-    if(identity->private_key_der == NULL)
-    {
-        free(identity->certificate_der);
-        free(identity);
-        return CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE;
-    }
-
     /* Convert PEM certificate to DER format */
-    der_cert_len = certificate_len;
-    error = cy_tls_convert_pem_to_der((const unsigned char *)certificate_data, certificate_len, CY_TLS_PEM_TYPE_CERT, identity->certificate_der, &der_cert_len);
+    identity->certificate_der_len = certificate_len;
+    error = cy_tls_convert_pem_to_der((const unsigned char *)certificate_data, certificate_len, CY_TLS_PEM_TYPE_CERT, identity->certificate_der, &identity->certificate_der_len);
     if(error != 0)
     {
         free(identity->certificate_der);
-        free(identity->private_key_der);
         free(identity);
         return CY_RSLT_MODULE_TLS_PARSE_CERTIFICATE;
     }
 
-    /* Convert PEM key to DER format */
     der_key_len = private_key_len;
-    error = cy_tls_convert_pem_to_der((const unsigned char *)private_key, private_key_len, CY_TLS_PEM_TYPE_KEY, identity->private_key_der, &der_key_len);
-    if(error != 0)
+    if(private_key_len)
     {
-        free(identity->certificate_der);
-        free(identity->private_key_der);
-        free(identity);
-        return CY_RSLT_MODULE_TLS_PARSE_CERTIFICATE;
+        /* Allocate memory for privatekey's DER data. */
+        identity->private_key_der = calloc(private_key_len, 1);
+        if(identity->private_key_der == NULL)
+        {
+            free(identity->certificate_der);
+            free(identity);
+            return CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE;
+        }
+        /* Convert PEM key to DER format */
+        error = cy_tls_convert_pem_to_der((const unsigned char *)private_key, private_key_len, CY_TLS_PEM_TYPE_KEY, identity->private_key_der, &der_key_len);
+        if(error != 0)
+        {
+            free(identity->certificate_der);
+            free(identity->private_key_der);
+            free(identity);
+            return CY_RSLT_MODULE_TLS_PARSE_CERTIFICATE;
+        }
+    }
+
+    if (identity->private_key_der == NULL)
+    {
+        /* Dont add the certificate yet. It will be added during connect flow */
+        *tls_identity = identity;
+        return CY_RSLT_SUCCESS;
     }
 
     /* Initialize the certificates */
-    error = nx_secure_x509_certificate_initialize(&identity->certificate, (unsigned char *)identity->certificate_der, der_cert_len, NULL, 0, (const unsigned char *)identity->private_key_der, der_key_len, private_key_type);
+    error = nx_secure_x509_certificate_initialize(&identity->certificate, (unsigned char *)identity->certificate_der, identity->certificate_der_len, NULL, 0,
+                    (const unsigned char *)identity->private_key_der, der_key_len, private_key_type);
     if (error != NX_SUCCESS)
     {
         tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "nx_secure_x509_certificate_initialize failed with error : 0x%x \r\n", error);
@@ -978,6 +1010,123 @@ static CK_RV cy_tls_initialize_client_credentials(cy_tls_context_nx_secure_t* co
     }
     return result;
 }
+
+/**
+ * @brief Initialize credentials based on identity
+ */
+static cy_rslt_t cy_tls_init_client_credentials_with_identity(cy_tls_context_nx_secure_t *ctx, cy_tls_identity_t *tls_identity)
+{
+    UINT error;
+    CK_RV result = CKR_OK;
+    uint8_t curve_p256[] = pkcs11DER_ENCODED_OID_P256;
+    uint8_t curve_p384[] = pkcs11DER_ENCODED_OID_P384;
+    uint8_t *curve_temp_ptr = NULL;
+    CK_ATTRIBUTE xTemplate[1];
+    CK_OBJECT_HANDLE obj_cert = 0;
+    char *label_name = pkcs11configLABEL_DEVICE_PRIVATE_KEY_FOR_TLS;
+
+    if(NULL == ctx || NULL == tls_identity)
+    {
+        return CY_RSLT_MODULE_TLS_BADARG;
+    }
+
+    /* Private key is in Secure storage*/
+    error = nx_secure_x509_certificate_initialize(&tls_identity->certificate, (unsigned char *)tls_identity->certificate_der, tls_identity->certificate_der_len, NULL, 0,
+                    (const unsigned char *)ctx, USHRT_MAX, NX_SECURE_X509_KEY_TYPE_HARDWARE);
+
+    if(error != NX_SUCCESS)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : nx_secure_x509_certificate_initialize failed 0x%x\r\n", error);
+        return CY_RSLT_MODULE_TLS_PARSE_CERTIFICATE;
+    }
+
+    switch (tls_identity->certificate.nx_secure_x509_public_algorithm)
+    {
+        case NX_SECURE_TLS_X509_TYPE_RSA:
+            tls_identity->certificate.nx_secure_x509_private_key.rsa_private_key.nx_secure_rsa_private_exponent        = (UCHAR *)&ctx->pkcs_context;
+            tls_identity->certificate.nx_secure_x509_private_key.rsa_private_key.nx_secure_rsa_private_exponent_length = USHRT_MAX;
+            break;
+
+        case NX_SECURE_TLS_X509_TYPE_EC:
+            tls_identity->certificate.nx_secure_x509_private_key.ec_private_key.nx_secure_ec_private_key        = (UCHAR *)&ctx->pkcs_context;
+            tls_identity->certificate.nx_secure_x509_private_key.ec_private_key.nx_secure_ec_private_key_length = USHRT_MAX;
+            tls_identity->certificate.nx_secure_x509_private_key.ec_private_key.nx_secure_ec_named_curve        = \
+                tls_identity->certificate.nx_secure_x509_public_key.ec_public_key.nx_secure_ec_named_curve;
+            break;
+    }
+
+    /* Get the handle of the certificate. */
+    result = xFindObjectWithLabelAndClass(ctx->pkcs_context.session, label_name, strlen(label_name),
+                                            CKO_PRIVATE_KEY,
+                                            &obj_cert);
+    if(result != CKR_OK)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : xFindObjectWithLabelAndClass failed\r\n");
+        return CY_RSLT_MODULE_TLS_PKCS_ERROR;
+    }
+
+    if(obj_cert == CK_INVALID_HANDLE)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : Private key not found \r\n");
+        return CY_RSLT_MODULE_TLS_PKCS_ERROR;
+    }
+
+    if (tls_identity->certificate.nx_secure_x509_public_algorithm == NX_SECURE_TLS_X509_TYPE_EC)
+    {
+        if(ctx->pkcs_context.functionlist->C_SetAttributeValue)
+        {
+            xTemplate[0].type = CKA_EC_PARAMS;
+
+            if (tls_identity->certificate.nx_secure_x509_private_key.ec_private_key.nx_secure_ec_named_curve == NX_CRYPTO_EC_SECP256R1)
+            {
+                xTemplate[0].ulValueLen = sizeof(curve_p256);
+                curve_temp_ptr          = curve_p256;
+            }
+            else if (tls_identity->certificate.nx_secure_x509_private_key.ec_private_key.nx_secure_ec_named_curve == NX_CRYPTO_EC_SECP384R1)
+            {
+                xTemplate[0].ulValueLen = sizeof(curve_p384);
+                curve_temp_ptr          = curve_p384;
+            }
+            else
+            {
+                tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : Unsupported curve type 0x%x\r\n",
+                        tls_identity->certificate.nx_secure_x509_private_key.ec_private_key.nx_secure_ec_named_curve);
+                return CY_RSLT_MODULE_TLS_UNSUPPORTED;
+            }
+
+            /* Create a buffer for the certificate. */
+            xTemplate[0].pValue = malloc(xTemplate[0].ulValueLen);
+            if(xTemplate[0].pValue == NULL)
+            {
+                tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : Failed to create buffer for the certificate \r\n");
+                return CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE;
+            }
+            memcpy(xTemplate[0].pValue, curve_temp_ptr, xTemplate[0].ulValueLen);
+
+            result = ctx->pkcs_context.functionlist->C_SetAttributeValue(ctx->pkcs_context.session, obj_cert, xTemplate, 1);
+
+            free(xTemplate[0].pValue);
+
+            if(result != CKR_OK)
+            {
+                tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : C_SetAttributeValue failed with error : %d \r\n", result);
+                return CY_RSLT_MODULE_TLS_PKCS_ERROR;
+            }
+        }
+    }
+
+    error = nx_secure_tls_local_certificate_add(&ctx->tls_session, &tls_identity->certificate);
+    if (error != NX_SUCCESS)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PKCS : nx_secure_tls_local_certificate_add failed 0x%x\r\n", error);
+        return CY_RSLT_MODULE_TLS_ERROR;
+    }
+    else
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "PKCS : nx_secure_tls_local_certificate_add complete\r\n");
+    }
+    return CY_RSLT_SUCCESS;
+}
 #endif
 /*-----------------------------------------------------------*/
 cy_rslt_t cy_tls_create_context(void **context, cy_tls_params_t *params)
@@ -1096,7 +1245,9 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint, uint32_
 #endif
 
 #ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
-    if(ctx->load_device_cert_key_from_ram == CY_TLS_LOAD_CERT_FROM_SECURE_STORAGE)
+    if(ctx->load_device_cert_key_from_ram == CY_TLS_LOAD_CERT_FROM_SECURE_STORAGE
+        || (ctx->load_device_cert_key_from_ram == CY_TLS_LOAD_CERT_FROM_RAM
+                && CY_TLS_IS_IDENTITY_WITHOUT_PRIVATE_KEY(tls_identity)))
     {
         pkcs_result = cy_tls_find_key_type(ctx,&is_rsa);
         if(CKR_OK == pkcs_result && is_rsa)
@@ -1353,13 +1504,29 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint, uint32_
     {
         if (tls_identity)
         {
-            error = nx_secure_tls_local_certificate_add(&ctx->tls_session, &tls_identity->certificate);
-            if (error != NX_SUCCESS)
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+            if(CY_TLS_IS_IDENTITY_WITHOUT_PRIVATE_KEY(tls_identity))
             {
-                tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "nx_secure_tls_local_certificate_add failed 0x%x\r\n", error);
+                result = cy_tls_init_client_credentials_with_identity(ctx, tls_identity);
+                if (result != CY_RSLT_SUCCESS)
+                {
+                    tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "PSA: Init client credentials failed 0x%x\r\n", result);
 
-                result = CY_RSLT_MODULE_TLS_ERROR;
-                goto cleanup;
+                    result = CY_RSLT_MODULE_TLS_ERROR;
+                    goto cleanup;
+                }
+            }
+            else
+#endif
+            {
+                error = nx_secure_tls_local_certificate_add(&ctx->tls_session, &tls_identity->certificate);
+                if (error != NX_SUCCESS)
+                {
+                    tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "nx_secure_tls_local_certificate_add failed 0x%x\r\n", error);
+
+                    result = CY_RSLT_MODULE_TLS_ERROR;
+                    goto cleanup;
+                }
             }
         }
     }

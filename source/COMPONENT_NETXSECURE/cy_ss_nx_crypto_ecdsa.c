@@ -37,6 +37,8 @@
  *  PKCS11 interface
  */
 
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+
 #include "cy_ss_nx_crypto_ecdsa.h"
 #include "nx_crypto_ecdsa.h"
 #include "cy_secure_sockets_pkcs.h"
@@ -50,7 +52,95 @@
 #define tls_cy_log_msg(a,b,c,...)
 #endif
 
+#define CY_ASN1_SEQUENCE 0x30
+#define CY_ASN1_INTEGER  0x02
+
 /*-----------------------------------------------------------*/
+/**
+ * @fn    : cy_ecdsa_pkcs11_signature_to_asn1
+ *
+ * @brief : Convert the R & S of the ECDSA signature to ASN.1 Format
+ */
+static UINT cy_ecdsa_pkcs11_signature_to_asn1(uint8_t * p_sig,
+                                              size_t * p_siglen,
+                                              UINT curve_len)
+{
+    uint8_t *ptr;
+    uint8_t r_len;
+    uint8_t *r_ptr;
+    uint8_t s_len;
+    uint8_t *s_ptr;
+    uint8_t  r_pad_zero;
+    uint8_t  s_pad_zero;
+    size_t seq_len = 0;
+    uint8_t temp_buf[128];
+
+    if( ( p_sig == NULL ) || ( p_siglen == NULL ) )
+    {
+        return (NX_CRYPTO_PTR_ERROR);
+    }
+
+    /* supporting only upto p384 */
+    if( curve_len >  48 )
+    {
+        return (NX_CRYPTO_PTR_ERROR);
+    }
+
+    r_len = s_len = curve_len;
+
+    memset(temp_buf, 0, sizeof(temp_buf));
+    memcpy(temp_buf, p_sig, *p_siglen);
+
+    r_ptr = temp_buf;
+    s_ptr = temp_buf + r_len;
+
+    /* The ASN.1 encoded signature has the format
+     * SEQUENCE LENGTH (of entire rest of signature)
+     *      INTEGER LENGTH  (of R component)
+     *      R
+     *      INTEGER LENGTH  (of S component)
+     *      S
+     */
+    r_pad_zero = (r_ptr[0] & 0x80) ? 1 : 0;
+    s_pad_zero = (s_ptr[0] & 0x80) ? 1 : 0;
+    seq_len = 4 + r_pad_zero + r_len + s_pad_zero + s_len;
+
+    /* Encode the ASN.1 sequence */
+    ptr = p_sig;
+    *ptr++ = CY_ASN1_SEQUENCE;
+    if (seq_len < 0x80)
+    {
+        *p_siglen = seq_len + 2;
+    }
+    else
+    {
+        *ptr++ = 0x81;
+        *p_siglen = seq_len + 3;
+    }
+    *ptr++ = (uint8_t)seq_len;
+
+    /* Encode R value */
+    *ptr++ = CY_ASN1_INTEGER;
+    *ptr++ = (uint8_t)(r_len + r_pad_zero);
+    if (r_pad_zero)
+    {
+        *ptr++ = 0;
+    }
+    memcpy(ptr, r_ptr, r_len);
+    ptr += r_len;
+
+    /* Encode S value */
+    *ptr++ = CY_ASN1_INTEGER;
+    *ptr++ = (uint8_t)(s_len + s_pad_zero);
+    if (s_pad_zero)
+    {
+        *ptr++ = 0;
+    }
+    memcpy(ptr, s_ptr, s_len);
+
+    return NX_CRYPTO_SUCCESS;
+}
+
 NX_CRYPTO_KEEP UINT _cy_ss_nx_crypto_ecdsa_sign(NX_CRYPTO_EC *curve, UCHAR *hash, UINT hash_length,
                                           UCHAR *private_key, UINT private_key_length,
                                           UCHAR *signature, ULONG signature_length,
@@ -61,6 +151,7 @@ NX_CRYPTO_KEEP UINT _cy_ss_nx_crypto_ecdsa_sign(NX_CRYPTO_EC *curve, UCHAR *hash
     CK_MECHANISM xMech = {0};
     CK_BYTE xToBeSigned[MAX_HASH_DATA_LENGTH];
     CK_ULONG xToBeSignedLen = sizeof(xToBeSigned);
+    UINT curve_size;
 
     if(pkcs_context == NULL)
     {
@@ -96,11 +187,15 @@ NX_CRYPTO_KEEP UINT _cy_ss_nx_crypto_ecdsa_sign(NX_CRYPTO_EC *curve, UCHAR *hash
         return NX_CRYPTO_NOT_SUCCESSFUL;
     }
 
-    /* PKCS #11 for P256 returns a 64-byte signature with 32 bytes for R and 32 bytes for S.
-     * This must be converted to an ASN.1 encoded array. */
+    /* Convert to an ASN.1 encoded array. */
     if(result == CKR_OK)
     {
-        PKI_pkcs11SignatureTombedTLSSignature( signature, (size_t*)actual_signature_length );
+        curve_size = curve -> nx_crypto_ec_bits >> 3;
+        if (curve -> nx_crypto_ec_bits & 7)
+        {
+            curve_size++;
+        };
+        cy_ecdsa_pkcs11_signature_to_asn1(signature, (size_t*)actual_signature_length, curve_size);
     }
 
     return NX_CRYPTO_SUCCESS;
@@ -304,3 +399,5 @@ NX_CRYPTO_KEEP UINT _cy_ss_nx_crypto_method_ecdsa_operation(UINT op,
     return(status);
 }
 /*-----------------------------------------------------------*/
+
+#endif  /* CY_SECURE_SOCKETS_PKCS_SUPPORT */

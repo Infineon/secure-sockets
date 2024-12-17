@@ -37,6 +37,8 @@
  *  PKCS11 interface
  */
 
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+
 #include "cy_ss_nx_crypto_rsa.h"
 #include "nx_crypto_huge_number.h"
 #include "nx_crypto_rsa.h"
@@ -210,3 +212,5 @@ NX_CRYPTO_KEEP UINT  _cy_ss_nx_crypto_method_rsa_operation(UINT op,      /* Encr
     return(return_value);
 }
 /*-----------------------------------------------------------*/
+
+#endif  /* CY_SECURE_SOCKETS_PKCS_SUPPORT */

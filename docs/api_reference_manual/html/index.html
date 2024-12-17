@@ -201,7 +201,38 @@ Non-PKCS mode</h2>
 PKCS mode</h2>
 <h3><a class="anchor" id="subsection_PKCS_secure_kit"></a>
 Secure Kits</h3>
-<p >Secure kits will have inbuilt secure element to store the keys and certificates which can be provisioned into the device.</p><ul>
+<p >Secure kits will have inbuilt secure element to hold secret information like private key which can be used for the PKCS authentication purposes.</p>
+<h3><a class="anchor" id="subsection_CYW955913EVK"></a>
+1. CYW955913EVK-01 Kit</h3>
+<p >CYW955913EVK-01 has inbuilt secure element which holds the unique private key of the device. Certificate shall be generated using the CSR from the device.</p><ul>
+<li>Generate the device certificate: The device certificate can be generated using edgeprotect tool. Follow the below steps to generate the device certificate<ol type="1">
+<li>Install edgeprotect tool. Skip this step if the tool is already installed.</li>
+<li>Configure the connected serial port of the kit <div class="fragment"><div class="line">edgeprotecttools serial-config --protocol uart --hwid &lt;COM PORT&gt;</div>
+</div><!-- fragment --></li>
+<li>Initialize edgeprotect project <div class="fragment"><div class="line">edgeprotecttools -t cyw559xx init</div>
+</div><!-- fragment --></li>
+<li>Retrieve the Certificate Signing Request (CSR) from the device <div class="fragment"><div class="line">edgeprotecttools -t cyw559xx get-csr -o device.der</div>
+</div><!-- fragment --></li>
+<li>Copy root CA key and certificate to the project directory, update the <code>serial_number</code> and <code>subject</code> fields in <code>certs\x509cert.json</code> and use the below command to generate device certificate. <div class="fragment"><div class="line">edgeprotecttools x509-cert --config certs/x509cert.json --csr device.der --key keys/rootKey.pem --ca-cert keys/rootCert.pem -o device_certificate.pem</div>
+</div><!-- fragment --> Note: If a different enviroment or tool will be used to generate the device certificate from CSR, the above step can be skipped.</li>
+</ol>
+</li>
+</ul>
+<h4><a class="anchor" id="subsubsection_Dependencies_CYW955913EVK"></a>
+Dependencies</h4>
+<p >The secure sockets library depends on the other libraries for PKCS support. Ensure that the following libraries are pulled in by creating the following .mtb files:</p><ul>
+<li>aws-iot-device-sdk-embedded-C.mtb : <a href="https://github.com/aws/aws-iot-device-sdk-embedded-C/#202103.00#$$ASSET_REPO$$/aws-iot-device-sdk-embedded-C/202103.00">https://github.com/aws/aws-iot-device-sdk-embedded-C/#202103.00#$$ASSET_REPO$$/aws-iot-device-sdk-embedded-C/202103.00</a></li>
+</ul>
+<h4><a class="anchor" id="subsubsection_pull_CYW955913EVK"></a>
+Pull required libraries and enable PKCS mode</h4>
+<ul>
+<li>Execute the <code>make getlibs</code> command to pull the required libraries created as .mtb.</li>
+<li>Add the <code>CY_SECURE_SOCKETS_PKCS_SUPPORT</code> macro to the <code>DEFINES</code> in the code example's Makefile. The Makefile entry would look like as follows: <div class="fragment"><div class="line">DEFINES+= CY_SECURE_SOCKETS_PKCS_SUPPORT</div>
+</div><!-- fragment --></li>
+</ul>
+<h3><a class="anchor" id="subsection_4343W"></a>
+2. CY8CKIT-064S0S2-4343W</h3>
+<p >CY8CKIT-064S0S2-4343W kits will have inbuilt secure element to store the keys and certificates which can be provisioned into the device.</p><ul>
 <li>Provision the kit. See <a href="https://community.cypress.com/t5/Resource-Library/Provisioning-Guide-for-the-Cypress-CY8CKIT-064S0S2-4343W-Kit/ta-p/252469">Device provisioning steps</a>.</li>
 <li>Provision device certificate/RootCA certificate. Add/modify the respective policy *.json* file with the device and RootCA certificate path to be provisioned to the secured element as follows, and then re-provision the kit: <div class="fragment"><div class="line"><span class="stringliteral">&quot;provisioning:&quot;</span></div>
 <div class="line">{</div>
@@ -209,13 +240,13 @@ Secure Kits</h3>
 <div class="line">},</div>
 </div><!-- fragment --></li>
 </ul>
-<h4><a class="anchor" id="subsubsection_Dependencies"></a>
+<h4><a class="anchor" id="subsubsection_Dependencies_4343W"></a>
 Dependencies</h4>
 <p >The secure sockets library depends on the other libraries for PKCS support. Ensure that the following libraries are pulled in by creating the following .mtb files:</p><ul>
 <li>aws-iot-device-sdk-embedded-C.mtb : <a href="https://github.com/aws/aws-iot-device-sdk-embedded-C/#202103.00#$$ASSET_REPO$$/aws-iot-device-sdk-embedded-C/202103.00">https://github.com/aws/aws-iot-device-sdk-embedded-C/#202103.00#$$ASSET_REPO$$/aws-iot-device-sdk-embedded-C/202103.00</a></li>
 <li>freertos-pkcs11-psa.mtb : <a href="https://github.com/Linaro/freertos-pkcs11-psa/#80292d24f4978891b0fd35feeb5f1d6f6f0fff06#$$ASSET_REPO$$/freertos-pkcs11-psa/master">https://github.com/Linaro/freertos-pkcs11-psa/#80292d24f4978891b0fd35feeb5f1d6f6f0fff06#$$ASSET_REPO$$/freertos-pkcs11-psa/master</a></li>
 </ul>
-<h3><a class="anchor" id="subsubsection_pull"></a>
+<h3><a class="anchor" id="subsubsection_pull_4343W"></a>
 Pull required libraries and enable PKCS mode</h3>
 <ul>
 <li>Execute the <code>make getlibs</code> command to pull the required libraries created as .mtb.</li>
@@ -256,6 +287,11 @@ Configuration for PKCS11</h3>
 <p >Pre-defined configuration file core_pkcs11_config.h is bundled with secure sockets library. If you need to change default configuration for PKCS11, copy core_pkcs11_config.h file from secure sockets library to top-level code example directory and then modify it.</p>
 <h4><a class="anchor" id="subsubsection_Configuration_Secure_kit"></a>
 Secure Kits</h4>
+<h4><a class="anchor" id="subsubsection_Configuration_CYW955913EVK"></a>
+1. CYW955913EVK-01 Kit</h4>
+<p >CYW955913EVK-01 Kit PKCS11 only supports ciphers having SHA-256 hashing algorithm.</p>
+<h4><a class="anchor" id="subsubsection_Configuration_4343W"></a>
+2. CY8CKIT-064S0S2-4343W</h4>
 <p ><a href="https://github.com/Linaro/freertos-pkcs11-psa/">FreeRTOS PSA PKCS11</a> library supports only SHA-256 hashing algorithm. So the application should chose the cipher suite list compatible for SHA-256. To chose the cipher suite list(compatible for SHA-256), application need to copy mbedtls_user_config.h file from libs/wifi-core-freertos-lwip-mbedtls/configs to root folder and add required cipher suites to the <code>MBEDTLS_SSL_CIPHERSUITES</code> macro.</p>
 <h4><a class="anchor" id="subsubsection_Configuration_Non_Secure_kit"></a>
 Non-Secure Kits</h4>
@@ -1336,6 +1372,74 @@ Code Snippet 13: Connect to secure server in PKCS mode - TLS connection using PK
 <div class="line"><span class="preprocessor">#endif</span></div>
 <div class="ttc" id="astructcy__socket__ip__address__t_html_adff8c23c18f451bc833136c9b39762ca"><div class="ttname"><a href="structcy__socket__ip__address__t.html#adff8c23c18f451bc833136c9b39762ca">cy_socket_ip_address_t::version</a></div><div class="ttdeci">cy_socket_ip_version_t version</div><div class="ttdoc">IP version cy_socket_ip_version_t.</div><div class="ttdef"><b>Definition:</b> cy_secure_sockets.h:144</div></div>
 <div class="ttc" id="astructcy__socket__sockaddr__t_html_a78df7a67a185b4114913f8e983a3a5d0"><div class="ttname"><a href="structcy__socket__sockaddr__t.html#a78df7a67a185b4114913f8e983a3a5d0">cy_socket_sockaddr_t::port</a></div><div class="ttdeci">uint16_t port</div><div class="ttdoc">Port Number in host byte order.</div><div class="ttdef"><b>Definition:</b> cy_secure_sockets.h:158</div></div>
+</div><!-- fragment --><h2><a class="anchor" id="snip14"></a>
+Code Snippet 14: Connect to secure server in PKCS mode - TLS connection using PKCS mode for secured kit (CYW955913EVK-01)</h2>
+<p >This code snippet demonstrates establishing a TLS (secure TCP) connection using a CYW955913EVK-01 kit with PKCS mode. NOTE : The Private key will be stored in the secure element of the device in the PKCS mode. </p><div class="fragment"><div class="line"> </div>
+<div class="line"><span class="preprocessor">#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT</span></div>
+<div class="line"> </div>
+<div class="line"><span class="preprocessor">#define PORT       443</span></div>
+<div class="line"><span class="preprocessor">#define HOSTNAME   &quot;www.httpbin.org&quot;</span></div>
+<div class="line"> </div>
+<div class="line"><span class="comment">/* Update keyCLIENT_CERTIFICATE_PEM with the device certificate generated */</span></div>
+<div class="line"><span class="keyword">const</span> <span class="keywordtype">char</span> keyCLIENT_CERTIFICATE_PEM[] =</div>
+<div class="line"><span class="stringliteral">&quot;-----BEGIN CERTIFICATE-----\n&quot;</span></div>
+<div class="line"><span class="stringliteral">&quot;-----END CERTIFICATE-----\n&quot;</span>;</div>
+<div class="line"> </div>
+<div class="line"><span class="keywordtype">void</span> snippet_secure_sockets_tls_connect_pkcs()</div>
+<div class="line">{</div>
+<div class="line">    cy_rslt_t result;</div>
+<div class="line">    (void)(result);</div>
+<div class="line"> </div>
+<div class="line">    <span class="comment">/* TCP socket handle */</span></div>
+<div class="line">    <a class="code hl_typedef" href="group__group__secure__sockets__typedefs.html#ga12b5aa294d6c930ba50ab730d39ed511">cy_socket_t</a> socket_handle;</div>
+<div class="line"> </div>
+<div class="line">    <a class="code hl_struct" href="structcy__socket__sockaddr__t.html">cy_socket_sockaddr_t</a> address;</div>
+<div class="line">    <a class="code hl_struct" href="structcy__socket__ip__address__t.html">cy_socket_ip_address_t</a> ip_addr;</div>
+<div class="line"> </div>
+<div class="line">    cy_nw_ip_address_t nw_ip_addr;</div>
+<div class="line"> </div>
+<div class="line">    <span class="keywordtype">void</span> *tls_identity = NULL;</div>
+<div class="line"> </div>
+<div class="line">    <span class="keywordtype">char</span> buf[16];</div>
+<div class="line"> </div>
+<div class="line">    <span class="comment">/* TLS authentication mode. Setting the CY_SOCKET_TLS_VERIFY_REQUIRED authentication mode</span></div>
+<div class="line"><span class="comment">    requires a successful TLS handshake in order to establish a secure socket communication.*/</span></div>
+<div class="line">    <a class="code hl_enumeration" href="group__group__secure__sockets__enums.html#gaf0599f554a1154ae83b4f587520fa705">cy_socket_tls_auth_mode_t</a> tls_auth_mode = <a class="code hl_enumvalue" href="group__group__secure__sockets__enums.html#ggaf0599f554a1154ae83b4f587520fa705a68f0cd442bb9f64416a6351f6d8c5a78">CY_SOCKET_TLS_VERIFY_REQUIRED</a>;</div>
+<div class="line"> </div>
+<div class="line">    <span class="comment">/* Initialize the Secure Sockets Library. */</span></div>
+<div class="line">    result = <a class="code hl_function" href="group__group__secure__sockets__functions.html#ga49a49b4e3b4293aa3855f47ce831ebe2">cy_socket_init</a>();</div>
+<div class="line"> </div>
+<div class="line">    <span class="comment">/* Resolve hostname to IP address */</span></div>
+<div class="line">    result = <a class="code hl_function" href="group__group__secure__sockets__functions.html#gaeb05bcbd775c36f5fe3fe9d676329494">cy_socket_gethostbyname</a>(HOSTNAME, <a class="code hl_enumvalue" href="group__group__secure__sockets__enums.html#gga97cb501a58195859467b126cf2a2789da32785b59f763a33cac58932132a90520">CY_SOCKET_IP_VER_V4</a>, &amp;ip_addr);</div>
+<div class="line"> </div>
+<div class="line">    <span class="comment">/* Print IPv4 address */</span></div>
+<div class="line">    nw_ip_addr.version = NW_IP_IPV4;</div>
+<div class="line">    nw_ip_addr.ip.v4 = ip_addr.<a class="code hl_variable" href="structcy__socket__ip__address__t.html#a98f8abed868445e1a8348da559d4f574">ip</a>.<a class="code hl_variable" href="structcy__socket__ip__address__t.html#a1b68b61521bd0b095ed35bea52f6fd82">v4</a>;</div>
+<div class="line"> </div>
+<div class="line">    cy_nw_ntoa(&amp;nw_ip_addr, buf);</div>
+<div class="line">    printf(<span class="stringliteral">&quot;IP Address : %s \n&quot;</span>, buf);</div>
+<div class="line"> </div>
+<div class="line">    <span class="comment">/* Create a new secure TCP socket. */</span></div>
+<div class="line">    result = <a class="code hl_function" href="group__group__secure__sockets__functions.html#ga30bbbf20a277e2a7e622df504b014a4b">cy_socket_create</a>(<a class="code hl_define" href="group__group__secure__sockets__macros.html#gacc301fb73845cb915cfacffc1b7d0c23">CY_SOCKET_DOMAIN_AF_INET</a>, <a class="code hl_define" href="group__group__secure__sockets__macros.html#gac0610ba6e8fe01ccbaacf89145f9285a">CY_SOCKET_TYPE_STREAM</a>, <a class="code hl_define" href="group__group__secure__sockets__macros.html#ga1114a6ecf098cf499e2c9ad3d651efc3">CY_SOCKET_IPPROTO_TLS</a>, &amp;socket_handle);</div>
+<div class="line"> </div>
+<div class="line">    address.<a class="code hl_variable" href="structcy__socket__sockaddr__t.html#ac4caf040376b30c85ca9065a20d5616c">ip_address</a>.<a class="code hl_variable" href="structcy__socket__ip__address__t.html#a98f8abed868445e1a8348da559d4f574">ip</a>.<a class="code hl_variable" href="structcy__socket__ip__address__t.html#a1b68b61521bd0b095ed35bea52f6fd82">v4</a> = ip_addr.<a class="code hl_variable" href="structcy__socket__ip__address__t.html#a98f8abed868445e1a8348da559d4f574">ip</a>.<a class="code hl_variable" href="structcy__socket__ip__address__t.html#a1b68b61521bd0b095ed35bea52f6fd82">v4</a>;</div>
+<div class="line">    address.<a class="code hl_variable" href="structcy__socket__sockaddr__t.html#ac4caf040376b30c85ca9065a20d5616c">ip_address</a>.<a class="code hl_variable" href="structcy__socket__ip__address__t.html#adff8c23c18f451bc833136c9b39762ca">version</a> = <a class="code hl_enumvalue" href="group__group__secure__sockets__enums.html#gga97cb501a58195859467b126cf2a2789da32785b59f763a33cac58932132a90520">CY_SOCKET_IP_VER_V4</a>;</div>
+<div class="line">    address.<a class="code hl_variable" href="structcy__socket__sockaddr__t.html#a78df7a67a185b4114913f8e983a3a5d0">port</a> = PORT;</div>
+<div class="line"> </div>
+<div class="line">    <span class="comment">/* Pass private_key  NULL and private_key_len 0 */</span></div>
+<div class="line">    result = <a class="code hl_function" href="group__group__cy__tls__functions.html#ga3d2408681bbcea3b869cb5ae21cd0d5e">cy_tls_create_identity</a>(keyCLIENT_CERTIFICATE_PEM, strlen(keyCLIENT_CERTIFICATE_PEM), NULL, 0, (<span class="keywordtype">void</span>**)&amp;tls_identity);</div>
+<div class="line"> </div>
+<div class="line">    <span class="comment">/* Set the TCP socket to use the TLS identity. */</span></div>
+<div class="line">    result = <a class="code hl_function" href="group__group__secure__sockets__functions.html#ga02e453d715d77075c59d751f6b07ae8f">cy_socket_setsockopt</a>(socket_handle, <a class="code hl_define" href="group__group__secure__sockets__macros.html#ga87878a7761a845f17f24f5e52c73f61f">CY_SOCKET_SOL_TLS</a>, <a class="code hl_define" href="group__group__secure__sockets__macros.html#gafa0ac839774a33feeb037dbb0c449cc3">CY_SOCKET_SO_TLS_IDENTITY</a>,</div>
+<div class="line">                                  tls_identity, <span class="keyword">sizeof</span>((uint32_t)tls_identity));</div>
+<div class="line"> </div>
+<div class="line">    <span class="comment">/* Set the TLS authentication mode. */</span></div>
+<div class="line">    result = <a class="code hl_function" href="group__group__secure__sockets__functions.html#ga02e453d715d77075c59d751f6b07ae8f">cy_socket_setsockopt</a>(socket_handle, <a class="code hl_define" href="group__group__secure__sockets__macros.html#ga87878a7761a845f17f24f5e52c73f61f">CY_SOCKET_SOL_TLS</a>, <a class="code hl_define" href="group__group__secure__sockets__macros.html#ga9ce4ab8fca2ff7306f05f7433835f394">CY_SOCKET_SO_TLS_AUTH_MODE</a>, &amp;tls_auth_mode, <span class="keyword">sizeof</span>(<a class="code hl_enumeration" href="group__group__secure__sockets__enums.html#gaf0599f554a1154ae83b4f587520fa705">cy_socket_tls_auth_mode_t</a>));</div>
+<div class="line"> </div>
+<div class="line">    <span class="comment">/* Connect to server. */</span></div>
+<div class="line">    result = <a class="code hl_function" href="group__group__secure__sockets__functions.html#ga2e07189d60c7e6a130302d2e2db19653">cy_socket_connect</a>(socket_handle, &amp;address, <span class="keyword">sizeof</span>(<a class="code hl_struct" href="structcy__socket__sockaddr__t.html">cy_socket_sockaddr_t</a>));</div>
+<div class="line">}</div>
+<div class="line"><span class="preprocessor">#endif</span></div>
 </div><!-- fragment --><h1><a class="anchor" id="section_troubleshoot"></a>
 Troubleshooting</h1>
 <h2><a class="anchor" id="Problem1"></a>

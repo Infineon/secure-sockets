@@ -34,6 +34,8 @@ To pull wifi-core-freertos-lwip-mbedtls create the following *.mtb* file in deps
 
       **Note:** To use TLS version 1.3, please upgrade wifi-core-freertos-lwip-mbedtls to latest-v2.X (It is supported on all the platforms except [PSoC&trade; 64S0S2 Wi-Fi Bluetooth&reg; pioneer kit (CY8CKIT-064S0S2-4343W)](https://www.cypress.com/documentation/development-kitsboards/psoc-64-standard-secure-aws-wi-fi-bt-pioneer-kit-cy8ckit))
 
+      **Note:** On non-secure kits, Optiga-PKCS11 feature is not supported with wifi-core-freertos-lwip-mbedtls latest-v2.X.
+
 * To use secure-sockets library with CYW955913EVK-01 kits on Threadx, NetXDuo, and NetXSecure combination, the application should pull [wifi-core-threadx-cat5](https://github.com/Infineon/wifi-core-threadx-cat5) library which will internally pull secure-sockets and other dependent modules.
 To pull wifi-core-threadx-cat5 create the following *.mtb* file in deps folder.
    - *wifi-core-threadx-cat5.mtb:*
@@ -101,11 +103,11 @@ The secure sockets library configures the default send and receive timeout value
 ## TCP/IP and security stacks
 
 * The secure sockets library has been designed to support different flavors of the TCP/IP stack or security stack. Currently, secure-sockets supports two combinations of TCP/IP stack and security stack.
-  
+
     * lwIP + Mbed TLS combination
-  
+
     * NetXDuo + NetXSecure combination
-  
+
 * Any application that uses the secure sockets library with lwIP + Mbed TLS combination, must ensure that the following COMPONENTS are defined in the code example project's Makefile.
 
   To do so, add `LWIP` and `MBEDTLS` components to the Makefile. The Makefile entry would look like as follows:
@@ -131,9 +133,9 @@ The default stack size of the secure sockets library is 6 KB (6*1024). To custom
 
 * The default Mbed TLS configuration provided by the *Wi-Fi core FreeRTOS lwIP mbedtls library* or *Ethernet core FreeRTOS lwIP mbedtls library* disables the validity period verification of the certificates. To perform this verification, enable `MBEDTLS_HAVE_TIME_DATE` in the *mbedtls_user_config.h*
 
-  * See the [mbedtls_user_config.h](https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls/blob/master/configs/mbedtls_user_config.h) file in Wi-Fi core FreeRTOS lwIP mbedtls library for Wi-Fi kits
+  * See the [mbedtls_user_config.h](https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls/blob/master/configs/mbedtls_user_config.h) file in Wi-Fi core FreeRTOS lwIP mbedtls library for Wi-Fi kits.
 
-  * See the [mbedtls_user_config.h](https://github.com/Infineon/ethernet-core-freertos-lwip-mbedtls/blob/master/configs/mbedtls_user_config.h) file in Ethernet core FreeRTOS lwIP mbedtls library for Ethernet kits
+  * See the [mbedtls_user_config.h](https://github.com/Infineon/ethernet-core-freertos-lwip-mbedtls/blob/master/configs/mbedtls_user_config.h) file in Ethernet core FreeRTOS lwIP mbedtls library for Ethernet kits.
 
 * Ensure that the system time is set prior to the `cy_socket_connect()` function call. To set the system time, get the time from the NTP server and set the system's RTC time using `cyhal_rtc_init()`, `cyhal_rtc_write()` and `cy_set_rtc_instance()` functions. See the [time support details](https://github.com/Infineon/clib-support/blob/master/README.md#time-support-details) for reference.
 
@@ -156,6 +158,50 @@ Secure sockets library can be built using PKCS and Non-PKCS mode on secure platf
 ### PKCS mode
 
 #### Secure Kits
+Secure kits will have inbuilt secure element to hold secret information like private key which can be used for the PKCS authentication purposes.
+
+##### 1. CYW955913EVK-01 Kit
+CYW955913EVK-01 have inbuilt secure element which holds the unique private key of the device. Certificate shall be generated using the CSR from the device.
+
+###### **Generate the device certificate**.
+   The device certificate can be generated using edgeprotect tool. Follow the below steps to generate the device certificate
+   - Install edgeprotect tool. Skip this step if the tool is already installed.
+   - Configure the connected serial port of the kit
+   ```
+   edgeprotecttools serial-config --protocol uart --hwid <COM PORT>
+   ```
+   - Initialize edgeprotect project
+   ```
+   edgeprotecttools -t cyw559xx init
+   ```
+   - Retrieve the Certificate Signing Request (CSR) from the device
+   ```
+   edgeprotecttools -t cyw559xx get-csr -o device.der
+   ```
+   - Copy root CA key and certificate to the project directory, update the `serial_number` and `subject` fields in `certs\x509cert.json` and use the below command to generate device certificate.
+   ```
+   edgeprotecttools x509-cert --config certs/x509cert.json --csr device.der --key keys/rootKey.pem --ca-cert keys/rootCert.pem -o device_certificate.pem
+   ```
+   **Note1** : If a different enviroment or tool will be used to generate the device certificate from CSR, the above step can be skipped.
+
+   **Note2**: In order to use the private key from the secure element, pass `private_key` as NULL and `private_key_len` as 0 while calling `cy_tls_create_identity` along with the certificate generated.
+
+###### **Dependencies**
+
+The secure sockets library depends on the other libraries for PKCS support. Ensure that the following  libraries are pulled in by creating the following *.mtb* files:
+
+   - *aws-iot-device-sdk-embedded-C.mtb:* `https://github.com/aws/aws-iot-device-sdk-embedded-C/#202103.00#$$ASSET_REPO$$/aws-iot-device-sdk-embedded-C/202103.00`
+
+###### ***Pull required libraries and enable PKCS mode***
+1. Execute the `make getlibs` command to pull the required libraries created as .mtb.
+
+2. Add the `CY_SECURE_SOCKETS_PKCS_SUPPORT` macro to the `DEFINES` in the code example's Makefile. The Makefile entry would look like as follows:
+
+   ```
+    DEFINES+= CY_SECURE_SOCKETS_PKCS_SUPPORT
+   ```
+
+##### 2. CY8CKIT-064S0S2-4343W
 
 Secure kits will have inbuilt secure element to store the keys and certificates which can be provisioned into the device.
 
@@ -171,7 +217,7 @@ Secure kits will have inbuilt secure element to store the keys and certificates 
    ```
 
 
-##### **Dependencies**
+###### **Dependencies**
 
 The secure sockets library depends on the other libraries for PKCS support. Ensure that the following  libraries are pulled in by creating the following *.mtb* files:
 
@@ -251,6 +297,10 @@ Ensure that the following libraries are pulled in by creating the following *.mt
 A pre-defined configuration file *core_pkcs11_config.h* is bundled with the secure sockets library. To change the default configuration for PKCS11, copy the *core_pkcs11_config.h* file from the secure sockets library to the top-level application directory, and then modify it.
 
 ###### ***Secure Kits***
+1. CYW955913EVK-01 Kit :
+CYW955913EVK-01 Kit PKCS11 only supports ciphers having SHA-256 hashing algorithm.
+
+2. CY8CKIT-064S0S2-4343W :
 [FreeRTOS PSA PKCS11](https://github.com/Linaro/freertos-pkcs11-psa/) implementation supports only SHA-256 hashing algorithm. So the application should chose the cipher suite list compatible for SHA-256. To chose the cipher suite list(compatible for SHA-256), application need to copy *mbedtls_user_config.h* file from *libs/wifi-core-freertos-lwip-mbedtls/configs* to root folder and add required cipher suites to the `MBEDTLS_SSL_CIPHERSUITES` macro.
 
 ###### ***Non-Secure Kits***

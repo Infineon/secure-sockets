@@ -36,6 +36,8 @@
  *  for interfacing with PKCS11 for signing
  */
 
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+
 #include "cy_ss_nx_crypto_ecdsa.h"
 #include "cy_ss_nx_crypto_rsa.h"
 #include "nx_crypto_ecdsa.h"
@@ -71,3 +73,5 @@ NX_CRYPTO_METHOD cy_ss_crypto_method_rsa =
     _nx_crypto_method_rsa_cleanup,            /* RSA cleanup routine                    */
     _cy_ss_nx_crypto_method_rsa_operation     /* RSA operation                          */
 };
+
+#endif  /* CY_SECURE_SOCKETS_PKCS_SUPPORT */

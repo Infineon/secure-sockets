@@ -13,6 +13,10 @@ Refer to the [README.md](./README.md) for a complete description of the Secure S
 
 ## Changelog
 
+### v3.9.0
+* Added support to enable D-cache on XMC7000 devices.
+* Added PKCS11 PSA support for CYW955913EVK-01 kit.
+
 ### v3.8.0
 * Added fix to use TLS1.2 for NetXSecure if RSA keys/certificate are used.
 * Added PKCS11 OPTIGA Support for CYW955913EVK-01 kit.
@@ -111,8 +115,8 @@ This version of the library was validated for compatibility with the following s
 
 | Software and Tools                                        | Version |
 | :---                                                      | :----:  |
-| ModusToolbox&trade; Software Environment                  | 3.2     |
-| ModusToolbox&trade; Device Configurator                   | 4.20    |
+| ModusToolbox&trade; Software Environment                  | 3.3     |
+| ModusToolbox&trade; Device Configurator                   | 5.10    |
 | GCC Compiler                                              | 11.3.1  |
-| IAR Compiler                                              | 9.40.2  |
-| Arm Compiler 6                                            | 6.16    |
+| IAR Compiler                                              | 9.50.2  |
+| Arm Compiler 6                                            | 6.22    |

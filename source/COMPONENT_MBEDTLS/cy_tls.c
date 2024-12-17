@@ -166,6 +166,23 @@ typedef struct
 
 static mbedtls_x509_crt* root_ca_certificates = NULL;
 
+#if !defined (CY_DISABLE_XMC7000_DATA_CACHE) && defined (__DCACHE_PRESENT) && (__DCACHE_PRESENT == 1U)
+#if defined(MBEDTLS_MEMORY_BUFFER_ALLOC_C)
+#include "memory_buffer_alloc.h"
+#if defined CYCFG_MBEDTLS_BUFFER_SIZE
+#define MBEDTLS_BUFFER_SIZE   (CYCFG_MBEDTLS_BUFFER_SIZE)
+#else
+#define CYCFG_MBEDTLS_BUFFER_SIZE   (69*1024)
+#endif /* CYCFG_MBEDTLS_BUFFER_SIZE */
+
+/* TLS buffer */
+CY_SECTION_SHAREDMEM
+static unsigned char mbedtls_buf[CYCFG_MBEDTLS_BUFFER_SIZE];
+#endif /* MBEDTLS_MEMORY_BUFFER_ALLOC_C */
+
+static bool cy_mbedtls_buffer_init_done = false;
+#endif /* __DCACHE_PRESENT */
+
 /* TLS library usage count */
 static int init_ref_count = 0;
 
@@ -174,6 +191,8 @@ static mbedtls_x509_crt_profile *custom_cert_profile = NULL;
 #ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
 static CK_RV cy_tls_initialize_client_credentials(cy_tls_context_mbedtls_t* context);
 #endif
+
+static void cy_tls_mbedtls_memory_buffer_allocator_init(void);
 
 /*
  * Default custom cert profile
@@ -485,6 +504,7 @@ cy_rslt_t cy_tls_release_global_root_ca_certificates(void)
 /*-----------------------------------------------------------*/
 cy_rslt_t cy_tls_load_global_root_ca_certificates(const char *trusted_ca_certificates, const uint32_t cert_length)
 {
+    cy_tls_mbedtls_memory_buffer_allocator_init();
     return cy_tls_internal_load_root_ca_certificates(&root_ca_certificates, trusted_ca_certificates, cert_length);
 }
 
@@ -503,7 +523,7 @@ cy_rslt_t cy_tls_load_global_root_ca_certificates(const char *trusted_ca_certifi
  *  int    zero on success, negative value on failure
  */
 #if (defined(CY_SECURE_SOCKETS_PKCS_SUPPORT) && defined (CY_DEVICE_SECURE)) \
-        || defined(COMPONENT_4390X) || defined(CY_DEVICE_SECURE) || defined(CYBSP_ETHERNET_CAPABLE)
+        || defined(COMPONENT_4390X) || defined(CY_DEVICE_SECURE)
 int mbedtls_hardware_poll(void *data, unsigned char *output, size_t len, size_t *olen)
 {
 #ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
@@ -565,12 +585,94 @@ int mbedtls_hardware_poll(void *data, unsigned char *output, size_t len, size_t 
 }
 #endif
 /*-----------------------------------------------------------*/
+
+#if defined(MBEDTLS_THREADING_ALT)
+void cy_mbedtls_mutex_init(mbedtls_threading_mutex_t *mutex)
+{
+    if(mutex == NULL)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_threading_mutex is NULL\r\n");
+        return;
+    }
+
+    if(CY_RSLT_SUCCESS != cy_rtos_init_mutex(&mutex->tls_buf_mutex))
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_threading_mutex init failed\r\n");
+    }
+}
+
+void cy_mbedtls_mutex_free(mbedtls_threading_mutex_t *mutex)
+{
+    if(mutex == NULL)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_threading_mutex is NULL\r\n");
+        return;
+    }
+
+    if(CY_RSLT_SUCCESS != cy_rtos_deinit_mutex(&mutex->tls_buf_mutex))
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_threading_mutex deinit failed\r\n");
+    }
+}
+
+int cy_mbedtls_mutex_lock(mbedtls_threading_mutex_t *mutex)
+{
+    if(mutex == NULL)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_threading_mutex is NULL \r\n");
+        return -1;
+    }
+
+    cy_rtos_get_mutex(&mutex->tls_buf_mutex, CY_RTOS_NEVER_TIMEOUT);
+    tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_list_mutex locked \r\n");
+
+    return CY_RSLT_SUCCESS;
+}
+
+int cy_mbedtls_mutex_unlock(mbedtls_threading_mutex_t *mutex)
+{
+    if(mutex == NULL)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_threading_mutex is NULL \r\n");
+        return -1;
+    }
+
+    cy_rtos_set_mutex(&mutex->tls_buf_mutex);
+    tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_list_mutex un-locked \r\n");
+
+    return CY_RSLT_SUCCESS;
+}
+#endif
+
+/*-----------------------------------------------------------*/
+static void cy_tls_mbedtls_memory_buffer_allocator_init(void)
+{
+    /* Initialize Un-cached MbedTLS buffer */
+#if !defined (CY_DISABLE_XMC7000_DATA_CACHE) && defined (__DCACHE_PRESENT) && (__DCACHE_PRESENT == 1U)
+
+    if ( cy_mbedtls_buffer_init_done == false )
+    {
+#if defined(MBEDTLS_THREADING_ALT)
+        mbedtls_threading_set_alt(cy_mbedtls_mutex_init, cy_mbedtls_mutex_free,
+                                    cy_mbedtls_mutex_lock, cy_mbedtls_mutex_unlock);
+#endif
+
+#if defined(MBEDTLS_MEMORY_BUFFER_ALLOC_C)
+        mbedtls_memory_buffer_alloc_init(mbedtls_buf, sizeof(mbedtls_buf));
+#endif
+        cy_mbedtls_buffer_init_done = true;
+    }
+#endif
+}
+
+/*-----------------------------------------------------------*/
 cy_rslt_t cy_tls_init(void)
 {
     cy_rslt_t result = CY_RSLT_SUCCESS;
 
     if(!init_ref_count)
     {
+        cy_tls_mbedtls_memory_buffer_allocator_init();
         mbedtls_platform_set_time(get_current_time);
     }
 

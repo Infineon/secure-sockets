@@ -32,13 +32,14 @@
  */
 
 /** @file
- *  This file provides Declarations of custom rsa
- *  functions used to perform sign operations using
- *  PKCS11 interface
+ *  Declare custom ecdsa functions used to perform
+ *  sign operations using PKCS11 interface
  */
 
-#ifndef CY_SS_NX_CRYPTO_RSA_H
-#define CY_SS_NX_CRYPTO_RSA_H
+#ifndef CY_SS_NX_ECDSA_H
+#define CY_SS_NX_ECDSA_H
+
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
 
 /* Determine if a C++ compiler is being used.  If so, ensure that standard
    C is used to process the API information.  */
@@ -49,31 +50,37 @@ extern   "C" {
 
 #endif
 
-/* Include the ThreadX and port-specific data type file.  */
-
 #include "nx_crypto.h"
+#include "nx_crypto_huge_number.h"
+#include "nx_crypto_ec.h"
 
-/* Function prototypes */
+/* Define the function prototypes for ECDSA.  */
 
-UINT _cy_ss_nx_crypto_rsa_operation(const UCHAR *exponent, UINT exponent_length, const UCHAR *modulus, UINT modulus_length,
-                                    const UCHAR *p, UINT p_length, UCHAR *q, UINT q_length,
-                                    const UCHAR *input, UINT input_length, UCHAR *output,
-                                    USHORT *scratch_buf_ptr, UINT scratch_buf_length);
+UINT _cy_ss_nx_crypto_ecdsa_sign(NX_CRYPTO_EC *curve,
+                                 UCHAR *hash,
+                                 UINT hash_length,
+                                 UCHAR *private_key,
+                                 UINT private_key_length,
+                                 UCHAR *signature,
+                                 ULONG signature_length,
+                                 ULONG *actual_signature_length,
+                                 HN_UBASE *scratch);
 
-UINT _cy_ss_nx_crypto_method_rsa_operation(UINT op,      /* Encrypt, Decrypt, Authenticate */
-                                           VOID *handle, /* Crypto handler */
-                                           struct NX_CRYPTO_METHOD_STRUCT *method,
-                                           UCHAR *key, NX_CRYPTO_KEY_SIZE key_size_in_bits,
-                                           UCHAR *input, ULONG input_length_in_byte,
-                                           UCHAR *iv_ptr,
-                                           UCHAR *output, ULONG output_length_in_byte,
-                                           VOID *crypto_metadata, ULONG crypto_metadata_size,
-                                           VOID *packet_ptr,
-                                           VOID (*nx_crypto_hw_process_callback)(VOID *packet_ptr, UINT status));
+UINT _cy_ss_nx_crypto_method_ecdsa_operation(UINT op,
+                                             VOID *handle,
+                                             struct NX_CRYPTO_METHOD_STRUCT *method,
+                                             UCHAR *key, NX_CRYPTO_KEY_SIZE key_size_in_bits,
+                                             UCHAR *input, ULONG input_length_in_byte,
+                                             UCHAR *iv_ptr,
+                                             UCHAR *output, ULONG output_length_in_byte,
+                                             VOID *crypto_metadata, ULONG crypto_metadata_size,
+                                             VOID *packet_ptr,
+                                             VOID (*nx_crypto_hw_process_callback)(VOID *, UINT));
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* CY_SS_NX_CRYPTO_RSA_H */
+#endif  /* CY_SECURE_SOCKETS_PKCS_SUPPORT */
 
+#endif
