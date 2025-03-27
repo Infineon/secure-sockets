@@ -1,5 +1,5 @@
 /*
- * Copyright 2024, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2025, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -93,10 +93,12 @@ extern cy_rslt_t cy_prng_get_random( void* buffer, uint32_t buffer_length );
  * Supported Cipher Algorithm in MQTT Offload
  */
 typedef enum {
-    CY_TLS_BULKCIPHERALGORITHM_NULL,
-    CY_TLS_BULKCIPHERALGORITHM_RC4,
-    CY_TLS_BULKCIPHERALGORITHM_3DES,
-    CY_TLS_BULKCIPHERALGORITHM_AES
+    CY_TLS_BULKCIPHERALGORITHM_NULL        = 0,
+    CY_TLS_BULKCIPHERALGORITHM_RC4         = 1,
+    CY_TLS_BULKCIPHERALGORITHM_3DES        = 2,
+    CY_TLS_BULKCIPHERALGORITHM_AES         = 3,
+    CY_TLS_BULKCIPHERALGORITHM_AES_128_GCM = 4,
+    CY_TLS_BULKCIPHERALGORITHM_AES_256_GCM = 5
 } cy_bulk_cipher_algorithm_t;
 
 /**
@@ -112,12 +114,14 @@ typedef enum {
  * Supported MAC Algorithm in MQTT Offload
  */
 typedef enum {
-    CY_TLS_MACALGORITHM_NULL,
-    CY_TLS_MACALGORITHM_HMAC_MD5,
-    CY_TLS_MACALGORITHM_HMAC_SHA1,
-    CY_TLS_MACALGORITHM_HMAC_SHA256,
-    CY_TLS_MACALGORITHM_HMAC_SHA384,
-    CY_TLS_MACALGORITHM_HMAC_SHA512
+    CY_TLS_MACALGORITHM_NULL           = 0,
+    CY_TLS_MACALGORITHM_HMAC_MD5       = 1,
+    CY_TLS_MACALGORITHM_HMAC_SHA1      = 2,
+    CY_TLS_MACALGORITHM_HMAC_SHA256    = 3,
+    CY_TLS_MACALGORITHM_HMAC_SHA384    = 4,
+    CY_TLS_MACALGORITHM_HMAC_SHA512    = 5,
+    CY_TLS_MACALGORITHM_HKDF_SHA256    = 6,
+    CY_TLS_MACALGORITHM_HKDF_SHA384    = 7
 } cy_mac_algorithm_t;
 
 typedef struct cy_tls_context_mbedtls
@@ -139,9 +143,8 @@ typedef struct cy_tls_context_mbedtls
     unsigned char               mfl_code;
     const char                **alpn_list;
     char                       *hostname;
-#if (MBEDTLS_VERSION_NUMBER == 0x02190000) && defined(MBEDTLS_SSL_EXPORT_KEYS)
     cy_tls_keys_t              export_key;
-#endif
+
     /* mbedTLS specific members */
     mbedtls_ssl_context         ssl_ctx;
     mbedtls_ssl_config          ssl_config;
@@ -213,7 +216,18 @@ static mbedtls_x509_crt_profile default_crt_profile =
     2048,
 };
 
-#if defined(MBEDTLS_SSL_EXPORT_KEYS)
+#define BITS_TO_BYTES(bits) (((bits) + 7) / 8)
+#define SS_MEMCPY(dst, src, len)        \
+    if(len > 0)                         \
+    {                                   \
+        memcpy(dst, src, len);          \
+    }
+
+#if ((MBEDTLS_VERSION_NUMBER == 0x02190000) && defined(MBEDTLS_SSL_EXPORT_KEYS))
+/* @func  : cy_tls_key_derivation
+ *
+ * @brief : Mbedtls callback function to derive the key/mac/iv
+ */
 static int cy_tls_key_derivation ( void *p_expkey,
                                     const unsigned char *ms,
                                     const unsigned char *kb,
@@ -230,39 +244,41 @@ static int cy_tls_key_derivation ( void *p_expkey,
     uint8_t* key2 = (uint8_t*)key1 + keylen;
 
     keys->mac_len = maclen;
-    memcpy(keys->mac_enc, kb , maclen);
-    memcpy(keys->mac_dec, kb + maclen, maclen);
+    SS_MEMCPY(keys->mac_enc, kb , maclen);
+    SS_MEMCPY(keys->mac_dec, kb + maclen, maclen);
 
     keys->key_len = keylen;
-    memcpy(keys->key_enc, key1, keylen);
-    memcpy(keys->key_dec, key2, keylen);
+    SS_MEMCPY(keys->key_enc, key1, keylen);
+    SS_MEMCPY(keys->key_dec, key2, keylen);
 
     keys->iv_len = ivlen;
-    memcpy( keys->iv_enc, key2 + keylen,  ivlen );
-    memcpy( keys->iv_dec, key2 + keylen + ivlen, ivlen);
+    SS_MEMCPY( keys->iv_enc, key2 + keylen,  ivlen );
+    SS_MEMCPY( keys->iv_dec, key2 + keylen + ivlen, ivlen);
 
     return( 0 );
 }
-#endif
 
+/* @func  : cy_tls_update_tls_sequence
+ *
+ * @brief : Update the sequence numbers back to SSL context.
+ */
 cy_rslt_t cy_tls_update_tls_sequence(void *context, uint8_t *read_seq, uint8_t *write_seq)
 {
-#if (MBEDTLS_VERSION_NUMBER == 0x02190000) &&  defined(MBEDTLS_SSL_EXPORT_KEYS)
     cy_tls_context_mbedtls_t *ctx = (cy_tls_context_mbedtls_t *) context;
     mbedtls_ssl_context      *ssl = &ctx->ssl_ctx;
 
-    memcpy(ssl->in_ctr,read_seq, 8);
-    memcpy(ssl->cur_out_ctr,write_seq, 8);
+    SS_MEMCPY(ssl->in_ctr,read_seq, 8);
+    SS_MEMCPY(ssl->cur_out_ctr,write_seq, 8);
 
     return CY_RSLT_SUCCESS;
-#else
-    return CY_RSLT_MODULE_TLS_UNSUPPORTED;
-#endif
 }
 
+/* @func  : cy_tls_get_tls_info
+ *
+ * @brief : Retrieve the TLS parameters from SSL context.
+ */
 cy_rslt_t cy_tls_get_tls_info(void *context, cy_tls_offload_info_t *tls_info)
 {
-#if (MBEDTLS_VERSION_NUMBER == 0x02190000) && defined(MBEDTLS_SSL_EXPORT_KEYS)
     cy_tls_context_mbedtls_t *ctx = (cy_tls_context_mbedtls_t *) context;
     mbedtls_ssl_context    *ssl;
     const mbedtls_ssl_ciphersuite_t *ciphersuite_info;
@@ -288,10 +304,12 @@ cy_rslt_t cy_tls_get_tls_info(void *context, cy_tls_offload_info_t *tls_info)
 
     ciphersuite_info = mbedtls_ssl_ciphersuite_from_id( ssl->session->ciphersuite );
 
-    tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_tls_get_tls_info: suite = %u, mac = %u, cipher = %u\n", ssl->session->ciphersuite,
+    tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_tls_get_tls_info: suite = %u, mac = %u, cipher = %u\n",
+                   ssl->session->ciphersuite,
                    ciphersuite_info->mac, ciphersuite_info->cipher);
 
-    if((ciphersuite_info->mac == MBEDTLS_MD_SHA1) && ((ciphersuite_info->cipher == MBEDTLS_CIPHER_AES_128_CBC)||(ciphersuite_info->cipher == MBEDTLS_CIPHER_AES_256_CBC)))
+    if((ciphersuite_info->mac == MBEDTLS_MD_SHA1) &&
+        ((ciphersuite_info->cipher == MBEDTLS_CIPHER_AES_128_CBC)||(ciphersuite_info->cipher == MBEDTLS_CIPHER_AES_256_CBC)))
     {
         tls_info->cipher_algorithm = CY_TLS_BULKCIPHERALGORITHM_AES;
         tls_info->cipher_type = CY_TLS_CIPHERTYPE_BLOCK;
@@ -310,27 +328,363 @@ cy_rslt_t cy_tls_get_tls_info(void *context, cy_tls_offload_info_t *tls_info)
 #endif
 
     tls_info->write_iv_len = tls_info->read_iv_len = export_key->iv_len;
-    memcpy(&tls_info->write_iv,ssl->out_iv, tls_info->write_iv_len);
-    memcpy(&tls_info->read_iv, ssl->in_iv,  tls_info->read_iv_len);
+    SS_MEMCPY(&tls_info->write_iv,ssl->out_iv, tls_info->write_iv_len);
+    SS_MEMCPY(&tls_info->read_iv, ssl->in_iv,  tls_info->read_iv_len);
 
     tls_info->write_master_key_len = tls_info->read_master_key_len = export_key->key_len;
-    memcpy(&tls_info->write_master_key,&export_key->key_enc, tls_info->write_master_key_len);
-    memcpy(&tls_info->read_master_key,&export_key->key_dec, tls_info->read_master_key_len);
+    SS_MEMCPY(&tls_info->write_master_key,&export_key->key_enc, tls_info->write_master_key_len);
+    SS_MEMCPY(&tls_info->read_master_key,&export_key->key_dec, tls_info->read_master_key_len);
 
     tls_info->write_mac_key_len = tls_info->read_mac_key_len = export_key->mac_len;
-    memcpy(&tls_info->write_mac_key,&export_key->mac_enc, tls_info->write_mac_key_len);
-    memcpy(&tls_info->read_mac_key,&export_key->mac_dec, tls_info->read_mac_key_len);
+    SS_MEMCPY(&tls_info->write_mac_key,&export_key->mac_enc, tls_info->write_mac_key_len);
+    SS_MEMCPY(&tls_info->read_mac_key,&export_key->mac_dec, tls_info->read_mac_key_len);
 
     tls_info->read_sequence_len = 8;
-    memcpy(tls_info->read_sequence, ssl->in_ctr, 8);
+    SS_MEMCPY(tls_info->read_sequence, ssl->in_ctr, 8);
     tls_info->write_sequence_len = 8;
-    memcpy(tls_info->write_sequence, ssl->cur_out_ctr, 8);
+    SS_MEMCPY(tls_info->write_sequence, ssl->cur_out_ctr, 8);
 
     return CY_RSLT_SUCCESS;
-#else
-    return CY_RSLT_MODULE_TLS_UNSUPPORTED;
-#endif
 }
+#elif ((MBEDTLS_VERSION_NUMBER >= 0x03000000) && (MBEDTLS_VERSION_MAJOR == 3))
+
+#include "psa_util.h"
+
+extern int mbedtls_ssl_tls13_hkdf_expand_label(
+    psa_algorithm_t hash_alg,
+    const unsigned char *secret, size_t secret_len,
+    const unsigned char *label, size_t label_len,
+    const unsigned char *ctx, size_t ctx_len,
+    unsigned char *buf, size_t buf_len);
+
+#ifdef MBEDTLS_SSL_PROTO_TLS1_3
+
+static int cy_tls_tls13_make_traffic_key(
+    psa_algorithm_t hash_alg,
+    const unsigned char *secret, size_t secret_len,
+    unsigned char *key, size_t key_len,
+    unsigned char *iv, size_t iv_len)
+{
+    int ret = MBEDTLS_ERR_ERROR_CORRUPTION_DETECTED;
+
+    ret = mbedtls_ssl_tls13_hkdf_expand_label(
+        hash_alg,
+        secret, secret_len,
+        (uint8_t*)"key",
+        3,
+        NULL, 0,
+        key, key_len);
+    if (ret != 0)
+    {
+        return ret;
+    }
+
+    ret = mbedtls_ssl_tls13_hkdf_expand_label(
+        hash_alg,
+        secret, secret_len,
+        (uint8_t*)"iv",
+        2,
+        NULL, 0,
+        iv, iv_len);
+
+    return ret;
+}
+
+#endif
+
+static void cy_tls_key_derivation (void *p_expkey,
+                            mbedtls_ssl_key_export_type secret_type,
+                            const unsigned char *secret,
+                            size_t secret_len,
+                            const unsigned char client_random[32],
+                            const unsigned char server_random[32],
+                            mbedtls_tls_prf_types tls_prf_type)
+{
+    if (p_expkey != NULL)
+    {
+        if (secret_type == MBEDTLS_SSL_KEY_EXPORT_TLS12_MASTER_SECRET)
+        {
+            uint8_t randbytes[64];
+            uint8_t kb[256];
+            int ret;
+            cy_tls_keys_t *keys;
+            cy_tls_context_mbedtls_t *ctx;
+            uint8_t* key1;
+            uint8_t* key2;
+            size_t maclen;
+            size_t ivlen;
+            size_t keylen;
+            const mbedtls_ssl_ciphersuite_t *ciphersuite_info;
+            const mbedtls_md_info_t *md_info;
+            const mbedtls_cipher_info_t *cipher_info;
+            mbedtls_ssl_context      *ssl;
+
+            SS_MEMCPY(randbytes, server_random, 32);
+            SS_MEMCPY(randbytes+32, client_random, 32);
+
+            ret = mbedtls_ssl_tls_prf(tls_prf_type, secret, secret_len, "key expansion", randbytes, 64, kb, 256);
+            if(ret != 0)
+            {
+                tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR,
+                    "PRF function Failed for type %d\r\n", tls_prf_type);
+                return;
+            }
+
+            ctx = (cy_tls_context_mbedtls_t *)p_expkey;
+            ssl = &ctx->ssl_ctx;
+            keys = &ctx->export_key;
+
+            ciphersuite_info = mbedtls_ssl_ciphersuite_from_id( ssl->MBEDTLS_PRIVATE(session_negotiate)->MBEDTLS_PRIVATE(ciphersuite));
+            if (ciphersuite_info == NULL)
+            {
+                tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR,
+                    "ciphersuite info for %d not found\r\n",
+                    ssl->MBEDTLS_PRIVATE(session_negotiate)->MBEDTLS_PRIVATE(ciphersuite));
+                return;
+            }
+            cipher_info = mbedtls_cipher_info_from_type((mbedtls_cipher_type_t)(ciphersuite_info->MBEDTLS_PRIVATE(cipher)));
+            if (cipher_info == NULL)
+            {
+                tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR,
+                    "cipher info for %u not found",
+                    ciphersuite_info->MBEDTLS_PRIVATE(cipher));
+                return;
+            }
+            md_info =  mbedtls_md_info_from_type((mbedtls_md_type_t)(ciphersuite_info->MBEDTLS_PRIVATE(mac)));
+            if (md_info == NULL)
+            {
+                tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR,
+                    "md info for %u not found",
+                    ciphersuite_info->MBEDTLS_PRIVATE(mac));
+                return;
+            }
+
+            keylen = BITS_TO_BYTES(mbedtls_ssl_ciphersuite_get_cipher_key_bitlen(ciphersuite_info));
+
+            maclen = mbedtls_md_get_size(md_info);
+
+            ivlen = cipher_info->MBEDTLS_PRIVATE(iv_size);
+
+            key1 = (uint8_t*)kb + maclen * 2 ;
+            key2 = (uint8_t*)key1 + keylen;
+
+            keys->mac_len = maclen;
+            SS_MEMCPY(keys->mac_enc, kb , maclen);
+            SS_MEMCPY(keys->mac_dec, kb + maclen, maclen);
+
+            keys->key_len = keylen;
+            SS_MEMCPY(keys->key_enc, key1, keylen);
+            SS_MEMCPY(keys->key_dec, key2, keylen);
+
+            keys->iv_len = ivlen;
+            SS_MEMCPY( keys->iv_enc, key2 + keylen,  ivlen );
+            SS_MEMCPY( keys->iv_dec, key2 + keylen + ivlen, ivlen);
+        }
+#ifdef MBEDTLS_SSL_PROTO_TLS1_3
+        else if (secret_type == MBEDTLS_SSL_KEY_EXPORT_TLS1_3_CLIENT_APPLICATION_TRAFFIC_SECRET
+                || secret_type == MBEDTLS_SSL_KEY_EXPORT_TLS1_3_SERVER_APPLICATION_TRAFFIC_SECRET)
+        {
+            /* create iv and key */
+            int ret = 0;
+            unsigned char write_key[MBEDTLS_MAX_KEY_LENGTH];
+            unsigned char write_iv[MBEDTLS_MAX_IV_LENGTH];
+            cy_tls_context_mbedtls_t *ctx;
+            mbedtls_ssl_context      *ssl;
+            cy_tls_keys_t *keys;
+            psa_algorithm_t hash_alg;
+            size_t key_len, iv_len;
+            const mbedtls_ssl_ciphersuite_t *ciphersuite_info;
+
+            ctx = (cy_tls_context_mbedtls_t *)p_expkey;
+            ssl = &ctx->ssl_ctx;
+            keys = &ctx->export_key;
+
+            ciphersuite_info = mbedtls_ssl_ciphersuite_from_id( ssl->MBEDTLS_PRIVATE(session_negotiate)->MBEDTLS_PRIVATE(ciphersuite));
+            if (ciphersuite_info == NULL)
+            {
+                tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR,
+                    "ciphersuite info for %d not found\r\n",
+                    ssl->MBEDTLS_PRIVATE(session_negotiate)->MBEDTLS_PRIVATE(ciphersuite));
+                return;
+            }
+
+            key_len = BITS_TO_BYTES(mbedtls_ssl_ciphersuite_get_cipher_key_bitlen(ciphersuite_info));
+
+            /* TLS 1.3 only have AEAD ciphers, IV length is unconditionally 12 bytes */
+            iv_len = 12;
+
+            hash_alg = mbedtls_psa_translate_md((mbedtls_md_type_t)(ciphersuite_info->MBEDTLS_PRIVATE(mac)));
+
+            ret = cy_tls_tls13_make_traffic_key(
+                    hash_alg, secret, secret_len,
+                    write_key, key_len,
+                    write_iv, iv_len);
+
+            if(ret != 0)
+            {
+                tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR,
+                "Unable to derive traffic key for secret type %d\r\n", secret_type);
+                return;
+            }
+
+            keys->mac_len = 0;
+            keys->key_len = key_len;
+            keys->iv_len  = iv_len;
+
+            if (secret_type == MBEDTLS_SSL_KEY_EXPORT_TLS1_3_CLIENT_APPLICATION_TRAFFIC_SECRET)
+            {
+                /* client */
+                SS_MEMCPY(keys->key_enc, write_key, key_len);
+                SS_MEMCPY(keys->iv_enc, write_iv, iv_len );
+            }
+            else
+            {
+                /* server */
+                SS_MEMCPY(keys->key_dec, write_key, key_len);
+                SS_MEMCPY(keys->iv_dec, write_iv, iv_len );
+            }
+        }
+#endif
+    }
+}
+
+cy_rslt_t cy_tls_update_tls_sequence(void *context, uint8_t *read_seq, uint8_t *write_seq)
+{
+    cy_tls_context_mbedtls_t *ctx = (cy_tls_context_mbedtls_t *) context;
+    mbedtls_ssl_context      *ssl = &ctx->ssl_ctx;
+
+    SS_MEMCPY(ssl->MBEDTLS_PRIVATE(in_ctr),read_seq, MAX_SEQUENCE_LENGTH);
+    SS_MEMCPY(ssl->MBEDTLS_PRIVATE(cur_out_ctr),write_seq, MAX_SEQUENCE_LENGTH);
+
+    return CY_RSLT_SUCCESS;
+}
+
+cy_rslt_t cy_tls_get_tls_info(void *context, cy_tls_offload_info_t *tls_info)
+{
+    cy_tls_context_mbedtls_t *ctx = (cy_tls_context_mbedtls_t *) context;
+    mbedtls_ssl_context    *ssl;
+    const mbedtls_ssl_ciphersuite_t *ciphersuite_info;
+    cy_tls_keys_t    *export_key;
+
+    if(ctx == NULL)
+    {
+        return CY_RSLT_MODULE_TLS_ERROR;
+    }
+    ssl = &ctx->ssl_ctx;
+    export_key = &ctx->export_key;
+
+    tls_info->protocol_major_ver = (ssl->MBEDTLS_PRIVATE(tls_version) >> 8) & 0xFF;
+    tls_info->protocol_minor_ver = (ssl->MBEDTLS_PRIVATE(tls_version)) & 0xFF;
+
+    /* No compression */
+    tls_info->compression_algorithm = 0;
+
+    ciphersuite_info = mbedtls_ssl_ciphersuite_from_id( ssl->MBEDTLS_PRIVATE(session)->MBEDTLS_PRIVATE(ciphersuite) );
+    if (ciphersuite_info == NULL)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR,
+            "ciphersuite info for %d not found\r\n",
+            ssl->MBEDTLS_PRIVATE(session)->MBEDTLS_PRIVATE(ciphersuite));
+        return CY_RSLT_MODULE_TLS_BAD_INPUT_DATA;
+    }
+
+    tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "cy_tls_get_tls_info: suite = %u, mac = %u, cipher = %u\n",
+        ssl->MBEDTLS_PRIVATE(session)->MBEDTLS_PRIVATE(ciphersuite),
+        ciphersuite_info->MBEDTLS_PRIVATE(mac), ciphersuite_info->MBEDTLS_PRIVATE(cipher));
+
+    switch (ssl->MBEDTLS_PRIVATE(session)->MBEDTLS_PRIVATE(ciphersuite))
+    {
+        case MBEDTLS_TLS_RSA_WITH_AES_128_CBC_SHA:
+        case MBEDTLS_TLS_RSA_WITH_AES_256_CBC_SHA:
+            tls_info->cipher_algorithm = CY_TLS_BULKCIPHERALGORITHM_AES;
+            tls_info->cipher_type      = CY_TLS_CIPHERTYPE_BLOCK;
+            tls_info->mac_algorithm    = CY_TLS_MACALGORITHM_HMAC_SHA1;
+            break;
+
+        case MBEDTLS_TLS1_3_AES_128_GCM_SHA256:
+        case MBEDTLS_TLS1_3_AES_256_GCM_SHA384:
+            tls_info->cipher_type = CY_TLS_CIPHERTYPE_AEAD;
+
+            /* MAC */
+            if(MBEDTLS_MD_SHA256 == ciphersuite_info->MBEDTLS_PRIVATE(mac))
+            {
+                tls_info->mac_algorithm = CY_TLS_MACALGORITHM_HKDF_SHA256;
+            }
+            else if (MBEDTLS_MD_SHA384 == ciphersuite_info->MBEDTLS_PRIVATE(mac))
+            {
+                tls_info->mac_algorithm = CY_TLS_MACALGORITHM_HKDF_SHA384;
+            }
+            else
+            {
+                tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Invalid Mac Algorithm - %d\n", ciphersuite_info->MBEDTLS_PRIVATE(mac));
+                return CY_RSLT_MODULE_TLS_BADARG;
+            }
+
+            /* Cipher */
+            if(MBEDTLS_CIPHER_AES_256_GCM == ciphersuite_info->MBEDTLS_PRIVATE(cipher))
+            {
+                tls_info->cipher_algorithm = CY_TLS_BULKCIPHERALGORITHM_AES_256_GCM;
+            }
+            else if (MBEDTLS_CIPHER_AES_128_GCM == ciphersuite_info->MBEDTLS_PRIVATE(cipher))
+            {
+                tls_info->cipher_algorithm = CY_TLS_BULKCIPHERALGORITHM_AES_128_GCM;
+            }
+            else
+            {
+                tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Invalid Cipher Algorithm - %d\n", ciphersuite_info->MBEDTLS_PRIVATE(cipher));
+                return CY_RSLT_MODULE_TLS_BADARG;
+            }
+            break;
+
+        default:
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Invalid Cipher suites \n");
+            return CY_RSLT_MODULE_TLS_BADARG;
+
+    }
+
+#if defined(MBEDTLS_SSL_ENCRYPT_THEN_MAC)
+    tls_info->encrypt_then_mac = ssl->MBEDTLS_PRIVATE(session)->MBEDTLS_PRIVATE(encrypt_then_mac);
+#else
+    tls_info->encrypt_then_mac = 0;
+#endif
+
+    tls_info->write_iv_len = tls_info->read_iv_len = export_key->iv_len;
+    SS_MEMCPY(tls_info->write_iv, export_key->iv_enc, tls_info->write_iv_len);
+    SS_MEMCPY(tls_info->read_iv, export_key->iv_dec,  tls_info->read_iv_len);
+
+    tls_info->write_master_key_len = tls_info->read_master_key_len = export_key->key_len;
+    SS_MEMCPY(tls_info->write_master_key,&export_key->key_enc, tls_info->write_master_key_len);
+    SS_MEMCPY(tls_info->read_master_key,&export_key->key_dec, tls_info->read_master_key_len);
+
+    tls_info->write_mac_key_len = tls_info->read_mac_key_len = export_key->mac_len;
+    SS_MEMCPY(tls_info->write_mac_key,&export_key->mac_enc, tls_info->write_mac_key_len);
+    SS_MEMCPY(tls_info->read_mac_key,&export_key->mac_dec, tls_info->read_mac_key_len);
+
+    tls_info->read_sequence_len = MAX_SEQUENCE_LENGTH;
+    SS_MEMCPY(tls_info->read_sequence, ssl->MBEDTLS_PRIVATE(in_ctr), tls_info->read_sequence_len);
+
+    tls_info->write_sequence_len = MAX_SEQUENCE_LENGTH;
+    SS_MEMCPY(tls_info->write_sequence, ssl->MBEDTLS_PRIVATE(cur_out_ctr), tls_info->write_sequence_len);
+
+    return CY_RSLT_SUCCESS;
+}
+
+#else
+
+cy_rslt_t cy_tls_update_tls_sequence(void *context, uint8_t *read_seq, uint8_t *write_seq)
+{
+    tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR,
+            "TLS Offload not supported\r\n");
+    return CY_RSLT_MODULE_TLS_UNSUPPORTED;
+}
+
+cy_rslt_t cy_tls_get_tls_info(void *context, cy_tls_offload_info_t *tls_info)
+{
+    tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR,
+            "TLS Offload not supported\r\n");
+    return CY_RSLT_MODULE_TLS_UNSUPPORTED;
+}
+#endif
 
 /*-----------------------------------------------------------*/
 
@@ -669,12 +1023,24 @@ static void cy_tls_mbedtls_memory_buffer_allocator_init(void)
 cy_rslt_t cy_tls_init(void)
 {
     cy_rslt_t result = CY_RSLT_SUCCESS;
+#if MBEDTLS_VERSION_MAJOR == MBEDTLS_MAJOR_VERSION_3
+    psa_status_t psa_status;
+#endif
 
     if(!init_ref_count)
     {
         cy_tls_mbedtls_memory_buffer_allocator_init();
         mbedtls_platform_set_time(get_current_time);
     }
+
+#if MBEDTLS_VERSION_MAJOR == MBEDTLS_MAJOR_VERSION_3
+    psa_status = psa_crypto_init();
+    if(CY_RSLT_SUCCESS != psa_status)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Failed to initialize PSA crypto \r\n", psa_status);
+        return CY_RSLT_MODULE_TLS_ERROR;
+    }
+#endif
 
     init_ref_count++;
 
@@ -1114,9 +1480,6 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint, uint32_
     cy_tls_identity_t *tls_identity;
     cy_rslt_t result = CY_RSLT_SUCCESS;
     bool load_cert_key_from_ram = CY_TLS_LOAD_CERT_FROM_RAM;
-#if MBEDTLS_VERSION_MAJOR == MBEDTLS_MAJOR_VERSION_3
-    psa_status_t psa_status;
-#endif
 
     (void)(timeout);
 
@@ -1130,15 +1493,6 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint, uint32_
     }
 
     tls_identity = (cy_tls_identity_t *)ctx->tls_identity;
-
-#if MBEDTLS_VERSION_MAJOR == MBEDTLS_MAJOR_VERSION_3
-    psa_status = psa_crypto_init();
-    if(CY_RSLT_SUCCESS != psa_status)
-    {
-        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Failed to initialize PSA crypto \r\n", psa_status);
-        return CY_RSLT_MODULE_TLS_ERROR;
-    }
-#endif
 
     /* Initialize mbedTLS structures. */
     mbedtls_ssl_init(&ctx->ssl_ctx);
@@ -1204,8 +1558,12 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint, uint32_
     mbedtls_ssl_conf_dbg(&ctx->ssl_config, mbedtls_debug_logs, NULL);
 #endif
 
-#if (MBEDTLS_VERSION_NUMBER == 0x02190000) && defined(MBEDTLS_SSL_EXPORT_KEYS)
+#if (MBEDTLS_VERSION_NUMBER == 0x02190000)
+#if defined(MBEDTLS_SSL_EXPORT_KEYS)
     mbedtls_ssl_conf_export_keys_ext_cb( &ctx->ssl_config, cy_tls_key_derivation, &ctx->export_key );
+#endif
+#elif (MBEDTLS_VERSION_NUMBER >= 0x03000000)
+    mbedtls_ssl_set_export_keys_cb( &ctx->ssl_ctx, cy_tls_key_derivation, ctx);
 #endif
 
 #ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
@@ -1415,6 +1773,16 @@ cy_rslt_t cy_tls_send(void *context, const unsigned char *data, uint32_t length,
             result = CY_RSLT_MODULE_TLS_OUT_OF_HEAP_SPACE;
             break;
         }
+#if (MBEDTLS_VERSION_NUMBER >= 0x03000000)
+#if defined (MBEDTLS_SSL_SESSION_TICKETS)
+        else if(ret == MBEDTLS_ERR_SSL_RECEIVED_NEW_SESSION_TICKET)
+        {
+            /* Currently this is ignored.
+             */
+            continue;
+        }
+#endif
+#endif
         /* mbed TLS expects negative return value on error from cy_tls_internal_send function. So cy_tls_internal_send function applies
          * minus on the existing TLS result code, and returns it to mbedTLS. mbed TLS returns same error code that is returned by
          * cy_tls_internal_send function. So check the ret with minus applied on TLS error code, but return the positive value to
@@ -1480,6 +1848,17 @@ cy_rslt_t cy_tls_recv(void *context, unsigned char *buffer, uint32_t length, uin
             /* The handshake is not over yet. Retry */
             continue;
         }
+#if (MBEDTLS_VERSION_NUMBER >= 0x03000000)
+#if defined (MBEDTLS_SSL_SESSION_TICKETS)
+        else if(ret == MBEDTLS_ERR_SSL_RECEIVED_NEW_SESSION_TICKET)
+        {
+            /* We were reading for application data but got a NewSessionTicket instead.
+             * Currently this is ignored.
+             */
+            continue;
+        }
+#endif
+#endif
         else if((ret == 0) || (ret == MBEDTLS_ERR_SSL_PEER_CLOSE_NOTIFY) || (ret == MBEDTLS_ERR_SSL_CLIENT_RECONNECT))
         {
             /* Connection closed. Return error */
@@ -1621,6 +2000,11 @@ cy_rslt_t cy_tls_deinit(void)
         tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "library not initialized\n");
         return CY_RSLT_MODULE_TLS_ERROR;
     }
+
+#if MBEDTLS_VERSION_MAJOR == MBEDTLS_MAJOR_VERSION_3
+    mbedtls_psa_crypto_free();
+#endif
+
     init_ref_count--;
 
     return result;

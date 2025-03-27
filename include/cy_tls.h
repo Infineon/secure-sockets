@@ -1,5 +1,5 @@
 /*
- * Copyright 2024, Cypress Semiconductor Corporation (an Infineon company) or
+ * Copyright 2025, Cypress Semiconductor Corporation (an Infineon company) or
  * an affiliate of Cypress Semiconductor Corporation.  All rights reserved.
  *
  * This software, including source code, documentation and related
@@ -65,7 +65,7 @@ extern "C" {
  ******************************************************/
 /*! \cond */
 #define MAX_KEY_LENGTH      48
-#define MAX_MAC_KEY_LENGTH  32
+#define MAX_MAC_KEY_LENGTH  48
 #define MAX_IV_LENGTH       32
 #define MAX_SEQUENCE_LENGTH 8
 /*! \endcond */

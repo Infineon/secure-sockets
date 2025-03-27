@@ -30,7 +30,7 @@ The secure sockets library provides APIs to create software that can send and/or
 * To use secure-sockets library with Wi-Fi kits on FreeRTOS, lwIP, and Mbed TLS combination, the application should pull [wifi-core-freertos-lwip-mbedtls](https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls) library which will internally pull secure-sockets, wifi-connection-manager, FreeRTOS, lwIP, Mbed TLS and other dependent modules.
 To pull wifi-core-freertos-lwip-mbedtls create the following *.mtb* file in deps folder.
    - *wifi-core-freertos-lwip-mbedtls.mtb:*
-      `https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls#latest-v1.X#$$ASSET_REPO$$/wifi-core-freertos-lwip-mbedtls/latest-v1.X`
+      `https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls#latest-v2.X#$$ASSET_REPO$$/wifi-core-freertos-lwip-mbedtls/latest-v2.X`
 
       **Note:** To use TLS version 1.3, please upgrade wifi-core-freertos-lwip-mbedtls to latest-v2.X (It is supported on all the platforms except [PSoC&trade; 64S0S2 Wi-Fi Bluetooth&reg; pioneer kit (CY8CKIT-064S0S2-4343W)](https://www.cypress.com/documentation/development-kitsboards/psoc-64-standard-secure-aws-wi-fi-bt-pioneer-kit-cy8ckit))
 
@@ -44,7 +44,7 @@ To pull wifi-core-threadx-cat5 create the following *.mtb* file in deps folder.
 * To use secure-sockets library with Ethernet kits on FreeRTOS, lwIP, and Mbed TLS combination, the application should pull [ethernet-core-freertos-lwip-mbedtls](https://github.com/Infineon/ethernet-core-freertos-lwip-mbedtls) library which will internally pull secure-sockets, ethernet-connection-manager, FreeRTOS, lwIP, Mbed TLS and other dependent modules.
 To pull ethernet-core-freertos-lwip-mbedtls create the following *.mtb* file in deps folder.
    - *ethernet-core-freertos-lwip-mbedtls.mtb:*
-      `https://github.com/Infineon/ethernet-core-freertos-lwip-mbedtls#latest-v1.X#$$ASSET_REPO$$/ethernet-core-freertos-lwip-mbedtls/latest-v1.X`
+      `https://github.com/Infineon/ethernet-core-freertos-lwip-mbedtls#latest-v2.X#$$ASSET_REPO$$/ethernet-core-freertos-lwip-mbedtls/latest-v2.X`
 
       **Note:** To use TLS version 1.3, please upgrade ethernet-core-freertos-lwip-mbedtls to latest-v2.X
 
@@ -53,12 +53,31 @@ To pull ethernet-core-freertos-lwip-mbedtls create the following *.mtb* file in 
   * See the "Quick Start" section in [README.md](https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls/blob/master/README.md) for Wi-Fi kits.
   * See the "Quick Start" section in [README.md](https://github.com/Infineon/ethernet-core-freertos-lwip-mbedtls/blob/master/README.md) for Ethernet kits.
 
+* The secure-sockets library with XMC7200 kits needs 64K non-cacheable memory for each TLS connection. By default one TLS connection is supported. To support more than one TLS connections, the application must perform the following:
+
+   - Update the `CM7_SRAM_NON_CACHE_RESERVE` macro in the BSP file in the path "bsps\<TARGET>\xmc7xxx_partition.h". The entry would look like as follows:
+     ```
+     #define CM7_SRAM_NON_CACHE_RESERVE      0x00040000  /* 256K  :non-cacheable sram size */
+     ```
+
+   - Replace the `ARM_MPU_REGION_SIZE_128KB` macro in the BSP startup file in the path "bsps\<TARGET>\COMPONENT_CM7\startup_cm7.c" to "ARM_MPU_REGION_SIZE_256KB".
+
+   - Update the `cm7_sram_non_cache_reserve` macro in the BSP linker scripts in the path "bsps\<TARGET>\COMPONENT_CM7\TOOLCHAIN_GCC_ARM\linker.ld". The linker script entry would look like as follows:
+     ```
+     cm7_sram_non_cache_reserve = 0x00040000; /* 256K  :non-cacheable sram size */
+     ```
+
+   - For each TLS connection 64K non-cacheable memory is needed. Add the `CYCFG_MBEDTLS_BUFFER_SIZE` macro to the *DEFINES* in the code example's Makefile to support more than one TLS connections. For example, for two TLS connections define the macro with 128k, for three TLS connections define the macro with 192k. The Makefile entry would look like as follows:
+     ```
+     DEFINES+=CYCFG_MBEDTLS_BUFFER_SIZE=128*1024
+     ```
+
 * The secure-sockets library disables all the debug log messages by default. To enable log messages, the application must perform the following:
 
- - Add the `ENABLE_SECURE_SOCKETS_LOGS` macro to the *DEFINES* in the code example's Makefile. The Makefile entry would look like as follows:
-   ```
-   DEFINES+=ENABLE_SECURE_SOCKETS_LOGS
-   ```
+   - Add the `ENABLE_SECURE_SOCKETS_LOGS` macro to the *DEFINES* in the code example's Makefile. The Makefile entry would look like as follows:
+     ```
+     DEFINES+=ENABLE_SECURE_SOCKETS_LOGS
+     ```
 
  - Call the `cy_log_init()` function provided by the *cy-log* module. cy-log is part of the *connectivity-utilities* library.
 
