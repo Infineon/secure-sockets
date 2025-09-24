@@ -12,8 +12,14 @@ Refer to the [README.md](./README.md) for a complete description of the Secure S
 
 ## Changelog
 
+### v3.11.0
+* Added support for PSOC&trade; Edge E84 (PSE84) platform.
+* Enabled LLVM_ARM toolchain support.
+* Updated to use MTB_HAL apis.
+* Added TLSv1.3 offload support for CYW955913EVK-01 kit.
+
 ### v3.10.0
-* Added TLSv1.3 offload support for CY8CEVAL-062S2-CYW43022CUB kit
+* Added TLSv1.3 offload support for CY8CEVAL-062S2-CYW43022CUB kit.
 * Minor bug fixes
 
 ### v3.9.0
@@ -118,8 +124,9 @@ This version of the library was validated for compatibility with the following s
 
 | Software and Tools                                        | Version |
 | :---                                                      | :----:  |
-| ModusToolbox&trade; Software Environment                  | 3.4     |
-| ModusToolbox&trade; Device Configurator                   | 5.20    |
-| GCC Compiler                                              | 11.3.1  |
+| ModusToolbox&trade; Software Environment                  | 3.6     |
+| ModusToolbox&trade; Device Configurator                   | 5.50    |
+| GCC Compiler                                              | 14.2.1  |
 | IAR Compiler                                              | 9.50.2  |
 | Arm Compiler 6                                            | 6.22    |
+| LLVM compiler                                             | 19.1.5  |

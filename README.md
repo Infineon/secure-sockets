@@ -26,11 +26,17 @@ The secure sockets library provides APIs to create software that can send and/or
 
 - Integrated with PSA Lib through the PKCS interface to support secure client TCP (TLS) connection using the device certificate and device keys provisioned in the secured element
 
+- **TFM (Trusted Firmware-M) Integration**: Native support for ARM TrustZone-enabled devices with secure and non-secure world separation
+
+- **PSA Crypto API Support**: Leverages Platform Security Architecture (PSA) APIs for cryptographic operations in secure environments
+
+- **Opaque Key Management**: Supports opaque private keys stored in secure partitions without exposing key material to non-secure world
+
 ## Quick Start
 * To use secure-sockets library with Wi-Fi kits on FreeRTOS, lwIP, and Mbed TLS combination, the application should pull [wifi-core-freertos-lwip-mbedtls](https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls) library which will internally pull secure-sockets, wifi-connection-manager, FreeRTOS, lwIP, Mbed TLS and other dependent modules.
 To pull wifi-core-freertos-lwip-mbedtls create the following *.mtb* file in deps folder.
    - *wifi-core-freertos-lwip-mbedtls.mtb:*
-      `https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls#latest-v2.X#$$ASSET_REPO$$/wifi-core-freertos-lwip-mbedtls/latest-v2.X`
+      `https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls#latest-v3.X#$$ASSET_REPO$$/wifi-core-freertos-lwip-mbedtls/latest-v3.X`
 
       **Note:** To use TLS version 1.3, please upgrade wifi-core-freertos-lwip-mbedtls to latest-v2.X (It is supported on all the platforms except [PSoC&trade; 64S0S2 Wi-Fi Bluetooth&reg; pioneer kit (CY8CKIT-064S0S2-4343W)](https://www.cypress.com/documentation/development-kitsboards/psoc-64-standard-secure-aws-wi-fi-bt-pioneer-kit-cy8ckit))
 
@@ -114,6 +120,8 @@ This library and its features are supported on the following Infineon MCUs:
 
 - [PSoC&trade; 62S2 evaluation kit (CY8CEVAL-062S2-CYW955513SDM2WLIPA)]( https://www.infineon.com/cms/en/product/evaluation-boards/cy8ceval-062s2/ )
 
+- PSOC&trade; Edge E84 Evaluation Kit
+
 ## Send and receive timeout values
 
 The secure sockets library configures the default send and receive timeout values to 10 seconds for a newly created socket. These can be changed using the `cy_socket_setsockopt` API function. To change the send timeout, use the `CY_SOCKET_SO_SNDTIMEO` socket option; similarly, for receive timeout, use the `CY_SOCKET_SO_RCVTIMEO` socket option. Adjust the default timeout values based on the network speed or use case.
@@ -142,7 +150,7 @@ The secure sockets library configures the default send and receive timeout value
 
 ## Stack size
 
-The default stack size of the secure sockets library is 6 KB (6*1024). To customize the stack size add the `SECURE_SOCKETS_THREAD_STACKSIZE` macro to the `DEFINES` in the code example's Makefile with the required stack size. The Makefile entry would look like as follows:
+The default stack size of the secure sockets library is 7 KB (7*1024). To customize the stack size add the `SECURE_SOCKETS_THREAD_STACKSIZE` macro to the `DEFINES` in the code example's Makefile with the required stack size. The Makefile entry would look like as follows:
 
   ```
   DEFINES+=SECURE_SOCKETS_THREAD_STACKSIZE=8*1024
@@ -335,7 +343,6 @@ DEFINES+=LABEL_DEVICE_PRIVATE_KEY_FOR_TLS='"0xE0F1"'
 Note : Optiga-trust-m has a limitation on the maximum size of Public Key Certificate/Device Certificate. Using a certificate of a size greater than 1728 bytes may result in erroneous outputs.
 
 To use secure-sockets library for FreeRTOS, lwIP, and Mbed TLS, pull [wifi-core-freertos-lwip-mbedtls](https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls) library which will internally pull secure-sockets, wifi-connection-manager, FreeRTOS, lwIP, mbed TLS and other dependent modules.
-
 
 ## Additional information
 

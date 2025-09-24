@@ -54,6 +54,7 @@
 #include <limits.h>
 #include <cy_tls_ciphersuites.h>
 #include "cy_secure_sockets_pkcs.h"
+#include "cy_tls_private.h"
 
 #ifdef ENABLE_SECURE_SOCKETS_LOGS
 #define tls_cy_log_msg cy_log_msg
@@ -80,11 +81,11 @@
 #endif
 
 #ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
-#ifdef COMPONENT_CAT5
+#ifdef COMPONENT_55900
 /* Allow identity creation without private key */
 #define CY_TLS_CREATE_IDENTITY_WITHOUT_PRIVATE_KEY
 
-#endif /* COMPONENT_CAT5 */
+#endif /* COMPONENT_55900 */
 
 #define CY_TLS_IS_IDENTITY_WITHOUT_PRIVATE_KEY(identity) \
     (identity != NULL && identity->private_key_der == NULL && identity->certificate_der != NULL)
@@ -1855,37 +1856,6 @@ cy_rslt_t cy_tls_update_tls_sequence(void *context, uint8_t *read_seq, uint8_t *
 
 /*-----------------------------------------------------------*/
 
-/**
- * Supported Cipher Algorithm in MQTT Offload
- */
-typedef enum {
-    CY_TLS_BULKCIPHERALGORITHM_NULL,
-    CY_TLS_BULKCIPHERALGORITHM_RC4,
-    CY_TLS_BULKCIPHERALGORITHM_3DES,
-    CY_TLS_BULKCIPHERALGORITHM_AES
-} cy_bulk_cipher_algorithm_t;
-
-/**
- * Supported Cipher Type in MQTT Offload
- */
-typedef enum {
-    CY_TLS_CIPHERTYPE_STREAM = 1,
-    CY_TLS_CIPHERTYPE_BLOCK,
-    CY_TLS_CIPHERTYPE_AEAD
-} cy_cipher_type_t;
-
-/**
- * Supported MAC Algorithm in MQTT Offload
- */
-typedef enum {
-    CY_TLS_MACALGORITHM_NULL,
-    CY_TLS_MACALGORITHM_HMAC_MD5,
-    CY_TLS_MACALGORITHM_HMAC_SHA1,
-    CY_TLS_MACALGORITHM_HMAC_SHA256,
-    CY_TLS_MACALGORITHM_HMAC_SHA384,
-    CY_TLS_MACALGORITHM_HMAC_SHA512
-} cy_mac_algorithm_t;
-
 /*
  * @func  : cy_tls_get_tls_info
  *
@@ -1896,6 +1866,8 @@ cy_rslt_t cy_tls_get_tls_info(void *context, cy_tls_offload_info_t *tls_info)
     cy_tls_context_nx_secure_t *tls_context = (cy_tls_context_nx_secure_t *)context;
     NX_SECURE_TLS_SESSION *tls_session;
     const NX_CRYPTO_METHOD *session_cipher_method;
+    uint32_t iv_len;
+    uint32_t mac_len;
 
     if(tls_context == NULL || tls_info == NULL)
     {
@@ -1909,25 +1881,61 @@ cy_rslt_t cy_tls_get_tls_info(void *context, cy_tls_offload_info_t *tls_info)
     tls_info->protocol_minor_ver = (UCHAR)(tls_session -> nx_secure_tls_protocol_version & 0x00FF);
 
     tls_info->compression_algorithm = 0;
+    tls_info->encrypt_then_mac      = 0;
 
-    if (tls_session -> nx_secure_tls_session_ciphersuite->nx_secure_tls_hash->nx_crypto_algorithm != NX_CRYPTO_AUTHENTICATION_HMAC_SHA1_160)
+#if (NX_SECURE_TLS_TLS_1_3_ENABLED)
+    if(tls_session -> nx_secure_tls_1_3)
     {
-        return CY_RSLT_MODULE_TLS_BADARG;
+        switch(tls_session -> nx_secure_tls_session_ciphersuite->nx_secure_tls_ciphersuite)
+        {
+            case TLS_AES_128_GCM_SHA256:
+                tls_info->cipher_type      = CY_TLS_CIPHERTYPE_AEAD;
+                tls_info->mac_algorithm    = CY_TLS_MACALGORITHM_HKDF_SHA256;
+                tls_info->cipher_algorithm = CY_TLS_BULKCIPHERALGORITHM_AES_128_GCM;
+                break;
+
+            case TLS_AES_256_GCM_SHA384:
+                tls_info->cipher_type      = CY_TLS_CIPHERTYPE_AEAD;
+                tls_info->mac_algorithm    = CY_TLS_MACALGORITHM_HKDF_SHA384;
+                tls_info->cipher_algorithm = CY_TLS_BULKCIPHERALGORITHM_AES_256_GCM;
+                break;
+
+            default:
+                tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Invalid Cipher suites \n");
+                return CY_RSLT_MODULE_TLS_BADARG;
+        }
     }
-    if (session_cipher_method->nx_crypto_algorithm != NX_CRYPTO_ENCRYPTION_AES_CBC)
+    else
+#endif
     {
-        return CY_RSLT_MODULE_TLS_BADARG;
+        if (session_cipher_method->nx_crypto_algorithm != NX_CRYPTO_ENCRYPTION_AES_CBC ||
+                tls_session -> nx_secure_tls_session_ciphersuite->nx_secure_tls_hash->nx_crypto_algorithm != NX_CRYPTO_AUTHENTICATION_HMAC_SHA1_160)
+        {
+            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Invalid Cipher suites \n");
+            return CY_RSLT_MODULE_TLS_BADARG;
+        }
+        tls_info->cipher_algorithm = CY_TLS_BULKCIPHERALGORITHM_AES;
+        tls_info->cipher_type      = CY_TLS_CIPHERTYPE_BLOCK;
+        tls_info->mac_algorithm    = CY_TLS_MACALGORITHM_HMAC_SHA1;
     }
 
-    tls_info->cipher_algorithm = CY_TLS_BULKCIPHERALGORITHM_AES;
-    tls_info->cipher_type = CY_TLS_CIPHERTYPE_BLOCK;
-    tls_info->mac_algorithm = CY_TLS_MACALGORITHM_HMAC_SHA1;
-
-    tls_info->encrypt_then_mac = 0;
+#if (NX_SECURE_TLS_TLS_1_3_ENABLED)
+    if(tls_session -> nx_secure_tls_1_3)
+    {
+        /* TLS 1.3 only have AEAD ciphers, IV length is unconditionally 12 bytes */
+        iv_len  = 12;
+        mac_len = 0;
+    }
+    else
+#endif
+    {
+        iv_len  = session_cipher_method -> nx_crypto_IV_size_in_bits >> 3;
+        mac_len = tls_session -> nx_secure_tls_session_ciphersuite -> nx_secure_tls_hash_size;
+    }
 
     /* Read/Write IV */
-    tls_info->write_iv_len = session_cipher_method -> nx_crypto_IV_size_in_bits >> 3;
-    tls_info->read_iv_len  = tls_info->write_iv_len;
+    tls_info->write_iv_len = iv_len;
+    tls_info->read_iv_len  = iv_len;
     memcpy(&tls_info->write_iv, tls_session -> nx_secure_tls_key_material.nx_secure_tls_client_iv, tls_info->write_iv_len);
     memcpy(&tls_info->read_iv, tls_session -> nx_secure_tls_key_material.nx_secure_tls_server_iv,  tls_info->read_iv_len);
 
@@ -1938,10 +1946,16 @@ cy_rslt_t cy_tls_get_tls_info(void *context, cy_tls_offload_info_t *tls_info)
     memcpy(&tls_info->read_master_key, tls_session -> nx_secure_tls_key_material.nx_secure_tls_server_write_key, tls_info->read_master_key_len);
 
     /* MAC key */
-    tls_info->write_mac_key_len = tls_session -> nx_secure_tls_session_ciphersuite -> nx_secure_tls_hash_size;
-    tls_info->read_mac_key_len = tls_info->write_mac_key_len;
-    memcpy(&tls_info->write_mac_key, tls_session -> nx_secure_tls_key_material.nx_secure_tls_client_write_mac_secret, tls_info->write_mac_key_len);
-    memcpy(&tls_info->read_mac_key,  tls_session -> nx_secure_tls_key_material.nx_secure_tls_server_write_mac_secret, tls_info->read_mac_key_len);
+    tls_info->write_mac_key_len = mac_len;
+    tls_info->read_mac_key_len = mac_len;
+    if(tls_info->write_mac_key_len)
+    {
+        memcpy(&tls_info->write_mac_key, tls_session -> nx_secure_tls_key_material.nx_secure_tls_client_write_mac_secret, tls_info->write_mac_key_len);
+    }
+    if(tls_info->read_mac_key_len)
+    {
+        memcpy(&tls_info->read_mac_key,  tls_session -> nx_secure_tls_key_material.nx_secure_tls_server_write_mac_secret, tls_info->read_mac_key_len);
+    }
 
     /* Get the read/write sequence numbers */
     tls_info->read_sequence[0] = (UCHAR)(tls_session -> nx_secure_tls_remote_sequence_number[1] >> 24);
@@ -1952,7 +1966,7 @@ cy_rslt_t cy_tls_get_tls_info(void *context, cy_tls_offload_info_t *tls_info)
     tls_info->read_sequence[5] = (UCHAR)(tls_session -> nx_secure_tls_remote_sequence_number[0] >> 16);
     tls_info->read_sequence[6] = (UCHAR)(tls_session -> nx_secure_tls_remote_sequence_number[0] >> 8);
     tls_info->read_sequence[7] = (UCHAR)(tls_session -> nx_secure_tls_remote_sequence_number[0]);
-    tls_info->read_sequence_len = 8;
+    tls_info->read_sequence_len = MAX_SEQUENCE_LENGTH;
 
     tls_info->write_sequence[0] = (UCHAR)(tls_session -> nx_secure_tls_local_sequence_number[1] >> 24);
     tls_info->write_sequence[1] = (UCHAR)(tls_session -> nx_secure_tls_local_sequence_number[1] >> 16);
@@ -1962,7 +1976,7 @@ cy_rslt_t cy_tls_get_tls_info(void *context, cy_tls_offload_info_t *tls_info)
     tls_info->write_sequence[5] = (UCHAR)(tls_session -> nx_secure_tls_local_sequence_number[0] >> 16);
     tls_info->write_sequence[6] = (UCHAR)(tls_session -> nx_secure_tls_local_sequence_number[0] >> 8);
     tls_info->write_sequence[7] = (UCHAR)(tls_session -> nx_secure_tls_local_sequence_number[0]);
-    tls_info->write_sequence_len = 8;
+    tls_info->write_sequence_len = MAX_SEQUENCE_LENGTH;
 
     return CY_RSLT_SUCCESS;
 }

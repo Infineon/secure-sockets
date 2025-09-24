@@ -45,9 +45,6 @@
 #include <stdint.h>
 #include <stddef.h>
 #include "cyabs_rtos.h"
-#ifndef COMPONENT_CAT5
-#include "cy_syslib.h"
-#endif
 #include "cy_log.h"
 
 /* PKCS#11 includes. */

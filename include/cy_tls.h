@@ -166,7 +166,7 @@ typedef struct cy_tls_params
 #ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
     bool              load_rootca_from_ram;          /**< Flag for setting the RootCA certificate location. */
     bool              load_device_cert_key_from_ram; /**< Flag for setting the device cert & key location. */
-#endif
+#endif /* CY_SECURE_SOCKETS_PKCS_SUPPORT */
 } cy_tls_params_t;
 /** \} group_cy_tls_structures */
 
@@ -258,11 +258,11 @@ cy_rslt_t cy_tls_deinit( void );
  *  It also stores the converted RootCA in its internal memory. This function overrides previously loaded RootCA certificates.
  *
  *  1. If CY_SECURE_SOCKETS_PKCS_SUPPORT flag is disabled:
- *     a. RootCA attached to the context will take first preference.
- *     b. RootCA set as global will take the last preference.
+ *     - RootCA attached to the context will take first preference.
+ *     - RootCA set as global will take the last preference.
  *  2. If CY_SECURE_SOCKETS_PKCS_SUPPORT flag is enabled:
- *     a. By default, RootCA certificates which is provisioned to secure element will be used.
- *     b. If socket option CY_SOCKET_SO_ROOTCA_CERTIFICATE_LOCATION is set with value CY_SOCKET_ROOTCA_RAM then
+ *     - By default, RootCA certificates which is provisioned to secure element will be used.
+ *     - If socket option CY_SOCKET_SO_ROOTCA_CERTIFICATE_LOCATION is set with value CY_SOCKET_ROOTCA_RAM then
  *        - RootCA attached to the context will take first preference.
  *        - RootCA set as global will take the last preference.
  *
@@ -296,18 +296,23 @@ cy_rslt_t cy_tls_release_global_root_ca_certificates( void );
 /**
  * Creates an identity structure from the supplied certificate and private key.
  *
- * 1. If CY_SECURE_SOCKETS_PKCS_SUPPORT flag is disabled:
- *    a. TLS identity created using \ref cy_tls_create_identity and set to context using socket option
- *       \ref CY_SOCKET_SO_TLS_IDENTITY will be used for device certificate & key
- * 2. If CY_SECURE_SOCKETS_PKCS_SUPPORT flag is enabled:
- *    a. By default, device certificates & private keys which are provisioned to secure element will be used.
- *    b. If socket option CY_SOCKET_SO_DEVICE_CERT_KEY_LOCATION is set with value CY_SOCKET_DEVICE_CERT_KEY_RAM then TLS
- *       identity created with \ref cy_tls_create_identity API and set to context using socket option \ref CY_SOCKET_SO_TLS_IDENTITY
- *       will be used.
+ * 1. For the devices, where the keys are stored in non-secure storage, the application can create a TLS identity using \ref cy_tls_create_identity API.
+ *    The created identity can be set to the TLS context using the socket option \ref CY_SOCKET_SO_TLS_IDENTITY.
+ * 
+ * 2. For the devices which supports PKCS11, the application can create a TLS identity using \ref cy_tls_create_identity API.
+ *    If CY_SECURE_SOCKETS_PKCS_SUPPORT & CY_TFM_PSA_SUPPORTED flag is enabled:
+ *      - By default, device certificates & private keys which are provisioned to secure element will be used.
+ *      - If socket option CY_SOCKET_SO_DEVICE_CERT_KEY_LOCATION is set with value CY_SOCKET_DEVICE_CERT_KEY_RAM then TLS
+ *        identity created with \ref cy_tls_create_identity API and set to context using socket option \ref CY_SOCKET_SO_TLS_IDENTITY
+ *        will be used.
+ * 
+ * 3. For the devices which supports TFM-PSA interface and keys are stored in secure storage, the application can create a TLS identity using \ref cy_tls_create_identity API.
+ *    Make sure to set the private_key as opaque private key id which is generated during provisioning the key in secure storage.
  *
  * @param[in] certificate_data       x509 certificate in PEM format. It should be a null-terminated string.
  * @param[in] certificate_len        Length of the certificate excluding the 'null' terminator.
- * @param[in] private_key            Private key in PEM format. It should be a null-terminated string.
+ * @param[in] private_key            Private key in PEM format. It should be a null-terminated string. When CY_TFM_PSA_SUPPORTED
+ *                                   is enabled and TFM-PSA APIs are used, then set the private_key to opaque_key_id
  * @param[in] private_key_len        Length of the private key excluding the 'null' terminator.
  * @param[out] tls_identity          Pointer to a memory location containing the certificate and key in the underlying TLS stack format.
  *
@@ -354,23 +359,23 @@ cy_rslt_t cy_tls_create_context( cy_tls_context_t *context, cy_tls_params_t *par
  *
  * RootCA certificate will be used for peer certificate verification as below:
  * 1. If CY_SECURE_SOCKETS_PKCS_SUPPORT flag is disabled:
- *    a. By default, global RootCA certificate loaded will be used for verification.
- *    b. If context specific RootCA is set using CY_SOCKET_SO_TRUSTED_ROOTCA_CERTIFICATE socket option then
+ *    - By default, global RootCA certificate loaded will be used for verification.
+ *    - If context specific RootCA is set using CY_SOCKET_SO_TRUSTED_ROOTCA_CERTIFICATE socket option then
  *       context specific RootCA certificate will be used for verification.
  * 2. If CY_SECURE_SOCKETS_PKCS_SUPPORT flag is enabled:
- *    a. By default, RootCA certificates which is provisioned to secure element will be used.
- *    b. If socket option CY_SOCKET_SO_ROOTCA_CERTIFICATE_LOCATION is set with value CY_SOCKET_ROOTCA_RAM then
+ *    - By default, RootCA certificates which is provisioned to secure element will be used.
+ *    - If socket option CY_SOCKET_SO_ROOTCA_CERTIFICATE_LOCATION is set with value CY_SOCKET_ROOTCA_RAM then
  *       - RootCA attached to the context will take first preference.
  *       - RootCA set as global will take the last preference.
  *
  * Device certificate & keys will be loaded as below:
  * 1. If CY_SECURE_SOCKETS_PKCS_SUPPORT flag is disabled:
- *    a. If device certificate and keys are loaded by application/library using \ref cy_tls_create_identity API and
- *       TLS identity set using socket option CY_SOCKET_SO_TLS_IDENTITY will be used for device certificate and keys.
+ *    - If device certificate and keys are loaded by application/library using \ref cy_tls_create_identity API and
+ *      TLS identity set using socket option CY_SOCKET_SO_TLS_IDENTITY will be used for device certificate and keys.
  * 2.If CY_SECURE_SOCKETS_PKCS_SUPPORT flag is enabled:
- *    a. By default, device certificates and keys which are provisioned to secure element will be used.
- *    b. If socket option CY_SOCKET_SO_DEVICE_CERT_KEY_LOCATION is set with value CY_SOCKET_DEVICE_CERT_KEY_RAM then
- *       identity set to the TLS context will be used.
+ *    - By default, device certificates and keys which are provisioned to secure element will be used.
+ *    - If socket option CY_SOCKET_SO_DEVICE_CERT_KEY_LOCATION is set with value CY_SOCKET_DEVICE_CERT_KEY_RAM then
+ *      identity set to the TLS context will be used.
  *
  * @param[in]  context  Context handle for the TLS Layer created using \ref cy_tls_create_context.
  * @param[in]  endpoint Endpoint type for the TLS handshake.

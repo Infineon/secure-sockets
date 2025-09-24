@@ -40,7 +40,11 @@
  */
 
 #include "cy_tls.h"
+#if defined (COMPONENT_MTB_HAL)
+#include "mtb_hal.h"
+#else
 #include "cyhal.h"
+#endif
 #include "cyabs_rtos.h"
 #include "cy_log.h"
 #include "cy_result_mw.h"
@@ -58,6 +62,7 @@
 #include <mbedtls/platform_time.h>
 #include "psa/crypto.h"
 #include "cy_secure_socket_mbedtls_version.h"
+#include "cy_tls_private.h"
 #if (defined (CY_DEVICE_SECURE) && !defined (CY_SECURE_SOCKETS_PKCS_SUPPORT)) || defined(CYBSP_ETHERNET_CAPABLE)
 #include "cy_network_mw_core.h"
 #endif
@@ -88,41 +93,6 @@ extern cy_rslt_t cy_prng_get_random( void* buffer, uint32_t buffer_length );
 #error "MBEDTLS version mismatch between secure core and non-secure core implementation. Please refer tfm_mbedtls_version.h present inside trusted-firmware-m library and version.h in mbedtls library"
 #endif
 #endif
-
-/**
- * Supported Cipher Algorithm in MQTT Offload
- */
-typedef enum {
-    CY_TLS_BULKCIPHERALGORITHM_NULL        = 0,
-    CY_TLS_BULKCIPHERALGORITHM_RC4         = 1,
-    CY_TLS_BULKCIPHERALGORITHM_3DES        = 2,
-    CY_TLS_BULKCIPHERALGORITHM_AES         = 3,
-    CY_TLS_BULKCIPHERALGORITHM_AES_128_GCM = 4,
-    CY_TLS_BULKCIPHERALGORITHM_AES_256_GCM = 5
-} cy_bulk_cipher_algorithm_t;
-
-/**
- * Supported Cipher Type in MQTT Offload
- */
-typedef enum {
-    CY_TLS_CIPHERTYPE_STREAM = 1,
-    CY_TLS_CIPHERTYPE_BLOCK,
-    CY_TLS_CIPHERTYPE_AEAD
-} cy_cipher_type_t;
-
-/**
- * Supported MAC Algorithm in MQTT Offload
- */
-typedef enum {
-    CY_TLS_MACALGORITHM_NULL           = 0,
-    CY_TLS_MACALGORITHM_HMAC_MD5       = 1,
-    CY_TLS_MACALGORITHM_HMAC_SHA1      = 2,
-    CY_TLS_MACALGORITHM_HMAC_SHA256    = 3,
-    CY_TLS_MACALGORITHM_HMAC_SHA384    = 4,
-    CY_TLS_MACALGORITHM_HMAC_SHA512    = 5,
-    CY_TLS_MACALGORITHM_HKDF_SHA256    = 6,
-    CY_TLS_MACALGORITHM_HKDF_SHA384    = 7
-} cy_mac_algorithm_t;
 
 typedef struct cy_tls_context_mbedtls
 {
@@ -158,6 +128,7 @@ typedef struct cy_tls_context_mbedtls
     bool                        load_device_cert_key_from_ram;
     cy_tls_pkcs_context_t       pkcs_context;
 #endif
+
 } cy_tls_context_mbedtls_t;
 
 typedef struct
@@ -165,6 +136,7 @@ typedef struct
     mbedtls_pk_context private_key;
     mbedtls_x509_crt certificate;
     uint8_t is_client_auth;
+    uint32_t opaque_private_key_id;
 } cy_tls_identity_t;
 
 static mbedtls_x509_crt* root_ca_certificates = NULL;
@@ -172,14 +144,16 @@ static mbedtls_x509_crt* root_ca_certificates = NULL;
 #if !defined (CY_DISABLE_XMC7000_DATA_CACHE) && defined (__DCACHE_PRESENT) && (__DCACHE_PRESENT == 1U)
 #if defined(MBEDTLS_MEMORY_BUFFER_ALLOC_C)
 #include "memory_buffer_alloc.h"
-#if defined CYCFG_MBEDTLS_BUFFER_SIZE
-#define MBEDTLS_BUFFER_SIZE   (CYCFG_MBEDTLS_BUFFER_SIZE)
-#else
-#define CYCFG_MBEDTLS_BUFFER_SIZE   (69*1024)
+#if !defined (CYCFG_MBEDTLS_BUFFER_SIZE)
+#define CYCFG_MBEDTLS_BUFFER_SIZE   (80*1024)
 #endif /* CYCFG_MBEDTLS_BUFFER_SIZE */
 
 /* TLS buffer */
+#ifdef COMPONENT_PSE84
+CY_SECTION(".cy_gpu_buf")
+#else
 CY_SECTION_SHAREDMEM
+#endif
 static unsigned char mbedtls_buf[CYCFG_MBEDTLS_BUFFER_SIZE];
 #endif /* MBEDTLS_MEMORY_BUFFER_ALLOC_C */
 
@@ -463,7 +437,7 @@ static void cy_tls_key_derivation (void *p_expkey,
 
             maclen = mbedtls_md_get_size(md_info);
 
-            ivlen = cipher_info->MBEDTLS_PRIVATE(iv_size);
+            ivlen = mbedtls_cipher_info_get_iv_size(cipher_info);
 
             key1 = (uint8_t*)kb + maclen * 2 ;
             key2 = (uint8_t*)key1 + keylen;
@@ -513,8 +487,11 @@ static void cy_tls_key_derivation (void *p_expkey,
             /* TLS 1.3 only have AEAD ciphers, IV length is unconditionally 12 bytes */
             iv_len = 12;
 
+#if (MBEDTLS_VERSION_MINOR >= 6)
+            hash_alg = mbedtls_md_psa_alg_from_type((mbedtls_md_type_t)(ciphersuite_info->MBEDTLS_PRIVATE(mac)));
+#else
             hash_alg = mbedtls_psa_translate_md((mbedtls_md_type_t)(ciphersuite_info->MBEDTLS_PRIVATE(mac)));
-
+#endif
             ret = cy_tls_tls13_make_traffic_key(
                     hash_alg, secret, secret_len,
                     write_key, key_len,
@@ -687,6 +664,24 @@ cy_rslt_t cy_tls_get_tls_info(void *context, cy_tls_offload_info_t *tls_info)
 #endif
 
 /*-----------------------------------------------------------*/
+
+#ifdef MBEDTLS_PLATFORM_MS_TIME_ALT
+/* Get the current time in milliseconds. */
+mbedtls_ms_time_t mbedtls_ms_time(void)
+{
+    time_t current_time;
+
+    memset(&current_time, 0, sizeof(current_time));
+
+    current_time = time(&current_time);
+
+    mbedtls_ms_time_t current_time_in_ms = (mbedtls_ms_time_t) current_time;
+
+    current_time_in_ms = current_time_in_ms * 1000;
+
+    return (mbedtls_ms_time_t) current_time_in_ms;
+}
+#endif
 
 /* Get the current time. */
 mbedtls_time_t get_current_time(mbedtls_time_t *t)
@@ -877,7 +872,7 @@ cy_rslt_t cy_tls_load_global_root_ca_certificates(const char *trusted_ca_certifi
  *  int    zero on success, negative value on failure
  */
 #if (defined(CY_SECURE_SOCKETS_PKCS_SUPPORT) && defined (CY_DEVICE_SECURE)) \
-        || defined(COMPONENT_4390X) || defined(CY_DEVICE_SECURE)
+        || defined(COMPONENT_4390X) || defined(CY_DEVICE_SECURE) || defined (CY_TFM_PSA_SUPPORTED)
 int mbedtls_hardware_poll(void *data, unsigned char *output, size_t len, size_t *olen)
 {
 #ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
@@ -918,11 +913,14 @@ int mbedtls_hardware_poll(void *data, unsigned char *output, size_t len, size_t 
     /* In case of secure device without pkcs support get the
      * random number using psa crypto */
 
-    psa_status_t status = psa_crypto_init();
+    psa_status_t status = PSA_SUCCESS;
+#ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
+    status = psa_crypto_init();
     if( status != PSA_SUCCESS )
     {
         return -1;
     }
+#endif
 
     status = psa_generate_random( output, len );
     if( status != PSA_SUCCESS )
@@ -1023,8 +1021,10 @@ static void cy_tls_mbedtls_memory_buffer_allocator_init(void)
 cy_rslt_t cy_tls_init(void)
 {
     cy_rslt_t result = CY_RSLT_SUCCESS;
+#ifndef CY_TFM_PSA_SUPPORTED
 #if MBEDTLS_VERSION_MAJOR == MBEDTLS_MAJOR_VERSION_3
     psa_status_t psa_status;
+#endif
 #endif
 
     if(!init_ref_count)
@@ -1033,6 +1033,7 @@ cy_rslt_t cy_tls_init(void)
         mbedtls_platform_set_time(get_current_time);
     }
 
+#ifndef CY_TFM_PSA_SUPPORTED
 #if MBEDTLS_VERSION_MAJOR == MBEDTLS_MAJOR_VERSION_3
     psa_status = psa_crypto_init();
     if(CY_RSLT_SUCCESS != psa_status)
@@ -1040,6 +1041,7 @@ cy_rslt_t cy_tls_init(void)
         tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Failed to initialize PSA crypto \r\n", psa_status);
         return CY_RSLT_MODULE_TLS_ERROR;
     }
+#endif
 #endif
 
     init_ref_count++;
@@ -1082,28 +1084,46 @@ cy_rslt_t cy_tls_create_identity(const char *certificate_data, const uint32_t ce
         result = CY_RSLT_MODULE_TLS_PARSE_CERTIFICATE;
     }
 
+    /* when PKCS is not enabled and TFM-PSA APIs are used, assume that the opaque private key id is passed
+       as private_key */
+#ifdef CY_TFM_PSA_SUPPORTED
+#ifndef CY_SECURE_SOCKETS_PKCS_SUPPORT
+    uint32_t opaque_private_key_id = 0;
+    
+    /* Set the opaque_private_key_id into identity */
+    opaque_private_key_id = *((uint32_t *)private_key);
+    identity->opaque_private_key_id = opaque_private_key_id;
+
+    private_key = NULL; /* Set private_key to NULL so that it is not used in mbedtls_pk_parse_key */
+    private_key_len = 0; /* Set private_key_len to 0 so that it is not used in mbedtls_pk_parse_key */
+#endif /* CY_SECURE_SOCKETS_PKCS_SUPPORT */
+#endif /* CY_TFM_PSA_SUPPORTED */
+
     if(result == CY_RSLT_SUCCESS)
     {
-        /* load key */
-        mbedtls_pk_init( &identity->private_key );
+        if(private_key != NULL)
+        {
+            /* load key */
+            mbedtls_pk_init( &identity->private_key );
 
 #if MBEDTLS_VERSION_MAJOR == MBEDTLS_MAJOR_VERSION_3
-        ret = mbedtls_pk_parse_key( &identity->private_key, (const unsigned char *) private_key, private_key_len+1, NULL, 0, NULL, 0 );
-        if ( ret != 0 )
-        {
-            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_pk_parse_key failed with error %d\r\n", ret);
-            result = CY_RSLT_MODULE_TLS_PARSE_KEY;
-        }
+            ret = mbedtls_pk_parse_key( &identity->private_key, (const unsigned char *) private_key, private_key_len+1, NULL, 0, NULL, 0 );
+            if ( ret != 0 )
+            {
+                tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_pk_parse_key failed with error %d\r\n", ret);
+                result = CY_RSLT_MODULE_TLS_PARSE_KEY;
+            }
 #elif MBEDTLS_VERSION_MAJOR == MBEDTLS_MAJOR_VERSION_2
-        ret = mbedtls_pk_parse_key( &identity->private_key, (const unsigned char *) private_key, private_key_len+1, NULL, 0);
-        if ( ret != 0 )
-        {
-            tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_pk_parse_key failed with error %d\r\n", ret);
-            result = CY_RSLT_MODULE_TLS_PARSE_KEY;
-        }
+            ret = mbedtls_pk_parse_key( &identity->private_key, (const unsigned char *) private_key, private_key_len+1, NULL, 0);
+            if ( ret != 0 )
+            {
+                tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "mbedtls_pk_parse_key failed with error %d\r\n", ret);
+                result = CY_RSLT_MODULE_TLS_PARSE_KEY;
+            }
 #else
-#error "Unsupported MEBDTLS version"
+#error "Unsupported MBEDTLS version"
 #endif
+        }
     }
 
     if(result != CY_RSLT_SUCCESS)
@@ -1613,6 +1633,9 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint, uint32_
         }
     }
 
+/* When CY_SECURE_SOCKETS_PKCS_SUPPORT is enabled, the device certificate and key are loaded from secure storage 
+   else when TFM-PSA APIs are used, set the opaque private key id where the keys are stored in secure storage */
+#ifdef CY_TFM_PSA_SUPPORTED
 #ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
     if(ctx->load_device_cert_key_from_ram == CY_TLS_LOAD_CERT_FROM_SECURE_STORAGE)
     {
@@ -1643,7 +1666,21 @@ cy_rslt_t cy_tls_connect(void *context, cy_tls_endpoint_type_t endpoint, uint32_
     {
         load_cert_key_from_ram = CY_TLS_LOAD_CERT_FROM_RAM;
     }
-#endif
+#else
+    /* */
+    mbedtls_pk_init( &tls_identity->private_key );
+
+    /* Set the opaque private key id */
+    ret = mbedtls_pk_setup_opaque(&tls_identity->private_key, tls_identity->opaque_private_key_id);
+    if(ret != 0)
+    {
+        tls_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "Failed to setup opaque key context 0x%x\r\n", ret);
+        result = CY_RSLT_MODULE_TLS_ERROR;
+        goto cleanup;
+    }
+#endif /* CY_SECURE_SOCKETS_PKCS_SUPPORT */
+#endif /* CY_TFM_PSA_SUPPORTED */
+
 
     if(load_cert_key_from_ram == CY_TLS_LOAD_CERT_FROM_RAM)
     {
@@ -2001,8 +2038,10 @@ cy_rslt_t cy_tls_deinit(void)
         return CY_RSLT_MODULE_TLS_ERROR;
     }
 
+#ifndef CY_TFM_PSA_SUPPORTED
 #if MBEDTLS_VERSION_MAJOR == MBEDTLS_MAJOR_VERSION_3
     mbedtls_psa_crypto_free();
+#endif
 #endif
 
     init_ref_count--;

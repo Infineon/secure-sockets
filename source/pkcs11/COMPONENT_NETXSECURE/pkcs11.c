@@ -32,9 +32,9 @@
  */
 
 /**
- * @file  : pkcs11_cat5.c
+ * @file  : pkcs11.c
  *
- * @brief : CAT5 PKCS#11 implementation.
+ * @brief : PKCS#11 implementation.
  */
 #ifdef CY_SECURE_SOCKETS_PKCS_SUPPORT
 
@@ -54,7 +54,7 @@
 #include "core_pkcs11_config.h"
 #include "core_pkcs11.h"
 
-#include "pkcs11_cat5.h"
+#include "pkcs11.h"
 
 /* Memory macros */
 #ifndef PKCS11_MALLOC
@@ -1101,12 +1101,14 @@ CK_DEFINE_FUNCTION( CK_RV, C_Sign )( CK_SESSION_HANDLE xSession,
             params.actual_signature_length = pulSignatureLen;
             params.verify = 0;
 
+#ifdef COMPONENT_55900
             result = secfw_cid_generate_signature(pxSession->xKeyType, pucData, ulDataLen, &params);
             if(result != 0)
             {
                 PKCS11_ERROR_PRINT("C_Sign: Sign Failed : %lu\r\n", result);
                 xResult = CKR_FUNCTION_FAILED;
             }
+#endif
             cy_rtos_set_mutex(&xP11Context.xObjectList.xMutex);
         }while (0);
     }

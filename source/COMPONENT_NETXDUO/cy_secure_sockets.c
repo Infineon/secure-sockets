@@ -50,7 +50,8 @@
 
 
 #ifndef DEFAULT_TCP_WINDOW_SIZE
-#ifdef COMPONENT_CAT5
+#ifdef COMPONENT_55900
+/* Lower DEFAULT_TCP_WINDOW_SIZE for 55900 platform since it has lower memory */
 #define DEFAULT_TCP_WINDOW_SIZE             (12 * 1024)
 #else
 #define DEFAULT_TCP_WINDOW_SIZE             (16 * 1024)
@@ -4538,14 +4539,9 @@ cy_rslt_t cy_socket_get_tls_info(cy_socket_t handle, cy_tls_offload_info_t *tls_
     }
     ctx = (cy_socket_ctx_t *) handle;
 
-    /* While this function is running, application may delete the socket. Protect entire function with a mutex. */
-    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex locked %s %d ctx %p\r\n", __FILE__, __LINE__, ctx);
-    cy_rtos_get_mutex(&ctx->socket_mutex, CY_RTOS_NEVER_TIMEOUT);
-
     if(!is_socket_valid(ctx))
     {
         ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "invalid handle\r\n");
-        cy_rtos_set_mutex(&ctx->socket_mutex);
         return CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET;
     }
 
@@ -4553,12 +4549,8 @@ cy_rslt_t cy_socket_get_tls_info(cy_socket_t handle, cy_tls_offload_info_t *tls_
     if(result != CY_RSLT_SUCCESS)
     {
         ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "cy_tls_get_tls_info failed\r\n");
-        cy_rtos_set_mutex(&ctx->socket_mutex);
         return CY_RSLT_MODULE_SECURE_SOCKETS_TLS_ERROR;
     }
-
-    cy_rtos_set_mutex(&ctx->socket_mutex);
-    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex unlocked %s %d\n", __FILE__, __LINE__);
     return result;
 }
 
@@ -4575,14 +4567,9 @@ cy_rslt_t cy_socket_update_tls_sequence(cy_socket_t handle,  uint8_t *read_seq, 
     }
     ctx = (cy_socket_ctx_t *) handle;
 
-    /* While this function is running, application may delete the socket. Protect entire function with a mutex. */
-    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex locked %s %d ctx %p\r\n", __FILE__, __LINE__, ctx);
-    cy_rtos_get_mutex(&ctx->socket_mutex, CY_RTOS_NEVER_TIMEOUT);
-
     if(!is_socket_valid(ctx))
     {
         ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "invalid handle\r\n");
-        cy_rtos_set_mutex(&ctx->socket_mutex);
         return CY_RSLT_MODULE_SECURE_SOCKETS_INVALID_SOCKET;
     }
 
@@ -4590,11 +4577,7 @@ cy_rslt_t cy_socket_update_tls_sequence(cy_socket_t handle,  uint8_t *read_seq, 
     if(result != CY_RSLT_SUCCESS)
     {
         ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_ERR, "cy_tls_get_tls_info failed\r\n");
-        cy_rtos_set_mutex(&ctx->socket_mutex);
         return CY_RSLT_MODULE_SECURE_SOCKETS_TLS_ERROR;
     }
-
-    cy_rtos_set_mutex(&ctx->socket_mutex);
-    ss_cy_log_msg(CYLF_MIDDLEWARE, CY_LOG_DEBUG, "socket_mutex unlocked %s %d\n", __FILE__, __LINE__);
     return result;
 }

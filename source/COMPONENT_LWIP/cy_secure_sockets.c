@@ -165,7 +165,7 @@ typedef enum
 
 /* Secure sockets thread stack size */
 #ifndef SECURE_SOCKETS_THREAD_STACKSIZE
-#define SECURE_SOCKETS_THREAD_STACKSIZE    (6 * 1024)
+#define SECURE_SOCKETS_THREAD_STACKSIZE    (7 * 1024)
 #endif
 
 /* Sleep time in each loop while waiting for ARP resolution */
