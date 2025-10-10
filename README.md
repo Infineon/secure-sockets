@@ -26,12 +26,6 @@ The secure sockets library provides APIs to create software that can send and/or
 
 - Integrated with PSA Lib through the PKCS interface to support secure client TCP (TLS) connection using the device certificate and device keys provisioned in the secured element
 
-- **TFM (Trusted Firmware-M) Integration**: Native support for ARM TrustZone-enabled devices with secure and non-secure world separation
-
-- **PSA Crypto API Support**: Leverages Platform Security Architecture (PSA) APIs for cryptographic operations in secure environments
-
-- **Opaque Key Management**: Supports opaque private keys stored in secure partitions without exposing key material to non-secure world
-
 ## Quick Start
 * To use secure-sockets library with Wi-Fi kits on FreeRTOS, lwIP, and Mbed TLS combination, the application should pull [wifi-core-freertos-lwip-mbedtls](https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls) library which will internally pull secure-sockets, wifi-connection-manager, FreeRTOS, lwIP, Mbed TLS and other dependent modules.
 To pull wifi-core-freertos-lwip-mbedtls create the following *.mtb* file in deps folder.
@@ -270,6 +264,40 @@ To compile the FreeRTOS PKCS PSA integration library, add the trusted firmware l
     INCLUDES=$(SEARCH_trusted-firmware-m)/COMPONENT_TFM_NS_INTERFACE/include
     INCLUDES+=./libs/trusted-firmware-m/COMPONENT_TFM_NS_INTERFACE/include
    ```
+
+##### 3. PSOC™ Edge E84 Evaluation Kit
+
+The PSoCE84 kit features ARM TrustZone support, enabling the Trusted Firmware (TF-M) to operate on the secure side, while the connectivity middleware runs on the non-secure side, with security credentials stored securely and accessed through PSA APIs provided by TF-M for crypto operations.
+
+Note : Connectivity middleware with TF-M (trusted firmware) support is only available on CM33 core.
+
+###### ***Pull required libraries and make the changes to secure & non-secure project makefile***
+1. Pull ifx-tf-m-pse84epc2 library to secure project and ifx-tf-m-ns library to non-secure project using library manager
+
+2. Add the `CY_TFM_PSA_SUPPORTED` macro in non-secure project makefile
+    ```
+    DEFINES += CY_TFM_PSA_SUPPORTED
+    ```
+
+3. Add below defines in non-secure project makefile to use PSA & MBEDTLS configuration
+    ```
+    DEFINES+=MBEDTLS_CONFIG_FILE='"mbedtls/mbedtls_config.h"'
+    DEFINES+=MBEDTLS_USER_CONFIG_FILE='"configs/mbedtls_user_config.h"'
+    DEFINES+=MBEDTLS_PSA_CRYPTO_CONFIG_FILE='"configs/ifx_psa_crypto_config.h"'
+    DEFINES+=IFX_PSA_MXCRYPTO_USER_CONFIG_FILE='"configs/ifx_psa_mxcrypto_config.h"'
+    ```
+
+4. Add below defines in secure project makefile for TFM configuration
+    ```
+    TFM_CONFIGURE_EXT_OPTIONS+= -DTFM_MBEDCRYPTO_PSA_CRYPTO_CONFIG_PATH=configs/ifx_psa_crypto_config.h (provide full path)
+    TFM_CONFIGURE_EXT_OPTIONS+= -DIFX_PROJECT_CONFIG_PATH=configs/ifx_tfm_config.h (provide full path)
+    ```
+	
+5. By default TF-M (trusted firmware) profile is set to medium and supports limited crypto algorithms listed here [mbed-crypto-configurations](https://trustedfirmware-m.readthedocs.io/en/latest/configuration/profiles/tfm_profile_medium.html#mbed-crypto-configurations). If the application need to use any other crypto algorithms which are not supported by medium profile, then please change profile to large. To change the TF-M (trusted firmware) profile, please follow the steps below.
+	- Open "edge protect configurator"
+	- Change profile from medium to large
+	- Save and close
+
 #### Non-Secure Kits
 The non-secure kits can also support the key and certificate storage in separate hardware like optiga. Optiga PKCS11 support is enabled in secure sockets.
 

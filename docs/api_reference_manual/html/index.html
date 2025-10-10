@@ -293,6 +293,31 @@ Secure Kits</h4>
 <h4><a class="anchor" id="subsubsection_Configuration_4343W"></a>
 2. CY8CKIT-064S0S2-4343W</h4>
 <p ><a href="https://github.com/Linaro/freertos-pkcs11-psa/">FreeRTOS PSA PKCS11</a> library supports only SHA-256 hashing algorithm. So the application should chose the cipher suite list compatible for SHA-256. To chose the cipher suite list(compatible for SHA-256), application need to copy mbedtls_user_config.h file from libs/wifi-core-freertos-lwip-mbedtls/configs to root folder and add required cipher suites to the <code>MBEDTLS_SSL_CIPHERSUITES</code> macro.</p>
+<h4><a class="anchor" id="subsection_PSE84"></a>
+3. PSOC™ Edge E84 Evaluation Kit</h4>
+<p >The PSoCE84 kit features ARM TrustZone support, enabling the Trusted Firmware (TF-M) to operate on the secure side, *while the connectivity middleware runs on the non-secure side, with security credentials stored securely and accessed through PSA APIs provided by TF-M for crypto operations.</p>
+<h3><a class="anchor" id="subsubsection_pull_PSE84"></a>
+Pull required TFM libraries</h3>
+<p >Pull ifx-tf-m-pse84epc2 library to secure project and ifx-tf-m-ns library to non-secure project using library manager</p>
+<h3><a class="anchor" id="subsubsection_Configuration_PSE84"></a>
+Configuration to enable TFM</h3>
+<ul>
+<li>Add below defines in non-secure project makefile for PSA and TFM configuration <div class="fragment"><div class="line">DEFINES+=CY_TFM_PSA_SUPPORTED</div>
+<div class="line">DEFINES+=MBEDTLS_CONFIG_FILE=<span class="stringliteral">&#39;&quot;mbedtls/mbedtls_config.h&quot;</span></div>
+<div class="line"><span class="stringliteral">DEFINES+=MBEDTLS_USER_CONFIG_FILE=&#39;</span><span class="stringliteral">&quot;configs/mbedtls_user_config.h&quot;</span><span class="stringliteral">&#39;</span></div>
+<div class="line"><span class="stringliteral">DEFINES+=MBEDTLS_PSA_CRYPTO_CONFIG_FILE=&#39;</span><span class="stringliteral">&quot;configs/ifx_psa_crypto_config.h&quot;</span><span class="stringliteral">&#39;</span></div>
+<div class="line"><span class="stringliteral">DEFINES+=IFX_PSA_MXCRYPTO_USER_CONFIG_FILE=&#39;</span><span class="stringliteral">&quot;configs/ifx_psa_mxcrypto_config.h&quot;</span><span class="stringliteral">&#39;</span></div>
+</div><!-- fragment --></li>
+<li>Add below defines in secure project makefile for TFM configuration <div class="fragment"><div class="line">TFM_CONFIGURE_EXT_OPTIONS+= -DTFM_MBEDCRYPTO_PSA_CRYPTO_CONFIG_PATH=configs/ifx_psa_crypto_config.h (provide full path)</div>
+<div class="line">TFM_CONFIGURE_EXT_OPTIONS+= -DIFX_PROJECT_CONFIG_PATH=configs/ifx_tfm_config.h (provide full path)</div>
+</div><!-- fragment --></li>
+<li>By default TF-M (trusted firmware) profile is set to medium and supports limited crypto algorithms listed here <a href="https://trustedfirmware-m.readthedocs.io/en/latest/configuration/profiles/tfm_profile_medium.html#mbed-crypto-configurations">mbed-crypto-configurations</a>. If the application need to use any other crypto algorithms which are not supported by medium profile, then please change profile to large. To change the TF-M (trusted firmware) profile, please follow the steps below.<ol type="1">
+<li>Open "edge protect configurator"</li>
+<li>Change profile from medium to large</li>
+<li>Save and close</li>
+</ol>
+</li>
+</ul>
 <h4><a class="anchor" id="subsubsection_Configuration_Non_Secure_kit"></a>
 Non-Secure Kits</h4>
 <ul>
