@@ -12,6 +12,9 @@ Refer to the [README.md](./README.md) for a complete description of the Secure S
 
 ## Changelog
 
+### v3.12.1
+* Added support for integrating connectivity middleware with Trusted Firmware (TF-M) on the CM55 core of the PSOC&trade; Edge E84 (PSE84) platform.
+
 ### v3.12.0
 * Added support for integrating connectivity middleware with Trusted Firmware (TF-M) on the CM33 core of the PSOC&trade; Edge E84 (PSE84) platform.
 

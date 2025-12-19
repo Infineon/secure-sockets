@@ -10,7 +10,7 @@
  * agreement applies, then any use, reproduction, modification, translation, or
  * compilation of this Software is prohibited without the express written
  * permission of Infineon.
- * 
+ *
  * Disclaimer: UNLESS OTHERWISE EXPRESSLY AGREED WITH INFINEON, THIS SOFTWARE
  * IS PROVIDED AS-IS, WITH NO WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
  * INCLUDING, BUT NOT LIMITED TO, ALL WARRANTIES OF NON-INFRINGEMENT OF

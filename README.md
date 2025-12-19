@@ -269,8 +269,6 @@ To compile the FreeRTOS PKCS PSA integration library, add the trusted firmware l
 
 The PSoCE84 kit features ARM TrustZone support, enabling the Trusted Firmware (TF-M) to operate on the secure side, while the connectivity middleware runs on the non-secure side, with security credentials stored securely and accessed through PSA APIs provided by TF-M for crypto operations.
 
-Note : Connectivity middleware with TF-M (trusted firmware) support is only available on CM33 core.
-
 ###### ***Pull required libraries and make the changes to secure & non-secure project makefile***
 1. Pull ifx-tf-m-pse84epc2 library to secure project and ifx-tf-m-ns library to non-secure project using library manager
 
