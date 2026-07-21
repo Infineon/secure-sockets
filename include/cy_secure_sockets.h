@@ -1,5 +1,5 @@
 /*
- * (c) 2025, Infineon Technologies AG, or an affiliate of Infineon
+ * (c) 2026, Infineon Technologies AG, or an affiliate of Infineon
  * Technologies AG. All rights reserved.
  * This software, associated documentation and materials ("Software") is
  * owned by Infineon Technologies AG or one of its affiliates ("Infineon")
@@ -279,7 +279,12 @@ cy_rslt_t cy_socket_create(int domain, int type, int protocol, cy_socket_t *hand
  * Connects a TCP/TLS socket to the specified server IP address and port. This API function is a blocking call.
  *
  * For secure (TLS) sockets, before calling this API function, the following TLS configuration can be set:
- * 1. RootCA using the \ref cy_tls_load_global_root_ca_certificates or \ref cy_socket_setsockopt API function with \ref CY_SOCKET_SO_TRUSTED_ROOTCA_CERTIFICATE.
+ * 1. RootCA using one of the following approaches:
+ *    - \ref cy_tls_load_global_root_ca_certificates "cy_tls_load_global_root_ca_certificates": **Recommended for repeated connections to the same server.**
+ *      This function parses the certificate once and reuses it across all subsequent \ref cy_socket_connect calls.
+ *    - \ref cy_socket_setsockopt with \ref CY_SOCKET_SO_TRUSTED_ROOTCA_CERTIFICATE "CY_SOCKET_SO_TRUSTED_ROOTCA_CERTIFICATE": Use only when
+ *      different sockets must validate against different Root CAs simultaneously. Note that this option
+ *      re-parses the certificate on every \ref cy_socket_connect call.
  * 2. Certificate/key pair with \ref cy_tls_create_identity and \ref cy_socket_setsockopt with \ref CY_SOCKET_SO_TLS_IDENTITY.
  * 3. For TLS client sockets, the default authentication mode set is \ref CY_SOCKET_TLS_VERIFY_REQUIRED. To override the default authentication mode,
  *    use \ref cy_socket_setsockopt with the \ref CY_SOCKET_SO_TLS_AUTH_MODE socket option.

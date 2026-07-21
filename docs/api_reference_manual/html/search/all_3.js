@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['enumerated_20types_0',['Enumerated types',['../group__group__secure__sockets__enums.html',1,'']]],
-  ['enumerations_1',['Enumerations',['../group__group__cy__tls__enums.html',1,'']]]
+  ['3_20psoc™_20edge_20e84_20evaluation_20kit_0',['3. PSOC™ Edge E84 Evaluation Kit',['../index.html#subsection_PSE84',1,'']]],
+  ['3_3a_20tcp_20client_20connect_1',['Code Snippet 3: TCP Client Connect',['../index.html#snip3',1,'']]]
 ];

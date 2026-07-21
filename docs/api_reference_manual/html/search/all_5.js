@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['hostname_0',['hostname',['../structcy__tls__params__t.html#a1523b9b71441c583189b5afbff957765',1,'cy_tls_params_t']]]
+  ['5_3a_20tcp_20ipv6_20client_20connect_0',['Code Snippet 5: TCP IPv6 Client Connect',['../index.html#snip5',1,'']]]
 ];

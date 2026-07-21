@@ -1,4 +1,30 @@
 var searchData=
 [
-  ['overview_0',['Overview',['../index.html',1,'']]]
+  ['a_20broadcast_20packet_20and_20receive_20a_20broadcast_20packet_0',['Code Snippet 11: Enable broadcast messages - Enable broadcast messages, send a broadcast packet, and receive a broadcast packet.',['../index.html#snip11',1,'']]],
+  ['a_20new_20connection_20just_20with_20socket_20disconnect_1',['Problem5: An existing socket cannot be reused to establish a new connection just with socket disconnect.',['../index.html#Problem5',1,'']]],
+  ['a_20udp_20client_20using_20an_20ipv4_20address_2',['Code Snippet 8: UDP Server - Receive data from a UDP client using an IPv4 address',['../index.html#snip8',1,'']]],
+  ['a_20udp_20server_20using_20an_20ipv4_20address_3',['Code Snippet 7: UDP Client - Send data to a UDP server using an IPv4 address',['../index.html#snip7',1,'']]],
+  ['address_4',['address',['../index.html#snip7',1,'Code Snippet 7: UDP Client - Send data to a UDP server using an IPv4 address'],['../index.html#snip8',1,'Code Snippet 8: UDP Server - Receive data from a UDP client using an IPv4 address']]],
+  ['addresses_20fails_20on_20the_20softap_20interface_5',['Problem6: cy_socket_sendto() with multicast destination addresses fails on the SoftAP interface.',['../index.html#Problem6',1,'']]],
+  ['alpn_5flist_6',['alpn_list',['../structcy__tls__params__t.html#ad0ee444760cdf55cbfbaf9f8e483b0b2',1,'cy_tls_params_t']]],
+  ['an_20existing_20socket_20cannot_20be_20reused_20to_20establish_20a_20new_20connection_20just_20with_20socket_20disconnect_7',['Problem5: An existing socket cannot be reused to establish a new connection just with socket disconnect.',['../index.html#Problem5',1,'']]],
+  ['an_20ipv4_20address_8',['an ipv4 address',['../index.html#snip7',1,'Code Snippet 7: UDP Client - Send data to a UDP server using an IPv4 address'],['../index.html#snip8',1,'Code Snippet 8: UDP Server - Receive data from a UDP client using an IPv4 address']]],
+  ['an_20ipv4_20multicast_20group_9',['Code Snippet 9: IPv4 multicast group - Join and leave an IPv4 multicast group',['../index.html#snip9',1,'']]],
+  ['an_20ipv6_20multicast_20group_10',['Code Snippet 10: IPv6 multicast group - Join and leave an IPv6 multicast group',['../index.html#snip10',1,'']]],
+  ['an_20ntp_20request_20packet_20to_20the_20ntp_20server_20and_20receive_20an_20ntp_20reply_20packet_11',['Code Snippet 12: Get the current time from the NTP server - Send an NTP request packet to the NTP server, and receive an NTP reply packet.',['../index.html#snip12',1,'']]],
+  ['and_20enable_20pkcs_20mode_12',['and enable pkcs mode',['../index.html#subsubsection_pull_CYW955913EVK',1,'Pull required libraries and enable PKCS mode'],['../index.html#subsubsection_pull_4343W',1,'Pull required libraries and enable PKCS mode'],['../index.html#subsubsection_pull_optiga',1,'Pull required libraries and enable PKCS mode']]],
+  ['and_20functionality_13',['Features and Functionality',['../index.html#section_features',1,'']]],
+  ['and_20leave_20an_20ipv4_20multicast_20group_14',['Code Snippet 9: IPv4 multicast group - Join and leave an IPv4 multicast group',['../index.html#snip9',1,'']]],
+  ['and_20leave_20an_20ipv6_20multicast_20group_15',['Code Snippet 10: IPv6 multicast group - Join and leave an IPv6 multicast group',['../index.html#snip10',1,'']]],
+  ['and_20read_20async_16',['Write and Read Async',['../group__group__secure__sockets__mscs.html#section_rw_read',1,'']]],
+  ['and_20receive_20a_20broadcast_20packet_17',['Code Snippet 11: Enable broadcast messages - Enable broadcast messages, send a broadcast packet, and receive a broadcast packet.',['../index.html#snip11',1,'']]],
+  ['and_20receive_20an_20ntp_20reply_20packet_18',['Code Snippet 12: Get the current time from the NTP server - Send an NTP request packet to the NTP server, and receive an NTP reply packet.',['../index.html#snip12',1,'']]],
+  ['and_20receive_20timeout_20values_19',['Send and receive timeout values',['../index.html#section_Send',1,'']]],
+  ['and_20security_20stacks_20',['TCP/IP and security stacks',['../index.html#section_TCPIP',1,'']]],
+  ['api_21',['api',['../group__group__secure__sockets.html',1,'Secure Sockets API'],['../group__group__cy__tls.html',1,'TLS API']]],
+  ['are_20dropped_22',['Problem3: TCP packets are dropped.',['../index.html#Problem3',1,'']]],
+  ['arg_23',['arg',['../structcy__socket__opt__callback__t.html#a648e1c4f3fe8fcb9d2be2a2c4716b359',1,'cy_socket_opt_callback_t']]],
+  ['arp_5fwait_5ftime_5fin_5fmsec_24',['ARP_WAIT_TIME_IN_MSEC',['../group__group__secure__sockets__macros.html#ga78a785b81acf34f704c9a4256554e5ce',1,'cy_secure_sockets_constants.h']]],
+  ['async_25',['async',['../group__group__secure__sockets__mscs.html#section_server_async',1,'Server Connect Async'],['../group__group__secure__sockets__mscs.html#section_rw_read',1,'Write and Read Async']]],
+  ['auth_5fmode_26',['auth_mode',['../structcy__tls__params__t.html#a06955dbf1136ae556cca7c39d0356274',1,'cy_tls_params_t']]]
 ];

@@ -1,5 +1,6 @@
 var searchData=
 [
-  ['macros_0',['Macros',['../group__group__secure__sockets__macros.html',1,'']]],
-  ['message_20sequence_20charts_1',['Message Sequence Charts',['../group__group__secure__sockets__mscs.html',1,'']]]
+  ['enumerated_20types_0',['Enumerated types',['../group__group__secure__sockets__enums.html',1,'']]],
+  ['enumerations_1',['Enumerations',['../group__group__cy__tls__enums.html',1,'']]],
+  ['error_20codes_2',['Secure Sockets results/error codes',['../group__group__secure__sockets__results.html',1,'']]]
 ];

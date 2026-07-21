@@ -1,5 +1,5 @@
 var searchData=
 [
-  ['default_5frecv_5ftimeout_5fin_5fmsec_0',['DEFAULT_RECV_TIMEOUT_IN_MSEC',['../group__group__secure__sockets__macros.html#ga9f46c16c6c8831febc8f13af7532fccc',1,'cy_secure_sockets_constants.h']]],
-  ['default_5fsend_5ftimeout_5fin_5fmsec_1',['DEFAULT_SEND_TIMEOUT_IN_MSEC',['../group__group__secure__sockets__macros.html#ga87671ef56090d75c32706e41f6fade69',1,'cy_secure_sockets_constants.h']]]
+  ['2_20cy8ckit_20064s0s2_204343w_0',['2 cy8ckit 064s0s2 4343w',['../index.html#subsection_4343W',1,'2. CY8CKIT-064S0S2-4343W'],['../index.html#subsubsection_Configuration_4343W',1,'2. CY8CKIT-064S0S2-4343W']]],
+  ['2_3a_20create_20secure_20tcp_20socket_1',['Code Snippet 2: Create Secure TCP Socket',['../index.html#snip2',1,'']]]
 ];

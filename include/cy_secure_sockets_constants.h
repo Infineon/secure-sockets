@@ -1,5 +1,5 @@
 /*
- * (c) 2025, Infineon Technologies AG, or an affiliate of Infineon
+ * (c) 2026, Infineon Technologies AG, or an affiliate of Infineon
  * Technologies AG. All rights reserved.
  * This software, associated documentation and materials ("Software") is
  * owned by Infineon Technologies AG or one of its affiliates ("Infineon")
@@ -254,6 +254,13 @@ extern "C" {
  * Arguments related to this optname:
  *   * Option value: Pointer to a buffer (char array) holding the certificate data.
  *   * Level: \ref CY_SOCKET_SOL_TLS
+ *
+ * \note When this socket option is used, the RootCA certificate is re-parsed on every
+ *       \ref cy_socket_connect() call. For applications that connect to the same server
+ *       repeatedly, use \ref cy_tls_load_global_root_ca_certificates instead, which parses
+ *       the certificate once and reuses it across all connections. Reserve this per-socket
+ *       option only for cases where different sockets must validate against different Root
+ *       CAs simultaneously.
  */
 #define CY_SOCKET_SO_TRUSTED_ROOTCA_CERTIFICATE ( 12 )
 

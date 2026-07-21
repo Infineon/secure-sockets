@@ -370,6 +370,25 @@ Note : Optiga-trust-m has a limitation on the maximum size of Public Key Certifi
 
 To use secure-sockets library for FreeRTOS, lwIP, and Mbed TLS, pull [wifi-core-freertos-lwip-mbedtls](https://github.com/Infineon/wifi-core-freertos-lwip-mbedtls) library which will internally pull secure-sockets, wifi-connection-manager, FreeRTOS, lwIP, mbed TLS and other dependent modules.
 
+## Decoding error codes
+
+Secure Sockets Library APIs return `cy_rslt_t` values. When an error occurs, the returned value encodes a module base, a type, and a library-specific error code in a single 32-bit integer (see `cy_result.h` for the bit-field layout).
+
+The error base for this library is:
+
+```
+CY_RSLT_SECURE_SOCKETS_ERR_BASE = 0x082A0000
+```
+
+Each error code is defined as `CY_RSLT_SECURE_SOCKETS_ERR_BASE + <offset>`, where `<offset>` is the small integer shown in `include/cy_secure_sockets_error.h`.
+
+**Example:** received error is `0x082A0003`.
+1. Subtract the base: `0x082A0003 − 0x082A0000 = 3`
+2. Search `cy_secure_sockets_error.h` for `ERR_BASE + 3` → `CY_RSLT_MODULE_SECURE_SOCKETS_NOMEM`
+3. The comment on that macro describes the cause and debugging steps.
+
+Refer to `include/cy_secure_sockets_error.h` for the full list of error constants and their descriptions.
+
 ## Additional information
 
 - [Secure sockets RELEASE.md](./RELEASE.md)
